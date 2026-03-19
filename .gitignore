@@ -27,3 +27,5 @@ data.json
 # Agent settings (local)
 .claude/settings.local.json
 .agents/settings.local.json
+
+.claude

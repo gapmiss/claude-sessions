@@ -1,80 +1,26 @@
-/* Agent Sessions — scoped styles using Obsidian CSS variables */
+/* Agent Sessions — Timeline replay styles
+ * Inspired by claude-replay, adapted for Obsidian CSS variables.
+ * All selectors scoped to .agent-sessions-* */
+
+/* ═══════════════════════════════════════════
+   Container layout
+   ═══════════════════════════════════════════ */
 
 .agent-sessions-replay-container {
 	display: flex;
 	flex-direction: column;
 	height: 100%;
 	overflow: hidden;
+	font-family: var(--font-monospace);
+	font-size: 13px;
+	line-height: 1.6;
 }
 
-/* Controls bar */
-.agent-sessions-controls {
-	display: flex;
-	align-items: center;
-	gap: var(--size-4-2);
-	padding: var(--size-4-2) var(--size-4-3);
-	border-bottom: 1px solid var(--background-modifier-border);
-	background: var(--background-secondary);
-	flex-shrink: 0;
-	flex-wrap: wrap;
-}
-
-.agent-sessions-nav-group,
-.agent-sessions-speed-group {
-	display: flex;
-	align-items: center;
-	gap: var(--size-4-1);
-}
-
-.agent-sessions-btn {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	min-width: 44px;
-	min-height: 44px;
-	padding: var(--size-4-1) var(--size-4-2);
-	border: 1px solid var(--background-modifier-border);
-	border-radius: var(--radius-s);
-	background: var(--interactive-normal);
-	color: var(--text-normal);
-	cursor: pointer;
-	font-size: var(--font-ui-small);
-}
-
-.agent-sessions-btn:hover {
-	background: var(--interactive-hover);
-}
-
-.agent-sessions-btn:focus-visible {
-	outline: 2px solid var(--interactive-accent);
-	outline-offset: 2px;
-}
-
-.agent-sessions-speed-active {
-	background: var(--interactive-accent);
-	color: var(--text-on-accent);
-}
-
-.agent-sessions-progress {
-	flex: 1;
-	min-width: 100px;
-	cursor: pointer;
-	accent-color: var(--interactive-accent);
-}
-
-.agent-sessions-status {
-	font-size: var(--font-ui-smaller);
-	color: var(--text-muted);
-	white-space: nowrap;
-	min-width: 100px;
-	text-align: center;
-}
-
-/* Content area */
-.agent-sessions-content {
+.agent-sessions-timeline {
 	flex: 1;
 	overflow-y: auto;
-	padding: var(--size-4-4);
+	padding: var(--size-4-4) var(--size-4-4) 120px;
+	scroll-behavior: smooth;
 }
 
 .agent-sessions-empty {
@@ -88,98 +34,562 @@
 	padding: var(--size-4-8);
 }
 
-/* Turn */
+/* ═══════════════════════════════════════════
+   Turns
+   ═══════════════════════════════════════════ */
+
 .agent-sessions-turn {
-	margin-bottom: var(--size-4-4);
+	margin-bottom: 24px;
+	opacity: 0.3;
+	transition: opacity 0.4s ease;
 }
+
+.agent-sessions-turn.visible {
+	opacity: 1;
+}
+
+/* ═══════════════════════════════════════════
+   Turn header bar
+   ═══════════════════════════════════════════ */
 
 .agent-sessions-turn-header {
 	display: flex;
 	align-items: center;
 	gap: var(--size-4-2);
-	margin-bottom: var(--size-4-2);
-	padding-bottom: var(--size-4-1);
+	padding: 6px 12px;
+	background: var(--background-secondary);
 	border-bottom: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s) var(--radius-s) 0 0;
+	cursor: pointer;
+	user-select: none;
+	font-size: 11px;
+	color: var(--text-muted);
+	min-height: 44px;
 }
 
-.agent-sessions-role {
-	font-weight: var(--font-bold);
-	font-size: var(--font-ui-medium);
-	padding: var(--size-4-1) var(--size-4-2);
+.agent-sessions-turn-header:hover {
+	background: var(--background-modifier-hover);
+}
+
+.agent-sessions-turn-chevron {
+	font-size: 10px;
+	transition: transform 0.2s;
+}
+
+.agent-sessions-turn.collapsed .agent-sessions-turn-chevron {
+	transform: rotate(-90deg);
+}
+
+.agent-sessions-turn-label {
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.agent-sessions-turn-ts {
+	margin-left: auto;
+	font-size: 10px;
+	color: var(--text-faint);
+}
+
+/* Collapsed state */
+.agent-sessions-turn.collapsed .agent-sessions-turn-body {
+	display: none;
+}
+
+.agent-sessions-turn.collapsed .agent-sessions-turn-header {
+	border-radius: var(--radius-s);
+}
+
+/* ═══════════════════════════════════════════
+   Role sections (User / Assistant)
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-role-section {
+	padding: 8px 12px;
+	margin: 4px 0;
 	border-radius: var(--radius-s);
 }
 
 .agent-sessions-role-user {
-	background: var(--interactive-accent);
-	color: var(--text-on-accent);
+	background: var(--background-secondary);
+	border-left: 3px solid var(--interactive-accent);
 }
 
 .agent-sessions-role-assistant {
-	background: var(--background-modifier-success);
+	border-left: 3px solid var(--color-cyan);
+}
+
+.agent-sessions-role-label {
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	margin-bottom: 4px;
+}
+
+.agent-sessions-role-user-label {
+	color: var(--interactive-accent);
+}
+
+.agent-sessions-role-assistant-label {
+	color: var(--color-cyan);
+}
+
+/* ═══════════════════════════════════════════
+   Text content
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-user-text {
 	color: var(--text-normal);
+	word-break: break-word;
 }
 
-.agent-sessions-timestamp {
-	font-size: var(--font-ui-smaller);
-	color: var(--text-muted);
+.agent-sessions-assistant-text {
+	color: var(--text-normal);
+	word-break: break-word;
+	margin: 6px 0;
+	padding-left: 4px;
 }
 
-.agent-sessions-turn-content {
-	padding-left: var(--size-4-2);
+.agent-sessions-assistant-text p {
+	margin: 0.4em 0;
 }
 
-/* Text blocks */
-.agent-sessions-text-block {
-	margin-bottom: var(--size-4-2);
-}
-
-/* Collapsible blocks (thinking, tool use, tool result) */
-.agent-sessions-thinking-block,
-.agent-sessions-tool-block,
-.agent-sessions-result-block {
-	margin: var(--size-4-2) 0;
+.agent-sessions-assistant-text pre {
+	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
-	border-radius: var(--radius-m);
+	border-radius: var(--radius-s);
+	padding: 10px 12px;
+	overflow-x: auto;
+	margin: 8px 0;
+	line-height: 1.4;
+}
+
+.agent-sessions-assistant-text code {
+	background: var(--background-primary);
+	padding: 1px 5px;
+	border-radius: 3px;
+	font-size: 0.92em;
+}
+
+.agent-sessions-assistant-text pre code {
+	background: none;
+	padding: 0;
+}
+
+/* ═══════════════════════════════════════════
+   Collapsible long content ("Show more")
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-collapsible-wrap {
+	position: relative;
+}
+
+.agent-sessions-collapsible-wrap.is-collapsed .agent-sessions-collapsible-content {
+	max-height: 13em;
 	overflow: hidden;
 }
 
-.agent-sessions-thinking-summary,
-.agent-sessions-tool-summary,
-.agent-sessions-result-summary {
-	padding: var(--size-4-2) var(--size-4-3);
-	cursor: pointer;
-	font-size: var(--font-ui-small);
-	color: var(--text-muted);
-	background: var(--background-secondary);
-	min-height: 44px;
-	display: flex;
-	align-items: center;
+.agent-sessions-collapsible-wrap.is-collapsed .agent-sessions-collapsible-fade {
+	display: block;
+	position: absolute;
+	bottom: 24px;
+	left: 0;
+	right: 0;
+	height: 3em;
+	background: linear-gradient(transparent, var(--background-primary));
+	pointer-events: none;
 }
 
-.agent-sessions-thinking-summary:hover,
-.agent-sessions-tool-summary:hover,
-.agent-sessions-result-summary:hover {
+.agent-sessions-role-user .agent-sessions-collapsible-wrap.is-collapsed .agent-sessions-collapsible-fade {
+	background: linear-gradient(transparent, var(--background-secondary));
+}
+
+.agent-sessions-collapsible-fade {
+	display: none;
+}
+
+.agent-sessions-collapsible-toggle {
+	display: inline-block;
+	font-size: 11px;
+	color: var(--interactive-accent);
+	cursor: pointer;
+	padding: 2px 0;
+	user-select: none;
+	border: none;
+	background: none;
+	font-family: var(--font-monospace);
+	min-height: 44px;
+	min-width: 44px;
+}
+
+.agent-sessions-collapsible-toggle:hover {
+	text-decoration: underline;
+}
+
+/* ═══════════════════════════════════════════
+   Tool calls — compact bar style
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-tool-block {
+	margin: 6px 0;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	overflow: hidden;
+	background: var(--background-secondary);
+}
+
+.agent-sessions-tool-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 10px;
+	cursor: pointer;
+	user-select: none;
+	transition: background 0.15s;
+	min-height: 44px;
+}
+
+.agent-sessions-tool-header:hover {
 	background: var(--background-modifier-hover);
 }
 
-.agent-sessions-thinking-content,
-.agent-sessions-tool-content,
-.agent-sessions-result-content {
-	padding: var(--size-4-2) var(--size-4-3);
+.agent-sessions-tool-indicator {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--color-blue);
+	flex-shrink: 0;
+}
+
+.agent-sessions-tool-error {
+	background: var(--color-red);
+}
+
+.agent-sessions-tool-name {
+	color: var(--color-cyan);
+	font-weight: 600;
+}
+
+.agent-sessions-tool-preview {
+	color: var(--text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	flex: 1;
+}
+
+.agent-sessions-tool-chevron {
+	color: var(--text-muted);
+	font-size: 10px;
+	transition: transform 0.2s;
+	flex-shrink: 0;
+}
+
+.agent-sessions-tool-block.open .agent-sessions-tool-chevron {
+	transform: rotate(90deg);
+}
+
+/* Tool body (input + result) */
+.agent-sessions-tool-body {
+	display: none;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.agent-sessions-tool-block.open .agent-sessions-tool-body {
+	display: block;
+}
+
+.agent-sessions-tool-input,
+.agent-sessions-tool-result {
+	padding: 8px 10px;
+	font-size: 12px;
+	white-space: pre-wrap;
+	word-break: break-word;
+	max-height: 300px;
+	overflow-y: auto;
+}
+
+.agent-sessions-tool-input {
+	color: var(--text-muted);
+	background: var(--background-secondary);
+}
+
+.agent-sessions-tool-input pre,
+.agent-sessions-tool-result pre {
+	margin: 0;
+	background: none;
+	border: none;
+	padding: 0;
+	overflow: visible;
+	font-size: inherit;
+	line-height: inherit;
+}
+
+.agent-sessions-tool-result {
+	background: var(--background-primary);
+	border-top: 1px solid var(--background-modifier-border);
+	color: var(--color-green);
+}
+
+.agent-sessions-tool-result-error {
+	color: var(--color-red);
+}
+
+.agent-sessions-tool-section-label {
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--text-muted);
+	margin-bottom: 4px;
+	font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════
+   Diff view (Edit tool)
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-diff-view {
+	font-size: 12px;
+	padding: 8px 10px;
+	white-space: pre-wrap;
+	word-break: break-word;
+	max-height: 300px;
+	overflow-y: auto;
+}
+
+.agent-sessions-diff-file {
+	color: var(--text-muted);
+	font-size: 11px;
+	margin-bottom: 6px;
+}
+
+.agent-sessions-diff-del {
+	color: var(--color-red);
+	background: rgba(248, 81, 73, 0.1);
+}
+
+.agent-sessions-diff-add {
+	color: var(--color-green);
+	background: rgba(63, 185, 80, 0.1);
+}
+
+.agent-sessions-diff-result {
+	color: var(--text-muted);
+	font-size: 11px;
+	padding: 6px 10px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.agent-sessions-diff-result-error {
+	color: var(--color-red);
+}
+
+/* ═══════════════════════════════════════════
+   Tool groups (5+ consecutive calls)
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-tool-group {
+	margin: 6px 0;
+}
+
+.agent-sessions-tool-group-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 10px;
+	cursor: pointer;
+	user-select: none;
+	font-size: 12px;
+	color: var(--color-cyan);
+	font-weight: 600;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background: var(--background-secondary);
+	transition: background 0.15s;
+	min-height: 44px;
+}
+
+.agent-sessions-tool-group-header:hover {
+	background: var(--background-modifier-hover);
+}
+
+.agent-sessions-tool-group-chevron {
+	font-size: 10px;
+	color: var(--text-muted);
+	transition: transform 0.2s;
+}
+
+.agent-sessions-tool-group.open .agent-sessions-tool-group-chevron {
+	transform: rotate(90deg);
+}
+
+.agent-sessions-tool-group-names {
+	color: var(--text-muted);
+	font-weight: 400;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	flex: 1;
+}
+
+.agent-sessions-tool-group-body {
+	display: none;
+}
+
+.agent-sessions-tool-group.open .agent-sessions-tool-group-body {
+	display: block;
+}
+
+.agent-sessions-tool-group.open .agent-sessions-tool-group-header {
+	border-radius: var(--radius-s) var(--radius-s) 0 0;
+	border-bottom: none;
+}
+
+/* ═══════════════════════════════════════════
+   Thinking block
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-thinking-block {
+	margin: 6px 0;
+	border-left: 2px solid var(--text-muted);
+	padding-left: 10px;
+}
+
+.agent-sessions-thinking-header {
+	font-size: 11px;
+	color: var(--text-normal);
+	cursor: pointer;
+	user-select: none;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-height: 44px;
+}
+
+.agent-sessions-thinking-chevron {
+	font-size: 10px;
+	transition: transform 0.2s;
+}
+
+.agent-sessions-thinking-block.open .agent-sessions-thinking-chevron {
+	transform: rotate(90deg);
+}
+
+.agent-sessions-thinking-body {
+	display: none;
+	color: var(--text-muted);
+	font-size: 12px;
+	word-break: break-word;
+	margin-top: 4px;
 	max-height: 400px;
 	overflow-y: auto;
 }
 
-.agent-sessions-result-error .agent-sessions-result-summary {
-	color: var(--text-error);
+.agent-sessions-thinking-block.open .agent-sessions-thinking-body {
+	display: block;
 }
 
-.agent-sessions-block-icon {
-	margin-right: var(--size-4-1);
-	font-size: var(--font-ui-medium);
+/* ═══════════════════════════════════════════
+   Controls bar (fixed bottom)
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-controls {
+	background: var(--background-secondary);
+	border-top: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+	display: flex;
+	flex-direction: column-reverse;
 }
 
-/* Settings: directory list */
+.agent-sessions-controls-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	flex-wrap: wrap;
+}
+
+.agent-sessions-ctrl-btn {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	padding: 4px 10px;
+	font-family: var(--font-monospace);
+	font-size: 14px;
+	cursor: pointer;
+	transition: background 0.15s;
+	flex-shrink: 0;
+	height: 34px;
+	min-width: 44px;
+	min-height: 44px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.agent-sessions-ctrl-btn:hover {
+	background: var(--background-modifier-border);
+}
+
+.agent-sessions-ctrl-btn:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+.agent-sessions-speed-active {
+	background: var(--interactive-accent) !important;
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.agent-sessions-progress-text {
+	font-size: 11px;
+	color: var(--text-muted);
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+	margin-left: auto;
+	margin-right: 8px;
+}
+
+.agent-sessions-speed-wrap {
+	display: flex;
+	gap: 2px;
+}
+
+/* Progress bar */
+.agent-sessions-progress-wrap {
+	width: 100%;
+	padding: 0 12px 8px;
+}
+
+.agent-sessions-progress-bar {
+	width: 100%;
+	height: 4px;
+	background: var(--background-primary);
+	border-radius: 2px;
+	cursor: pointer;
+	position: relative;
+	transition: height 0.15s;
+}
+
+.agent-sessions-progress-bar:hover {
+	height: 6px;
+}
+
+.agent-sessions-progress-fill {
+	height: 100%;
+	background: var(--interactive-accent);
+	border-radius: 2px;
+	transition: width 0.2s;
+	width: 0%;
+}
+
+/* ═══════════════════════════════════════════
+   Settings page
+   ═══════════════════════════════════════════ */
+
 .agent-sessions-dirs-list {
 	margin-bottom: var(--size-4-2);
 }

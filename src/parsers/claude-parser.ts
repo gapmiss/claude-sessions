@@ -109,28 +109,77 @@ export class ClaudeParser extends BaseParser {
 			}
 		}
 
-		// Second pass: build turns
+		// Second pass: build turns by merging consecutive same-role records.
+		// Claude streams assistant responses as multiple records (thinking, text, tool_use),
+		// each with its own uuid. These should form a single assistant turn.
+		// User records containing only tool_result blocks should have those results
+		// attached to the preceding assistant turn (not become separate user turns).
 		const turns: Turn[] = [];
-		// Track tool_use blocks for matching with results
 		const toolUseNames = new Map<string, string>();
 
+		let currentAssistantTurn: Turn | null = null;
+
+		const flushAssistant = () => {
+			if (currentAssistantTurn && currentAssistantTurn.contentBlocks.length > 0) {
+				currentAssistantTurn.index = turns.length;
+				turns.push(currentAssistantTurn);
+			}
+			currentAssistantTurn = null;
+		};
+
 		for (const record of ordered) {
-			if (record.type === 'user') {
-				const turn = this.buildUserTurn(record, turns.length);
-				if (turn) {
-					// Extract tool results from user messages
-					this.extractToolResults(record, turn, toolUseNames);
-					if (turn.contentBlocks.length > 0) {
-						turns.push(turn);
+			if (record.type === 'assistant') {
+				// Merge into current assistant turn, or start a new one
+				const blocks = this.parseAssistantBlocks(record, toolUseNames);
+				if (blocks.length === 0) continue;
+
+				if (!currentAssistantTurn) {
+					currentAssistantTurn = {
+						index: 0,
+						role: 'assistant',
+						timestamp: this.formatTimestamp(record.timestamp),
+						contentBlocks: [],
+					};
+				}
+				for (const b of blocks) {
+					currentAssistantTurn.contentBlocks.push(b);
+				}
+			} else if (record.type === 'user') {
+				// Check for tool_result blocks
+				const toolResults = this.extractToolResultBlocks(record, toolUseNames);
+
+				if (toolResults.length > 0 && currentAssistantTurn) {
+					// Attach results to the current (not-yet-flushed) assistant turn
+					for (const result of toolResults) {
+						currentAssistantTurn.contentBlocks.push(result);
+					}
+				} else if (toolResults.length > 0) {
+					// No current assistant turn — attach to the last one in the list
+					const lastAssistant = this.findLastAssistantTurn(turns);
+					if (lastAssistant) {
+						for (const result of toolResults) {
+							lastAssistant.contentBlocks.push(result);
+						}
 					}
 				}
-			} else if (record.type === 'assistant') {
-				const turn = this.buildAssistantTurn(record, turns.length, toolUseNames);
-				if (turn && turn.contentBlocks.length > 0) {
-					turns.push(turn);
+
+				// Check if this user record has actual user text content
+				const hasText = typeof record.message?.content === 'string' && record.message.content.trim().length > 0;
+				if (hasText) {
+					// Flush any pending assistant turn before the user turn
+					flushAssistant();
+					turns.push({
+						index: turns.length,
+						role: 'user',
+						timestamp: this.formatTimestamp(record.timestamp),
+						contentBlocks: [{ type: 'text', text: record.message!.content as string }],
+					});
 				}
 			}
 		}
+
+		// Flush any remaining assistant turn
+		flushAssistant();
 
 		const project = extractProjectName(dirname(filePath));
 
@@ -151,31 +200,35 @@ export class ClaudeParser extends BaseParser {
 		};
 	}
 
-	private buildUserTurn(record: ClaudeRecord, index: number): Turn | null {
+	private parseAssistantBlocks(
+		record: ClaudeRecord,
+		toolUseNames: Map<string, string>
+	): ContentBlock[] {
 		const msg = record.message;
-		if (!msg) return null;
+		if (!msg) return [];
 
 		const blocks: ContentBlock[] = [];
-		if (typeof msg.content === 'string' && msg.content.trim()) {
-			blocks.push({ type: 'text', text: msg.content });
+		if (typeof msg.content === 'string') {
+			if (msg.content.trim()) {
+				blocks.push({ type: 'text', text: msg.content });
+			}
+		} else if (Array.isArray(msg.content)) {
+			for (const block of msg.content as ClaudeContentBlock[]) {
+				const parsed = this.parseContentBlock(block, toolUseNames);
+				if (parsed) blocks.push(parsed);
+			}
 		}
-
-		return {
-			index,
-			role: 'user',
-			timestamp: this.formatTimestamp(record.timestamp),
-			contentBlocks: blocks,
-		};
+		return blocks;
 	}
 
-	private extractToolResults(
+	private extractToolResultBlocks(
 		record: ClaudeRecord,
-		turn: Turn,
 		toolUseNames: Map<string, string>
-	): void {
+	): ToolResultBlock[] {
 		const msg = record.message;
-		if (!msg) return;
+		if (!msg) return [];
 
+		const results: ToolResultBlock[] = [];
 		if (Array.isArray(msg.content)) {
 			for (const block of msg.content as ClaudeContentBlock[]) {
 				if (block.type === 'tool_result' && block.tool_use_id) {
@@ -187,46 +240,24 @@ export class ClaudeParser extends BaseParser {
 								.join('\n')
 							: '';
 
-					const resultBlock: ToolResultBlock = {
+					results.push({
 						type: 'tool_result',
 						toolUseId: block.tool_use_id,
 						toolName: toolUseNames.get(block.tool_use_id),
 						content: resultContent,
 						isError: block.is_error || false,
-					};
-					turn.contentBlocks.push(resultBlock);
+					});
 				}
 			}
 		}
+		return results;
 	}
 
-	private buildAssistantTurn(
-		record: ClaudeRecord,
-		index: number,
-		toolUseNames: Map<string, string>
-	): Turn | null {
-		const msg = record.message;
-		if (!msg) return null;
-
-		const blocks: ContentBlock[] = [];
-
-		if (typeof msg.content === 'string') {
-			if (msg.content.trim()) {
-				blocks.push({ type: 'text', text: msg.content });
-			}
-		} else if (Array.isArray(msg.content)) {
-			for (const block of msg.content as ClaudeContentBlock[]) {
-				const parsed = this.parseContentBlock(block, toolUseNames);
-				if (parsed) blocks.push(parsed);
-			}
+	private findLastAssistantTurn(turns: Turn[]): Turn | null {
+		for (let i = turns.length - 1; i >= 0; i--) {
+			if (turns[i].role === 'assistant') return turns[i];
 		}
-
-		return {
-			index,
-			role: 'assistant',
-			timestamp: this.formatTimestamp(record.timestamp),
-			contentBlocks: blocks,
-		};
+		return null;
 	}
 
 	private parseContentBlock(

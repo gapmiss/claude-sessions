@@ -11,16 +11,19 @@ interface ReplayViewState {
 
 export class ReplayView extends ItemView {
 	private session: Session | null = null;
-	private currentTurn = 0;
 	private renderer: ReplayRenderer | null = null;
 	private settings: PluginSettings;
 	private isPlaying = false;
 	private playTimer: number | null = null;
+	private playIndex = 0;
 	private controlsEl: HTMLElement | null = null;
-	private turnContentEl: HTMLElement | null = null;
+	private timelineEl: HTMLElement | null = null;
 	private statusEl: HTMLElement | null = null;
-	private progressEl: HTMLInputElement | null = null;
+	private progressFill: HTMLElement | null = null;
+	private progressBar: HTMLElement | null = null;
 	private playBtn: HTMLButtonElement | null = null;
+	private observer: IntersectionObserver | null = null;
+	private activeTurnIndex = 0;
 
 	constructor(leaf: WorkspaceLeaf, settings: PluginSettings) {
 		super(leaf);
@@ -47,16 +50,16 @@ export class ReplayView extends ItemView {
 		contentEl.empty();
 		contentEl.addClass('agent-sessions-replay-container');
 
-		// Controls bar
+		// Timeline area (scrollable)
+		this.timelineEl = contentEl.createDiv({ cls: 'agent-sessions-timeline' });
+		this.renderer = new ReplayRenderer(this.timelineEl, this.app, this, this.settings);
+
+		// Controls bar (fixed at bottom)
 		this.controlsEl = contentEl.createDiv({ cls: 'agent-sessions-controls' });
 		this.buildControls(this.controlsEl);
 
-		// Turn content area
-		this.turnContentEl = contentEl.createDiv({ cls: 'agent-sessions-content' });
-		this.renderer = new ReplayRenderer(this.turnContentEl, this.app, this, this.settings);
-
 		if (!this.session) {
-			this.turnContentEl.createDiv({
+			this.timelineEl.createDiv({
 				cls: 'agent-sessions-empty',
 				text: 'No session loaded. Use "Browse agent sessions" or "Import session file" to load one.',
 			});
@@ -65,37 +68,35 @@ export class ReplayView extends ItemView {
 
 	async onClose(): Promise<void> {
 		this.stopPlayback();
+		this.destroyObserver();
 	}
 
 	getState(): Record<string, unknown> {
 		return {
 			sessionPath: this.session?.rawPath,
-			turnIndex: this.currentTurn,
+			turnIndex: this.activeTurnIndex,
 		};
 	}
 
 	async setState(state: ReplayViewState): Promise<void> {
-		if (state.turnIndex !== undefined) {
-			this.currentTurn = state.turnIndex;
-		}
-		if (this.session && this.renderer) {
-			this.renderCurrentTurn();
+		if (state.turnIndex !== undefined && this.session) {
+			this.scrollToTurn(state.turnIndex);
 		}
 	}
 
 	loadSession(session: Session): void {
 		this.session = session;
-		this.currentTurn = 0;
+		this.playIndex = 0;
+		this.activeTurnIndex = 0;
 		this.stopPlayback();
 
 		if (this.renderer) {
 			this.renderer.updateSettings(this.settings);
 		}
 
-		// Trigger display text refresh
 		(this.leaf as unknown as { updateHeader?(): void }).updateHeader?.();
 
-		this.renderCurrentTurn();
+		this.renderFullTimeline();
 		this.updateControls();
 	}
 
@@ -104,7 +105,10 @@ export class ReplayView extends ItemView {
 		if (this.renderer) {
 			this.renderer.updateSettings(settings);
 			if (this.session) {
-				this.renderCurrentTurn();
+				const savedIndex = this.activeTurnIndex;
+				this.renderFullTimeline();
+				this.scrollToTurn(savedIndex);
+				this.updateControls();
 			}
 		}
 	}
@@ -113,23 +117,27 @@ export class ReplayView extends ItemView {
 		return this.session;
 	}
 
-	// Navigation
-	goToTurn(index: number): void {
+	// Navigation — scroll to a specific turn
+	scrollToTurn(index: number): void {
 		if (!this.session) return;
-		this.currentTurn = Math.max(0, Math.min(index, this.session.turns.length - 1));
-		this.renderCurrentTurn();
-		this.updateControls();
+		const target = Math.max(0, Math.min(index, this.session.turns.length - 1));
+		const turnEls = this.renderer?.getTurnElements() || [];
+		const el = turnEls[target];
+		if (el) {
+			el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		}
+		this.playIndex = target;
 	}
 
 	nextTurn(): void {
-		this.goToTurn(this.currentTurn + 1);
+		this.scrollToTurn(this.activeTurnIndex + 1);
 	}
 
 	prevTurn(): void {
-		this.goToTurn(this.currentTurn - 1);
+		this.scrollToTurn(this.activeTurnIndex - 1);
 	}
 
-	// Playback
+	// Playback — auto-scroll through the timeline
 	togglePlayback(): void {
 		if (this.isPlaying) {
 			this.stopPlayback();
@@ -141,21 +149,21 @@ export class ReplayView extends ItemView {
 	private startPlayback(): void {
 		if (!this.session) return;
 		this.isPlaying = true;
+		this.playIndex = this.activeTurnIndex;
 		this.updatePlayButton();
 
-		const interval = 2000 / this.settings.playbackSpeed;
-		this.playTimer = window.setInterval(() => {
-			if (!this.session) {
+		const advance = () => {
+			if (!this.session || !this.isPlaying) return;
+			this.playIndex++;
+			if (this.playIndex >= this.session.turns.length) {
 				this.stopPlayback();
 				return;
 			}
-			if (this.currentTurn >= this.session.turns.length - 1) {
-				this.stopPlayback();
-				return;
-			}
-			this.nextTurn();
-		}, interval);
+			this.scrollToTurn(this.playIndex);
+		};
 
+		const interval = 2000 / this.settings.playbackSpeed;
+		this.playTimer = window.setInterval(advance, interval);
 		this.registerInterval(this.playTimer);
 	}
 
@@ -178,97 +186,153 @@ export class ReplayView extends ItemView {
 	}
 
 	// Rendering
-	private renderCurrentTurn(): void {
-		if (!this.session || !this.renderer || !this.turnContentEl) return;
+	private renderFullTimeline(): void {
+		if (!this.session || !this.renderer || !this.timelineEl) return;
+		this.destroyObserver();
 
 		if (this.session.turns.length === 0) {
-			this.turnContentEl.empty();
-			this.turnContentEl.createDiv({
+			this.timelineEl.empty();
+			this.timelineEl.createDiv({
 				cls: 'agent-sessions-empty',
 				text: 'This session has no turns.',
 			});
 			return;
 		}
 
-		const turn = this.session.turns[this.currentTurn];
-		if (turn) {
-			this.renderer.renderTurn(turn);
+		// Render all turns into the timeline
+		this.renderer.renderTimeline(this.session.turns);
+
+		// Set up IntersectionObserver for scroll-based opacity
+		this.setupScrollObserver();
+	}
+
+	private setupScrollObserver(): void {
+		if (!this.timelineEl) return;
+
+		const turnEls = this.renderer?.getTurnElements() || [];
+		if (turnEls.length === 0) return;
+
+		// Use IntersectionObserver to detect which turns are in view
+		this.observer = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					const el = entry.target as HTMLElement;
+					if (entry.isIntersecting) {
+						el.addClass('visible');
+					} else {
+						el.removeClass('visible');
+					}
+				}
+
+				// Find the topmost visible turn to track position
+				let topmost = -1;
+				for (let i = 0; i < turnEls.length; i++) {
+					if (turnEls[i].hasClass('visible')) {
+						topmost = i;
+						break;
+					}
+				}
+				if (topmost >= 0) {
+					this.activeTurnIndex = topmost;
+					this.updateControls();
+				}
+			},
+			{
+				root: this.timelineEl,
+				rootMargin: '0px',
+				threshold: 0.1,
+			}
+		);
+
+		for (const el of turnEls) {
+			this.observer.observe(el);
+		}
+	}
+
+	private destroyObserver(): void {
+		if (this.observer) {
+			this.observer.disconnect();
+			this.observer = null;
 		}
 	}
 
 	// Controls
 	private buildControls(container: HTMLElement): void {
-		// Navigation buttons
-		const navGroup = container.createDiv({ cls: 'agent-sessions-nav-group' });
+		const row = container.createDiv({ cls: 'agent-sessions-controls-row' });
 
-		const prevBtn = navGroup.createEl('button', {
-			cls: 'agent-sessions-btn',
+		// Nav buttons
+		const prevBtn = row.createEl('button', {
+			cls: 'agent-sessions-ctrl-btn',
 			attr: { 'aria-label': 'Previous turn', 'data-tooltip-position': 'top' },
+			text: '\u2190',
 		});
-		prevBtn.setText('\u25C0');
-		prevBtn.addEventListener('click', () => this.prevTurn());
+		prevBtn.addEventListener('click', () => {
+			this.stopPlayback();
+			this.prevTurn();
+		});
 
-		this.playBtn = navGroup.createEl('button', {
-			cls: 'agent-sessions-btn agent-sessions-play-btn',
+		this.playBtn = row.createEl('button', {
+			cls: 'agent-sessions-ctrl-btn agent-sessions-play-btn',
 			attr: { 'aria-label': 'Play/pause', 'data-tooltip-position': 'top' },
+			text: '\u25B6',
 		});
-		this.playBtn.setText('\u25B6');
 		this.playBtn.addEventListener('click', () => this.togglePlayback());
 
-		const nextBtn = navGroup.createEl('button', {
-			cls: 'agent-sessions-btn',
+		const nextBtn = row.createEl('button', {
+			cls: 'agent-sessions-ctrl-btn',
 			attr: { 'aria-label': 'Next turn', 'data-tooltip-position': 'top' },
+			text: '\u2192',
 		});
-		nextBtn.setText('\u25B6');
-		nextBtn.addEventListener('click', () => this.nextTurn());
-
-		// Progress bar
-		this.progressEl = container.createEl('input', {
-			cls: 'agent-sessions-progress',
-			attr: {
-				type: 'range',
-				min: '0',
-				max: '0',
-				value: '0',
-				'aria-label': 'Turn progress',
-			},
-		}) as HTMLInputElement;
-		this.progressEl.addEventListener('input', () => {
-			this.goToTurn(parseInt(this.progressEl!.value, 10));
+		nextBtn.addEventListener('click', () => {
+			this.stopPlayback();
+			this.nextTurn();
 		});
 
-		// Status
-		this.statusEl = container.createDiv({ cls: 'agent-sessions-status' });
+		// Status text
+		this.statusEl = row.createSpan({ cls: 'agent-sessions-progress-text' });
 
 		// Speed controls
-		const speedGroup = container.createDiv({ cls: 'agent-sessions-speed-group' });
-		const speeds = [0.5, 1, 2, 5];
-		for (const speed of speeds) {
-			const btn = speedGroup.createEl('button', {
-				cls: 'agent-sessions-btn agent-sessions-speed-btn',
-				text: `${speed}x`,
-				attr: {
-					'aria-label': `Playback speed ${speed}x`,
-					'data-tooltip-position': 'top',
-				},
+		const speedWrap = row.createDiv({ cls: 'agent-sessions-speed-wrap' });
+		const speeds = [0.5, 1, 2, 3, 5];
+		for (const s of speeds) {
+			const btn = speedWrap.createEl('button', {
+				cls: 'agent-sessions-ctrl-btn agent-sessions-speed-btn',
+				text: `${s}x`,
+				attr: { 'aria-label': `Speed ${s}x`, 'data-tooltip-position': 'top', 'data-speed': String(s) },
 			});
-			btn.addEventListener('click', () => this.setSpeed(speed));
+			btn.addEventListener('click', () => this.setSpeed(s));
 		}
+
+		// Progress bar
+		const progressWrap = container.createDiv({ cls: 'agent-sessions-progress-wrap' });
+		this.progressBar = progressWrap.createDiv({ cls: 'agent-sessions-progress-bar' });
+		this.progressFill = this.progressBar.createDiv({ cls: 'agent-sessions-progress-fill' });
+
+		// Click on progress bar to seek
+		this.progressBar.addEventListener('click', (e: MouseEvent) => {
+			if (!this.session) return;
+			this.stopPlayback();
+			const rect = this.progressBar!.getBoundingClientRect();
+			const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+			const targetTurn = Math.round(pct * (this.session.turns.length - 1));
+			this.scrollToTurn(targetTurn);
+		});
 
 		// Keyboard shortcuts
 		this.registerDomEvent(container.doc, 'keydown', (e: KeyboardEvent) => {
 			if (!this.session) return;
-			// Only handle if this view is active
 			const activeView = this.app.workspace.getActiveViewOfType(ReplayView);
 			if (activeView !== this) return;
 
 			switch (e.key) {
 				case 'ArrowLeft':
 					e.preventDefault();
+					this.stopPlayback();
 					this.prevTurn();
 					break;
 				case 'ArrowRight':
 					e.preventDefault();
+					this.stopPlayback();
 					this.nextTurn();
 					break;
 				case ' ':
@@ -291,15 +355,15 @@ export class ReplayView extends ItemView {
 		if (!this.session) return;
 
 		const total = this.session.turns.length;
-		if (this.progressEl) {
-			this.progressEl.max = String(Math.max(0, total - 1));
-			this.progressEl.value = String(this.currentTurn);
-		}
+		const current = this.activeTurnIndex + 1;
 
 		if (this.statusEl) {
-			this.statusEl.setText(
-				`Turn ${this.currentTurn + 1} / ${total} \u00B7 ${this.settings.playbackSpeed}x`
-			);
+			this.statusEl.setText(`${current} of ${total}`);
+		}
+
+		if (this.progressFill && total > 0) {
+			const pct = total > 1 ? (this.activeTurnIndex / (total - 1)) * 100 : 100;
+			this.progressFill.style.width = `${pct}%`;
 		}
 
 		this.updatePlayButton();
@@ -317,8 +381,8 @@ export class ReplayView extends ItemView {
 		if (!this.controlsEl) return;
 		const btns = this.controlsEl.querySelectorAll('.agent-sessions-speed-btn');
 		btns.forEach((btn) => {
-			const speed = parseFloat(btn.textContent?.replace('x', '') || '1');
-			btn.toggleClass('agent-sessions-speed-active', speed === this.settings.playbackSpeed);
+			const s = parseFloat((btn as HTMLElement).dataset.speed || '1');
+			btn.toggleClass('agent-sessions-speed-active', s === this.settings.playbackSpeed);
 		});
 	}
 }
