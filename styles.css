@@ -1,0 +1,229 @@
+/* Agent Sessions — scoped styles using Obsidian CSS variables */
+
+.agent-sessions-replay-container {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	overflow: hidden;
+}
+
+/* Controls bar */
+.agent-sessions-controls {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-3);
+	border-bottom: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	flex-shrink: 0;
+	flex-wrap: wrap;
+}
+
+.agent-sessions-nav-group,
+.agent-sessions-speed-group {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+}
+
+.agent-sessions-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 44px;
+	min-height: 44px;
+	padding: var(--size-4-1) var(--size-4-2);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background: var(--interactive-normal);
+	color: var(--text-normal);
+	cursor: pointer;
+	font-size: var(--font-ui-small);
+}
+
+.agent-sessions-btn:hover {
+	background: var(--interactive-hover);
+}
+
+.agent-sessions-btn:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+.agent-sessions-speed-active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.agent-sessions-progress {
+	flex: 1;
+	min-width: 100px;
+	cursor: pointer;
+	accent-color: var(--interactive-accent);
+}
+
+.agent-sessions-status {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	white-space: nowrap;
+	min-width: 100px;
+	text-align: center;
+}
+
+/* Content area */
+.agent-sessions-content {
+	flex: 1;
+	overflow-y: auto;
+	padding: var(--size-4-4);
+}
+
+.agent-sessions-empty {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	color: var(--text-muted);
+	font-size: var(--font-ui-medium);
+	text-align: center;
+	padding: var(--size-4-8);
+}
+
+/* Turn */
+.agent-sessions-turn {
+	margin-bottom: var(--size-4-4);
+}
+
+.agent-sessions-turn-header {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-bottom: var(--size-4-2);
+	padding-bottom: var(--size-4-1);
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.agent-sessions-role {
+	font-weight: var(--font-bold);
+	font-size: var(--font-ui-medium);
+	padding: var(--size-4-1) var(--size-4-2);
+	border-radius: var(--radius-s);
+}
+
+.agent-sessions-role-user {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.agent-sessions-role-assistant {
+	background: var(--background-modifier-success);
+	color: var(--text-normal);
+}
+
+.agent-sessions-timestamp {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.agent-sessions-turn-content {
+	padding-left: var(--size-4-2);
+}
+
+/* Text blocks */
+.agent-sessions-text-block {
+	margin-bottom: var(--size-4-2);
+}
+
+/* Collapsible blocks (thinking, tool use, tool result) */
+.agent-sessions-thinking-block,
+.agent-sessions-tool-block,
+.agent-sessions-result-block {
+	margin: var(--size-4-2) 0;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	overflow: hidden;
+}
+
+.agent-sessions-thinking-summary,
+.agent-sessions-tool-summary,
+.agent-sessions-result-summary {
+	padding: var(--size-4-2) var(--size-4-3);
+	cursor: pointer;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	background: var(--background-secondary);
+	min-height: 44px;
+	display: flex;
+	align-items: center;
+}
+
+.agent-sessions-thinking-summary:hover,
+.agent-sessions-tool-summary:hover,
+.agent-sessions-result-summary:hover {
+	background: var(--background-modifier-hover);
+}
+
+.agent-sessions-thinking-content,
+.agent-sessions-tool-content,
+.agent-sessions-result-content {
+	padding: var(--size-4-2) var(--size-4-3);
+	max-height: 400px;
+	overflow-y: auto;
+}
+
+.agent-sessions-result-error .agent-sessions-result-summary {
+	color: var(--text-error);
+}
+
+.agent-sessions-block-icon {
+	margin-right: var(--size-4-1);
+	font-size: var(--font-ui-medium);
+}
+
+/* Settings: directory list */
+.agent-sessions-dirs-list {
+	margin-bottom: var(--size-4-2);
+}
+
+.agent-sessions-dir-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--size-4-1) var(--size-4-2);
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.agent-sessions-dir-path {
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+}
+
+.agent-sessions-dir-remove {
+	min-width: 44px;
+	min-height: 44px;
+	color: var(--text-error);
+}
+
+/* Session browser modal */
+.agent-sessions-suggestion-format {
+	font-size: var(--font-ui-smaller);
+	padding: 2px 6px;
+	border-radius: var(--radius-s);
+	background: var(--background-modifier-border);
+	color: var(--text-muted);
+	margin-left: var(--size-4-2);
+}
+
+.agent-sessions-suggestion-date {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+	margin-left: auto;
+}
+
+/* Focus indicators for all interactive elements */
+.agent-sessions-replay-container button:focus-visible,
+.agent-sessions-replay-container input:focus-visible,
+.agent-sessions-replay-container summary:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
