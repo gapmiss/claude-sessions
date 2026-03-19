@@ -138,8 +138,13 @@ export class ClaudeParser extends BaseParser {
 						index: 0,
 						role: 'assistant',
 						timestamp: this.formatTimestamp(record.timestamp),
+						endTimestamp: this.formatTimestamp(record.timestamp),
 						contentBlocks: [],
 					};
+				}
+				// Always update endTimestamp with the latest record
+				if (record.timestamp) {
+					currentAssistantTurn.endTimestamp = this.formatTimestamp(record.timestamp);
 				}
 				for (const b of blocks) {
 					currentAssistantTurn.contentBlocks.push(b);
@@ -153,12 +158,19 @@ export class ClaudeParser extends BaseParser {
 					for (const result of toolResults) {
 						currentAssistantTurn.contentBlocks.push(result);
 					}
+					// Update endTimestamp — tool results complete after the tool_use
+					if (record.timestamp) {
+						currentAssistantTurn.endTimestamp = this.formatTimestamp(record.timestamp);
+					}
 				} else if (toolResults.length > 0) {
 					// No current assistant turn — attach to the last one in the list
 					const lastAssistant = this.findLastAssistantTurn(turns);
 					if (lastAssistant) {
 						for (const result of toolResults) {
 							lastAssistant.contentBlocks.push(result);
+						}
+						if (record.timestamp) {
+							lastAssistant.endTimestamp = this.formatTimestamp(record.timestamp);
 						}
 					}
 				}
@@ -168,10 +180,12 @@ export class ClaudeParser extends BaseParser {
 				if (hasText) {
 					// Flush any pending assistant turn before the user turn
 					flushAssistant();
+					const ts = this.formatTimestamp(record.timestamp);
 					turns.push({
 						index: turns.length,
 						role: 'user',
-						timestamp: this.formatTimestamp(record.timestamp),
+						timestamp: ts,
+						endTimestamp: ts,
 						contentBlocks: [{ type: 'text', text: record.message!.content as string }],
 					});
 				}
@@ -207,14 +221,15 @@ export class ClaudeParser extends BaseParser {
 		const msg = record.message;
 		if (!msg) return [];
 
+		const timestamp = record.timestamp;
 		const blocks: ContentBlock[] = [];
 		if (typeof msg.content === 'string') {
 			if (msg.content.trim()) {
-				blocks.push({ type: 'text', text: msg.content });
+				blocks.push({ type: 'text', text: msg.content, timestamp });
 			}
 		} else if (Array.isArray(msg.content)) {
 			for (const block of msg.content as ClaudeContentBlock[]) {
-				const parsed = this.parseContentBlock(block, toolUseNames);
+				const parsed = this.parseContentBlock(block, toolUseNames, timestamp);
 				if (parsed) blocks.push(parsed);
 			}
 		}
@@ -228,6 +243,7 @@ export class ClaudeParser extends BaseParser {
 		const msg = record.message;
 		if (!msg) return [];
 
+		const timestamp = record.timestamp;
 		const results: ToolResultBlock[] = [];
 		if (Array.isArray(msg.content)) {
 			for (const block of msg.content as ClaudeContentBlock[]) {
@@ -246,6 +262,7 @@ export class ClaudeParser extends BaseParser {
 						toolName: toolUseNames.get(block.tool_use_id),
 						content: resultContent,
 						isError: block.is_error || false,
+						timestamp,
 					});
 				}
 			}
@@ -262,18 +279,19 @@ export class ClaudeParser extends BaseParser {
 
 	private parseContentBlock(
 		block: ClaudeContentBlock,
-		toolUseNames: Map<string, string>
+		toolUseNames: Map<string, string>,
+		timestamp?: string
 	): ContentBlock | null {
 		switch (block.type) {
 			case 'text':
 				if (block.text && block.text.trim()) {
-					return { type: 'text', text: block.text } as TextBlock;
+					return { type: 'text', text: block.text, timestamp } as TextBlock;
 				}
 				return null;
 
 			case 'thinking':
 				if (block.thinking && block.thinking.trim()) {
-					return { type: 'thinking', thinking: block.thinking } as ThinkingBlock;
+					return { type: 'thinking', thinking: block.thinking, timestamp } as ThinkingBlock;
 				}
 				return null;
 
@@ -285,6 +303,7 @@ export class ClaudeParser extends BaseParser {
 						id: block.id,
 						name: block.name,
 						input: block.input || {},
+						timestamp,
 					} as ToolUseBlock;
 				}
 				return null;

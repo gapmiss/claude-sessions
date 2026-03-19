@@ -24,17 +24,20 @@ export interface Turn {
 	index: number;
 	role: TurnRole;
 	timestamp?: string;
+	endTimestamp?: string;
 	contentBlocks: ContentBlock[];
 }
 
 export interface TextBlock {
 	type: 'text';
 	text: string;
+	timestamp?: string;
 }
 
 export interface ThinkingBlock {
 	type: 'thinking';
 	thinking: string;
+	timestamp?: string;
 }
 
 export interface ToolUseBlock {
@@ -42,6 +45,7 @@ export interface ToolUseBlock {
 	id: string;
 	name: string;
 	input: Record<string, unknown>;
+	timestamp?: string;
 }
 
 export interface ToolResultBlock {
@@ -50,6 +54,7 @@ export interface ToolResultBlock {
 	toolName?: string;
 	content: string;
 	isError: boolean;
+	timestamp?: string;
 }
 
 export type ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock;

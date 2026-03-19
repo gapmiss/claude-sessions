@@ -35,6 +35,42 @@
 }
 
 /* ═══════════════════════════════════════════
+   Block wrappers — segment containers for navigation
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-block-wrapper {
+	transition: border-left-color 0.2s ease, padding-left 0.2s ease;
+	border-left: 2px solid transparent;
+	padding-left: 6px;
+}
+
+/* Active block — highlighted during navigation/playback */
+.agent-sessions-block-wrapper.agent-sessions-block-active {
+	border-left-color: var(--interactive-accent);
+}
+
+/* Block spinner — visible on active block during playback */
+.agent-sessions-block-spinner {
+	display: none;
+	width: 10px;
+	height: 10px;
+	border: 1.5px solid var(--text-muted);
+	border-top-color: var(--text-normal);
+	border-radius: 50%;
+	animation: agent-sessions-spin 0.8s linear infinite;
+	flex-shrink: 0;
+	margin-left: auto;
+}
+
+.agent-sessions-block-active .agent-sessions-block-spinner {
+	display: inline-block;
+}
+
+@keyframes agent-sessions-spin {
+	to { transform: rotate(360deg); }
+}
+
+/* ═══════════════════════════════════════════
    Turns
    ═══════════════════════════════════════════ */
 
@@ -584,6 +620,45 @@
 	border-radius: 2px;
 	transition: width 0.2s;
 	width: 0%;
+}
+
+/* Turn dots on progress bar */
+.agent-sessions-turn-dot {
+	position: absolute;
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: var(--text-muted);
+	top: 50%;
+	transform: translate(-50%, -50%);
+	pointer-events: none;
+	z-index: 1;
+	opacity: 0.4;
+}
+.agent-sessions-turn-dot.reached {
+	opacity: 1;
+	background: var(--text-normal);
+}
+
+/* Progress bar tooltip */
+.agent-sessions-progress-tooltip {
+	position: absolute;
+	bottom: 12px;
+	transform: translateX(-50%);
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	padding: 3px 8px;
+	font-size: 11px;
+	color: var(--text-normal);
+	white-space: nowrap;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.15s;
+	z-index: 10;
+}
+.agent-sessions-progress-bar:hover .agent-sessions-progress-tooltip {
+	opacity: 1;
 }
 
 /* ═══════════════════════════════════════════

@@ -6,12 +6,23 @@ import {
 const COLLAPSE_THRESHOLD = 10; // lines before "Show more"
 const TOOL_GROUP_THRESHOLD = 4; // consecutive tools before grouping
 
+function formatElapsed(ms: number): string {
+	if (ms <= 0) return '0:00';
+	const totalSec = Math.round(ms / 1000);
+	const h = Math.floor(totalSec / 3600);
+	const m = Math.floor((totalSec % 3600) / 60);
+	const s = totalSec % 60;
+	if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+	return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 export class ReplayRenderer {
 	private container: HTMLElement;
 	private app: App;
 	private component: Component;
 	private settings: PluginSettings;
 	private turnEls: HTMLElement[] = [];
+	private sessionStartMs = 0;
 
 	constructor(container: HTMLElement, app: App, component: Component, settings: PluginSettings) {
 		this.container = container;
@@ -30,11 +41,13 @@ export class ReplayRenderer {
 
 	/**
 	 * Render the full timeline of all turns into the container.
+	 * @param sessionStartMs - session start time in epoch ms for elapsed time display (0 = use wall-clock)
 	 * Returns the array of turn DOM elements.
 	 */
-	renderTimeline(turns: Turn[]): HTMLElement[] {
+	renderTimeline(turns: Turn[], sessionStartMs = 0): HTMLElement[] {
 		this.container.empty();
 		this.turnEls = [];
+		this.sessionStartMs = sessionStartMs;
 
 		for (const turn of turns) {
 			const el = this.renderTurn(turn);
@@ -43,6 +56,15 @@ export class ReplayRenderer {
 		}
 
 		return this.turnEls;
+	}
+
+	/**
+	 * Get all block wrapper elements within a specific turn element.
+	 */
+	getBlockWrappers(turnIndex: number): HTMLElement[] {
+		const turnEl = this.turnEls[turnIndex];
+		if (!turnEl) return [];
+		return Array.from(turnEl.querySelectorAll('.agent-sessions-block-wrapper')) as HTMLElement[];
 	}
 
 	/**
@@ -60,10 +82,19 @@ export class ReplayRenderer {
 		header.createSpan({ cls: 'agent-sessions-turn-label', text: `#${turn.index + 1}` });
 
 		if (turn.timestamp) {
-			const d = new Date(turn.timestamp);
-			const h = d.getHours();
-			const m = String(d.getMinutes()).padStart(2, '0');
-			header.createSpan({ cls: 'agent-sessions-turn-ts', text: `${h}:${m}` });
+			if (this.sessionStartMs > 0) {
+				// Show elapsed time from session start
+				const elapsed = new Date(turn.timestamp).getTime() - this.sessionStartMs;
+				if (!isNaN(elapsed)) {
+					header.createSpan({ cls: 'agent-sessions-turn-ts', text: formatElapsed(elapsed) });
+				}
+			} else {
+				// Fallback: wall-clock HH:MM
+				const d = new Date(turn.timestamp);
+				const h = d.getHours();
+				const m = String(d.getMinutes()).padStart(2, '0');
+				header.createSpan({ cls: 'agent-sessions-turn-ts', text: `${h}:${m}` });
+			}
 		}
 
 		header.addEventListener('click', () => {
@@ -79,13 +110,18 @@ export class ReplayRenderer {
 		const assistantBlocks = turn.role === 'assistant' ? turn.contentBlocks : [];
 
 		// User section
+		let blockIdx = 0;
 		if (userBlocks.length > 0) {
 			const userSection = body.createDiv({ cls: 'agent-sessions-role-section agent-sessions-role-user' });
 			userSection.createDiv({ cls: 'agent-sessions-role-label agent-sessions-role-user-label', text: 'USER' });
 
 			for (const block of userBlocks) {
 				if (block.type === 'text') {
-					this.renderTextContent(block.text, userSection, 'agent-sessions-user-text');
+					const wrapper = userSection.createDiv({
+						cls: 'agent-sessions-block-wrapper',
+						attr: { 'data-block-idx': String(blockIdx++) },
+					});
+					this.renderTextContent(block.text, wrapper, 'agent-sessions-user-text');
 				}
 			}
 		}
@@ -95,13 +131,13 @@ export class ReplayRenderer {
 			const assistantSection = body.createDiv({ cls: 'agent-sessions-role-section agent-sessions-role-assistant' });
 			assistantSection.createDiv({ cls: 'agent-sessions-role-label agent-sessions-role-assistant-label', text: 'CLAUDE' });
 
-			this.renderAssistantBlocks(assistantBlocks, assistantSection);
+			this.renderAssistantBlocks(assistantBlocks, assistantSection, blockIdx);
 		}
 
 		return turnEl;
 	}
 
-	private renderAssistantBlocks(blocks: ContentBlock[], container: HTMLElement): void {
+	private renderAssistantBlocks(blocks: ContentBlock[], container: HTMLElement, startBlockIdx = 0): void {
 		// Group consecutive tool_use and tool_result blocks into runs
 		const segments: Array<{ type: 'single'; block: ContentBlock } | { type: 'tools'; blocks: ContentBlock[] }> = [];
 		let toolRun: ContentBlock[] = [];
@@ -123,11 +159,16 @@ export class ReplayRenderer {
 		}
 		flushTools();
 
+		let blockIdx = startBlockIdx;
 		for (const seg of segments) {
+			const wrapper = container.createDiv({
+				cls: 'agent-sessions-block-wrapper',
+				attr: { 'data-block-idx': String(blockIdx++) },
+			});
 			if (seg.type === 'single') {
-				this.renderSingleBlock(seg.block, container);
+				this.renderSingleBlock(seg.block, wrapper);
 			} else {
-				this.renderToolGroup(seg.blocks, container);
+				this.renderToolGroup(seg.blocks, wrapper);
 			}
 		}
 	}
@@ -175,6 +216,7 @@ export class ReplayRenderer {
 			}
 			groupHeader.createSpan({ text: `${toolUses.length} tool calls ` });
 			groupHeader.createSpan({ cls: 'agent-sessions-tool-group-names', text: uniqueNames });
+			groupHeader.createSpan({ cls: 'agent-sessions-block-spinner' });
 
 			const groupBody = groupEl.createDiv({ cls: 'agent-sessions-tool-group-body' });
 
@@ -201,6 +243,7 @@ export class ReplayRenderer {
 		});
 		header.createSpan({ cls: 'agent-sessions-tool-name', text: block.name });
 		header.createSpan({ cls: 'agent-sessions-tool-preview', text: this.toolPreview(block) });
+		header.createSpan({ cls: 'agent-sessions-block-spinner' });
 		const chevron = header.createSpan({ cls: 'agent-sessions-tool-chevron', text: '\u25B6' });
 
 		// Body (hidden by default)
@@ -268,6 +311,7 @@ export class ReplayRenderer {
 		const header = el.createDiv({ cls: 'agent-sessions-thinking-header' });
 		const chevron = header.createSpan({ cls: 'agent-sessions-thinking-chevron', text: '\u25B6' });
 		header.createSpan({ text: ' Thinking' });
+		header.createSpan({ cls: 'agent-sessions-block-spinner' });
 
 		const body = el.createDiv({ cls: 'agent-sessions-thinking-body' });
 		MarkdownRenderer.render(this.app, text, body, '', this.component);

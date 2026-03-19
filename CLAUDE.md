@@ -8,17 +8,24 @@ The claude-replay repo is cloned at `/tmp/claude-replay` for reference. Its `tem
 
 ## Status
 
-**v0.1.0 — MVP with timeline UI.**
+**v0.2.0 — Segment-level navigation and playback.**
 
 Working features:
 - Claude Code JSONL parser with record merging, deduplication, and tool result attachment
+- Per-record timestamps preserved on content blocks for segment-level timing
 - Codex CLI parser (event-based format)
 - Cursor parser (stub — detection only)
 - Auto-format detection from first lines of file
 - Timeline replay view — all turns visible and scrollable from the start
+- Segment-level navigation: arrow keys step through segments (text, thinking, tool run) within turns
+- Segment-level playback: reveals segments with real timestamp-based delays (clamped 600ms–10s)
+- Active segment highlighted with accent left border + spinner on tool/thinking blocks
+- Progress bar dots = one per segment, positioned by real timestamp
+- Progress bar counter = real elapsed time, updates live on scroll
 - Scroll-based opacity via IntersectionObserver (turns fade in as they enter viewport)
-- Playback = auto-scroll through timeline; pause = free browse with full interactivity
-- Keyboard shortcuts: Arrow keys (nav), Space (play/pause), `[`/`]` (speed)
+- Scroll listener syncs timer to topmost visible segment during free browsing
+- Click-to-seek on progress bar targets specific segment (turn + block)
+- Keyboard shortcuts: Arrow keys (segment nav), Space (play/pause), `[`/`]` (speed)
 - Tool calls as compact bars: status dot (blue/red), bold name, arg preview, expand chevron
 - Diff view for Edit tool calls (red/green lines)
 - Tool grouping: 5+ consecutive calls collapse into `▸ N tool calls Name, Name`
@@ -47,25 +54,36 @@ The Claude Code JSONL format has these record types:
 2. **Tool results from user records are attached to the preceding assistant turn**, not created as separate user turns. A user record with only `tool_result` blocks and no text content produces no user turn.
 3. **Deduplication by uuid** — streaming produces multiple records with the same uuid; we keep the last (most complete) version.
 4. **`isSidechain` records are skipped** — these are branch explorations.
+5. **Per-record timestamps are propagated to content blocks** — `record.timestamp` is set on each `TextBlock`, `ThinkingBlock`, `ToolUseBlock`, and `ToolResultBlock` for segment-level timing.
 
 ### Replay View (`views/replay-view.ts`)
 
 - Extends `ItemView` with type `agent-sessions-replay`
-- **All turns rendered immediately** into a scrollable timeline — no progressive reveal/hiding
+- **All turns rendered immediately** into a scrollable timeline — content is never hidden
 - `IntersectionObserver` on the timeline container watches each turn element; turns in viewport get `visible` class (opacity 1.0), others dim to 0.3
-- Playback auto-scrolls to next turn on interval; prev/next/arrow keys pause playback first
-- Progress bar tracks scroll position via the observer's `activeTurnIndex`
+- **Segment-level navigation**: arrow keys move a highlight cursor (`block-active`) through segments within turns, then across turns. A segment is: one text block, one thinking block, or one run of consecutive tool calls.
+- **Segment-level playback**: `animateCurrentTurn()` → `playNextSegment()` walks through segments with real timestamp delays (clamped 600ms–10s, fallback 800ms), scaled by `playbackSpeed`. After all segments in a turn, 500ms dwell then advance to next turn.
+- `activeBlockIdx` tracks the highlighted segment within the current turn (-1 = none)
+- `setActiveBlock(turnIdx, blockIdx)` clears previous highlight, applies `block-active` class, scrolls into view
+- **Segment timing data**: `segmentMs[]` (flat array of segment timestamps as ms offsets from session start), `segmentStartIdx[]` (first flat index per turn). Built by `computeSegmentTiming()` during `computeTiming()`.
+- **Progress bar**: dots positioned per-segment by real timestamp. `segmentFromPct()` maps click position to `{turnIdx, blockIdx}` for seek.
+- **Live scroll timer**: scroll event listener on timeline calls `syncTimerToScroll()`, which finds the topmost visible block wrapper in the active turn and updates `displayedTimeMs` from `segmentMs[]`.
+- `syncTimerToBlock()` uses actual segment timestamp from `segmentMs[]` (not interpolation)
 - `getState()`/`setState()` persist turn position for workspace restore
 
 ### Replay Renderer (`views/replay-renderer.ts`)
 
 - `renderTimeline(turns)` — renders all turns, returns array of turn elements for observer
+- **Each segment wrapped in `.block-wrapper[data-block-idx]`** — enables highlight-based navigation without hiding content
+- User text blocks and assistant segments (text, thinking, tool runs) all get wrappers with sequential `data-block-idx` within their turn
 - Consecutive `tool_use` + `tool_result` blocks are grouped into tool runs
 - Tool runs of ≤4 render individually; 5+ collapse into a group header
 - Each tool call bar shows: indicator dot (blue=ok, red=error), bold name, preview text (file_path for Read/Write/Edit, command for Bash, pattern for Grep/Glob), expand chevron
+- **Spinner elements** (`.block-spinner`) on tool headers, tool group headers, and thinking headers — visible only when parent wrapper has `block-active`
 - Edit tool calls render as diff view (red deletions, green additions) instead of raw JSON
 - Text blocks use `MarkdownRenderer.render()` for syntax highlighting
 - Long text (>10 lines) wrapped in collapsible with fade gradient and "Show more (N lines)" toggle
+- `getBlockWrappers(turnIndex)` returns all wrapper elements within a turn for the view to query
 
 ### Session Browser Modal (`views/session-browser-modal.ts`)
 
@@ -146,7 +164,7 @@ Copy `main.js`, `styles.css`, and `manifest.json` to your vault's `.obsidian/plu
 - [ ] Vault-based session browsing for mobile support
 - [ ] Search/filter sessions by project, date range, or model
 - [ ] Persist last-viewed turn per session across restarts (setState/getState)
-- [ ] Block-level playback animation (reveal blocks within a turn sequentially)
+- [x] ~~Block-level playback animation~~ — segment-level navigation and playback with real timestamp delays
 
 ### Medium-term
 - [x] ~~Diff view for tool results~~ — Edit tool calls render as red/green diff
