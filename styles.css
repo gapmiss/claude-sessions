@@ -503,25 +503,64 @@
    Thinking block
    ═══════════════════════════════════════════ */
 
+/* Thinking blocks — ghost style, structured like tool calls */
 .agent-sessions-thinking-block {
 	margin: 6px 0;
-	border-left: 2px solid var(--text-muted);
-	padding-left: 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	overflow: hidden;
+	opacity: 0.55;
+	transition: opacity 0.15s;
+}
+
+.agent-sessions-thinking-block:hover,
+.agent-sessions-thinking-block.open {
+	opacity: 0.85;
 }
 
 .agent-sessions-thinking-header {
-	font-size: 11px;
-	color: var(--text-normal);
-	cursor: pointer;
-	user-select: none;
 	display: flex;
 	align-items: center;
-	gap: 4px;
+	gap: 6px;
+	padding: 6px 10px;
+	cursor: pointer;
+	user-select: none;
+	transition: background 0.15s;
 	min-height: 44px;
+}
+
+.agent-sessions-thinking-header:hover {
+	background: var(--background-modifier-hover);
+}
+
+.agent-sessions-thinking-icon {
+	color: var(--text-faint);
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+.agent-sessions-thinking-icon svg {
+	width: 14px;
+	height: 14px;
+}
+
+.agent-sessions-thinking-name {
+	color: var(--text-muted);
+	font-weight: 600;
+	font-size: var(--font-ui-small);
+}
+
+.agent-sessions-thinking-redacted {
+	color: var(--text-faint);
+	font-style: italic;
+	font-size: var(--font-ui-smaller);
 }
 
 .agent-sessions-thinking-chevron {
 	font-size: 10px;
+	color: var(--text-faint);
+	margin-left: auto;
 	transition: transform 0.2s;
 }
 
@@ -531,16 +570,22 @@
 
 .agent-sessions-thinking-body {
 	display: none;
+	border-top: 1px solid var(--background-modifier-border);
+	padding: 8px 10px;
 	color: var(--text-muted);
-	font-size: 12px;
+	font-size: var(--font-ui-small);
 	word-break: break-word;
-	margin-top: 4px;
 	max-height: 400px;
 	overflow-y: auto;
 }
 
 .agent-sessions-thinking-block.open .agent-sessions-thinking-body {
 	display: block;
+}
+
+.agent-sessions-thinking-redacted-body {
+	color: var(--text-faint);
+	font-style: italic;
 }
 
 /* ═══════════════════════════════════════════
@@ -609,6 +654,22 @@
 .agent-sessions-speed-wrap {
 	display: flex;
 	gap: 2px;
+}
+
+/* Filter button */
+.agent-sessions-filter-btn {
+	font-size: var(--font-ui-large);
+	letter-spacing: 1px;
+	margin-left: 4px;
+}
+
+.agent-sessions-filter-btn.agent-sessions-filter-active {
+	color: var(--interactive-accent);
+}
+
+/* Filtered (hidden) content */
+.agent-sessions-filtered {
+	display: none;
 }
 
 /* Progress bar */

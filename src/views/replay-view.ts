@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf } from 'obsidian';
+import { ItemView, Menu, WorkspaceLeaf } from 'obsidian';
 import { Session, ContentBlock, PluginSettings } from '../types';
 import { ReplayRenderer } from './replay-renderer';
 
@@ -7,6 +7,20 @@ export const VIEW_TYPE_REPLAY = 'agent-sessions-replay';
 interface ReplayViewState {
 	sessionPath?: string;
 	turnIndex?: number;
+}
+
+interface FilterState {
+	// Top-level section toggles (parent controls)
+	user: boolean;
+	assistant: boolean;
+	// User children
+	userText: boolean;
+	userImages: boolean;
+	// Assistant children
+	assistantText: boolean;
+	thinking: boolean;
+	toolCalls: boolean;
+	toolResults: boolean;
 }
 
 export class ReplayView extends ItemView {
@@ -37,6 +51,18 @@ export class ReplayView extends ItemView {
 	// Segment-level timing (flat across all turns)
 	private segmentMs: number[] = [];
 	private segmentStartIdx: number[] = []; // first flat index per turn
+
+	// Content filters
+	private filters: FilterState = {
+		user: true,
+		assistant: true,
+		userText: true,
+		userImages: true,
+		assistantText: true,
+		thinking: true,
+		toolCalls: true,
+		toolResults: true,
+	};
 
 	constructor(leaf: WorkspaceLeaf, settings: PluginSettings) {
 		super(leaf);
@@ -719,6 +745,16 @@ export class ReplayView extends ItemView {
 			btn.addEventListener('click', () => this.setSpeed(s));
 		}
 
+		// Filter button
+		const filterBtn = row.createEl('button', {
+			cls: 'agent-sessions-ctrl-btn agent-sessions-filter-btn',
+			attr: { 'aria-label': 'Filter content', 'data-tooltip-position': 'top' },
+			text: '\u22EF',
+		});
+		filterBtn.addEventListener('click', (e: MouseEvent) => {
+			this.showFilterMenu(e);
+		});
+
 		// Progress bar
 		const progressWrap = container.createDiv({ cls: 'agent-sessions-progress-wrap' });
 		this.progressBar = progressWrap.createDiv({ cls: 'agent-sessions-progress-bar' });
@@ -786,6 +822,128 @@ export class ReplayView extends ItemView {
 					break;
 			}
 		});
+	}
+
+	private showFilterMenu(e: MouseEvent): void {
+		const menu = new Menu();
+		const f = this.filters;
+
+		// ── User section ──
+		menu.addItem(item => item
+			.setTitle('User')
+			.setIcon('user')
+			.setIsLabel(true));
+
+		menu.addItem(item => item
+			.setTitle('Text')
+			.setChecked(f.user && f.userText)
+			.setDisabled(!f.user)
+			.onClick(() => { f.userText = !f.userText; this.applyFilters(); }));
+
+		menu.addItem(item => item
+			.setTitle('Images')
+			.setChecked(f.user && f.userImages)
+			.setDisabled(!f.user)
+			.onClick(() => { f.userImages = !f.userImages; this.applyFilters(); }));
+
+		menu.addItem(item => item
+			.setTitle(f.user ? 'Hide all' : 'Show all')
+			.setIcon(f.user ? 'eye-off' : 'eye')
+			.onClick(() => { f.user = !f.user; this.applyFilters(); }));
+
+		menu.addSeparator();
+
+		// ── Assistant section ──
+		menu.addItem(item => item
+			.setTitle('Assistant')
+			.setIcon('message-square')
+			.setIsLabel(true));
+
+		menu.addItem(item => item
+			.setTitle('Text')
+			.setChecked(f.assistant && f.assistantText)
+			.setDisabled(!f.assistant)
+			.onClick(() => { f.assistantText = !f.assistantText; this.applyFilters(); }));
+
+		menu.addItem(item => item
+			.setTitle('Thinking')
+			.setIcon('brain')
+			.setChecked(f.assistant && f.thinking)
+			.setDisabled(!f.assistant)
+			.onClick(() => { f.thinking = !f.thinking; this.applyFilters(); }));
+
+		menu.addItem(item => item
+			.setTitle('Tool calls')
+			.setIcon('wrench')
+			.setChecked(f.assistant && f.toolCalls)
+			.setDisabled(!f.assistant)
+			.onClick(() => { f.toolCalls = !f.toolCalls; this.applyFilters(); }));
+
+		menu.addItem(item => item
+			.setTitle('Tool results')
+			.setIcon('file-output')
+			.setChecked(f.assistant && f.toolResults)
+			.setDisabled(!f.assistant)
+			.onClick(() => { f.toolResults = !f.toolResults; this.applyFilters(); }));
+
+		menu.addItem(item => item
+			.setTitle(f.assistant ? 'Hide all' : 'Show all')
+			.setIcon(f.assistant ? 'eye-off' : 'eye')
+			.onClick(() => { f.assistant = !f.assistant; this.applyFilters(); }));
+
+		menu.showAtMouseEvent(e);
+	}
+
+	private applyFilters(): void {
+		if (!this.timelineEl) return;
+		const f = this.filters;
+
+		// ── User section (parent toggle) ──
+		this.timelineEl.querySelectorAll('.agent-sessions-role-user').forEach(el => {
+			(el as HTMLElement).toggleClass('agent-sessions-filtered', !f.user);
+		});
+
+		// User children (only matter when parent is on)
+		if (f.user) {
+			this.timelineEl.querySelectorAll('.agent-sessions-user-text').forEach(el => {
+				const wrapper = (el as HTMLElement).closest('.agent-sessions-block-wrapper') as HTMLElement | null;
+				wrapper?.toggleClass('agent-sessions-filtered', !f.userText);
+			});
+			this.timelineEl.querySelectorAll('.agent-sessions-image-thumbnail').forEach(el => {
+				const wrapper = (el as HTMLElement).closest('.agent-sessions-block-wrapper') as HTMLElement | null;
+				wrapper?.toggleClass('agent-sessions-filtered', !f.userImages);
+			});
+		}
+
+		// ── Assistant section (parent toggle) ──
+		this.timelineEl.querySelectorAll('.agent-sessions-role-assistant').forEach(el => {
+			(el as HTMLElement).toggleClass('agent-sessions-filtered', !f.assistant);
+		});
+
+		// Assistant children (only matter when parent is on)
+		if (f.assistant) {
+			this.timelineEl.querySelectorAll('.agent-sessions-assistant-text').forEach(el => {
+				const wrapper = (el as HTMLElement).closest('.agent-sessions-block-wrapper') as HTMLElement | null;
+				wrapper?.toggleClass('agent-sessions-filtered', !f.assistantText);
+			});
+			this.timelineEl.querySelectorAll('.agent-sessions-thinking-block').forEach(el => {
+				const wrapper = (el as HTMLElement).closest('.agent-sessions-block-wrapper') as HTMLElement | null;
+				wrapper?.toggleClass('agent-sessions-filtered', !f.thinking);
+			});
+			this.timelineEl.querySelectorAll('.agent-sessions-tool-block, .agent-sessions-tool-group').forEach(el => {
+				const wrapper = (el as HTMLElement).closest('.agent-sessions-block-wrapper') as HTMLElement | null;
+				wrapper?.toggleClass('agent-sessions-filtered', !f.toolCalls);
+			});
+			this.timelineEl.querySelectorAll('.agent-sessions-tool-result').forEach(el => {
+				(el as HTMLElement).toggleClass('agent-sessions-filtered', !f.toolResults);
+			});
+		}
+
+		// Update filter button appearance
+		const allOn = f.user && f.assistant && f.userText && f.userImages
+			&& f.assistantText && f.thinking && f.toolCalls && f.toolResults;
+		this.controlsEl?.querySelector('.agent-sessions-filter-btn')
+			?.toggleClass('agent-sessions-filter-active', !allOn);
 	}
 
 	private updateControls(): void {

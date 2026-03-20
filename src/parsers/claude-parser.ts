@@ -27,6 +27,7 @@ interface ClaudeContentBlock {
 	type: string;
 	text?: string;
 	thinking?: string;
+	signature?: string;
 	id?: string;
 	name?: string;
 	input?: Record<string, unknown>;
@@ -330,6 +331,10 @@ export class ClaudeParser extends BaseParser {
 			case 'thinking':
 				if (block.thinking && block.thinking.trim()) {
 					return { type: 'thinking', thinking: block.thinking, timestamp } as ThinkingBlock;
+				}
+				// Thinking occurred but content is encrypted (signature-only)
+				if (block.signature) {
+					return { type: 'thinking', thinking: '', timestamp } as ThinkingBlock;
 				}
 				return null;
 

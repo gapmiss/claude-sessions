@@ -1,4 +1,4 @@
-import { App, Modal, MarkdownRenderer, Component } from 'obsidian';
+import { App, Modal, MarkdownRenderer, Component, setIcon } from 'obsidian';
 import {
 	Turn, ContentBlock, ToolUseBlock, ToolResultBlock, PluginSettings,
 } from '../types';
@@ -299,7 +299,9 @@ export class ReplayRenderer {
 			const inputEl = body.createDiv({ cls: 'agent-sessions-tool-input' });
 			inputEl.createDiv({ cls: 'agent-sessions-tool-section-label', text: 'INPUT' });
 			const inputText = this.formatInput(block.input);
-			inputEl.createEl('pre').createEl('code', { text: inputText });
+			const inputMd = '```json\n' + inputText + '\n```';
+			const inputMdContainer = inputEl.createDiv({ cls: 'agent-sessions-tool-input-code' });
+			MarkdownRenderer.render(this.app, inputMd, inputMdContainer, '', this.component);
 		}
 
 		// Result section
@@ -321,7 +323,9 @@ export class ReplayRenderer {
 				const mdContainer = resultEl.createDiv({ cls: 'agent-sessions-read-result' });
 				MarkdownRenderer.render(this.app, md, mdContainer, '', this.component);
 			} else {
-				resultEl.createEl('pre').createEl('code', { text: resultText });
+				const resultMd = '```\n' + resultText + '\n```';
+				const resultMdContainer = resultEl.createDiv({ cls: 'agent-sessions-tool-result-code' });
+				MarkdownRenderer.render(this.app, resultMd, resultMdContainer, '', this.component);
 			}
 		}
 
@@ -367,14 +371,27 @@ export class ReplayRenderer {
 	}
 
 	private renderThinkingBlock(text: string, container: HTMLElement): void {
+		const isRedacted = !text.trim();
 		const el = container.createDiv({ cls: 'agent-sessions-thinking-block' });
-		const header = el.createDiv({ cls: 'agent-sessions-thinking-header' });
-		const chevron = header.createSpan({ cls: 'agent-sessions-thinking-chevron', text: '\u25B6' });
-		header.createSpan({ text: ' Thinking' });
-		header.createSpan({ cls: 'agent-sessions-block-spinner' });
 
+		// Header bar (matches tool call style)
+		const header = el.createDiv({ cls: 'agent-sessions-thinking-header' });
+		const icon = header.createSpan({ cls: 'agent-sessions-thinking-icon' });
+		setIcon(icon, 'brain');
+		header.createSpan({ cls: 'agent-sessions-thinking-name', text: 'Thinking' });
+		if (isRedacted) {
+			header.createSpan({ cls: 'agent-sessions-thinking-redacted', text: 'content encrypted' });
+		}
+		header.createSpan({ cls: 'agent-sessions-block-spinner' });
+		const chevron = header.createSpan({ cls: 'agent-sessions-thinking-chevron', text: '\u25B6' });
+
+		// Body (collapsible)
 		const body = el.createDiv({ cls: 'agent-sessions-thinking-body' });
-		MarkdownRenderer.render(this.app, text, body, '', this.component);
+		if (isRedacted) {
+			body.createDiv({ cls: 'agent-sessions-thinking-redacted-body', text: 'Thinking content is not available — encrypted by Claude Code.' });
+		} else {
+			MarkdownRenderer.render(this.app, text, body, '', this.component);
+		}
 
 		header.addEventListener('click', () => {
 			const isOpen = el.hasClass('open');
