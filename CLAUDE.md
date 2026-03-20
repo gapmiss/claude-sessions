@@ -8,11 +8,12 @@ The claude-replay repo is cloned at `/tmp/claude-replay` for reference. Its `tem
 
 ## Status
 
-**v0.2.0 — Segment-level navigation and playback.**
+**v0.3.0 — Content filtering, code blocks, and thinking block rendering.**
 
 Working features:
 - Claude Code JSONL parser with record merging, deduplication, and tool result attachment
 - Per-record timestamps preserved on content blocks for segment-level timing
+- Thinking blocks parsed from both plaintext (v2.1.50) and encrypted/signature-only (v2.1.79+) formats
 - Codex CLI parser (event-based format)
 - Cursor parser (stub — detection only)
 - Auto-format detection from first lines of file
@@ -26,10 +27,12 @@ Working features:
 - Scroll listener syncs timer to topmost visible segment during free browsing
 - Click-to-seek on progress bar targets specific segment (turn + block)
 - Keyboard shortcuts: Arrow keys (segment nav), Space (play/pause), `[`/`]` (speed)
+- **Content filter menu** (⋯ button): hierarchical toggles for User (text, images) and Assistant (text, thinking, tool calls, tool results). Parent toggle hides entire section.
 - Tool calls as compact bars: status dot (blue/red), bold name, arg preview, expand chevron
+- Tool use INPUT rendered as `json` code block, RESULT as plain code block (both with copy button via MarkdownRenderer)
 - Diff view for Edit tool calls (red/green lines)
 - Tool grouping: 5+ consecutive calls collapse into `▸ N tool calls Name, Name`
-- Thinking blocks as collapsible left-bordered sections
+- Thinking blocks as ghost-style collapsible cards: brain icon, 55% opacity (85% on hover/open), matching tool call structure. Redacted blocks show "content encrypted" hint.
 - "Show more" with fade gradient for long text blocks (10+ lines)
 - Collapsible turn headers with `#N` label and timestamp
 - Role sections with colored left borders (accent for USER, cyan for CLAUDE)
@@ -38,6 +41,7 @@ Working features:
 - Markdown export with frontmatter and Obsidian callouts
 - HTML export as self-contained replay file with embedded player
 - Settings tab: session directories (with Add button), export preferences, display toggles
+- ESLint with `eslint-plugin-obsidianmd` recommended rules
 - Accessible: ARIA labels, focus-visible indicators, 44px touch targets
 
 ## Key Implementation Details
@@ -55,6 +59,7 @@ The Claude Code JSONL format has these record types:
 3. **Deduplication by uuid** — streaming produces multiple records with the same uuid; we keep the last (most complete) version.
 4. **`isSidechain` records are skipped** — these are branch explorations.
 5. **Per-record timestamps are propagated to content blocks** — `record.timestamp` is set on each `TextBlock`, `ThinkingBlock`, `ToolUseBlock`, and `ToolResultBlock` for segment-level timing.
+6. **Thinking blocks with `signature` but empty `thinking`** are preserved as empty `ThinkingBlock`s. Claude Code v2.1.79+ encrypts thinking content — only the `signature` field is stored. Older versions (e.g. v2.1.50) store plaintext in the `thinking` field.
 
 ### Replay View (`views/replay-view.ts`)
 
@@ -70,6 +75,7 @@ The Claude Code JSONL format has these record types:
 - **Live scroll timer**: scroll event listener on timeline calls `syncTimerToScroll()`, which finds the topmost visible block wrapper in the active turn and updates `displayedTimeMs` from `segmentMs[]`.
 - `syncTimerToBlock()` uses actual segment timestamp from `segmentMs[]` (not interpolation)
 - `getState()`/`setState()` persist turn position for workspace restore
+- **Content filters**: `FilterState` tracks 8 toggles in two groups — User (text, images) and Assistant (text, thinking, tool calls, tool results). Parent toggles (`user`, `assistant`) hide entire role sections; children toggle individual block types. Filter button (⋯) opens Obsidian `Menu` with `setChecked()`/`setDisabled()` for hierarchical UX. `applyFilters()` toggles `.agent-sessions-filtered` (display: none) on matching elements. Filter button highlights with accent color when any filter is active.
 
 ### Replay Renderer (`views/replay-renderer.ts`)
 
@@ -80,8 +86,11 @@ The Claude Code JSONL format has these record types:
 - Tool runs of ≤4 render individually; 5+ collapse into a group header
 - Each tool call bar shows: indicator dot (blue=ok, red=error), bold name, preview text (file_path for Read/Write/Edit, command for Bash, pattern for Grep/Glob), expand chevron
 - **Spinner elements** (`.block-spinner`) on tool headers, tool group headers, and thinking headers — visible only when parent wrapper has `block-active`
+- **Tool use INPUT** rendered as `` ```json `` fenced code block via `MarkdownRenderer` (gives syntax highlighting + copy button)
+- **Tool RESULT** rendered as plain `` ``` `` fenced code block via `MarkdownRenderer` (copy button). Read tool results use language-specific highlighting based on file extension via `langFromPath()`.
 - Edit tool calls render as diff view (red deletions, green additions) instead of raw JSON
 - Text blocks use `MarkdownRenderer.render()` for syntax highlighting
+- **Thinking blocks** rendered as ghost-style collapsible cards: `setIcon(icon, 'brain')` for brain icon, same structure as tool call bars (header + collapsible body). Opacity 0.55 at rest, 0.85 on hover/open. Redacted blocks (empty content) show "content encrypted" in header and explanation in body.
 - Long text (>10 lines) wrapped in collapsible with fade gradient and "Show more (N lines)" toggle
 - `getBlockWrappers(turnIndex)` returns all wrapper elements within a turn for the view to query
 
@@ -122,15 +131,16 @@ src/
     path-utils.ts                  # Home dir expansion, path helpers
     streaming-reader.ts            # File reading (Node.js streams on desktop)
 styles.css                         # Scoped styles using Obsidian CSS variables
+eslint.config.mjs                  # ESLint flat config with eslint-plugin-obsidianmd
 ```
 
 ## Commands
 
 | ID | Name |
 |---|---|
-| `browse-sessions` | Browse agent sessions |
+| `browse-sessions` | Browse sessions |
 | `import-file` | Import session file |
-| `export-markdown` | Export session to markdown |
+| `export-markdown` | Export session to Markdown |
 | `export-html` | Export session to HTML |
 | `toggle-playback` | Toggle session playback |
 | `next-turn` | Go to next turn |
@@ -142,6 +152,7 @@ styles.css                         # Scoped styles using Obsidian CSS variables
 npm install
 npm run dev      # watch mode
 npm run build    # production build (typecheck + bundle)
+npx eslint .     # lint with eslint-plugin-obsidianmd rules
 ```
 
 Copy `main.js`, `styles.css`, and `manifest.json` to your vault's `.obsidian/plugins/agent-sessions/` directory.
@@ -155,6 +166,9 @@ Copy `main.js`, `styles.css`, and `manifest.json` to your vault's `.obsidian/plu
 - `export type` required for interfaces when `isolatedModules` is enabled
 - Obsidian CSS variables like `--color-cyan`, `--color-blue`, `--color-red`, `--color-green` provide theme-aware colors for tool indicators and diff views
 - Claude Code streams each assistant content block as a separate JSONL record with its own uuid — must merge consecutive assistant records or tool results end up orphaned
+- Claude Code v2.1.79+ encrypts thinking content — the `thinking` field is empty, content lives in `signature`. Older versions store plaintext. Parser must handle both.
+- `eslint-plugin-obsidianmd` recommended config exports rules as a flat object (not under `rules` key) — must wrap manually for ESLint 9 flat config. Needs `@typescript-eslint/parser` with `parserOptions.project` for type-aware rules.
+- Don't `detachLeavesOfType()` in `onunload` — resets leaf position when plugin reloads
 
 ## Roadmap
 
@@ -164,11 +178,15 @@ Copy `main.js`, `styles.css`, and `manifest.json` to your vault's `.obsidian/plu
 - [ ] Vault-based session browsing for mobile support
 - [ ] Search/filter sessions by project, date range, or model
 - [ ] Persist last-viewed turn per session across restarts (setState/getState)
+- [ ] Skip filtered blocks during segment-level navigation (arrow keys currently land on hidden blocks)
 - [x] ~~Block-level playback animation~~ — segment-level navigation and playback with real timestamp delays
+- [x] ~~Content filter menu~~ — hierarchical toggles for User/Assistant content types
 
 ### Medium-term
 - [x] ~~Diff view for tool results~~ — Edit tool calls render as red/green diff
 - [x] ~~Multi-turn view~~ — full scrollable timeline with all turns visible
+- [x] ~~Tool input/result code blocks~~ — JSON code block for input, plain code block for result (with copy button)
+- [x] ~~Thinking block rendering~~ — ghost-style cards with brain icon, handles both plaintext and encrypted content
 - [ ] Session statistics panel (token counts, tool usage breakdown, duration)
 - [ ] Linked mentions — link tool_use file paths to vault files when they exist
 - [ ] Tag/bookmark individual turns for later reference
