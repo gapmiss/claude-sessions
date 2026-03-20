@@ -40,6 +40,18 @@ function langFromPath(filePath: string): string {
 	return EXT_TO_LANG[ext] ?? '';
 }
 
+/** Return a backtick fence string (at least 3) that won't collide with content. */
+function fence(content: string, lang = ''): string {
+	let max = 2;
+	const re = /`{3,}/g;
+	let m: RegExpExecArray | null;
+	while ((m = re.exec(content)) !== null) {
+		if (m[0].length > max) max = m[0].length;
+	}
+	const ticks = '`'.repeat(max + 1);
+	return ticks + lang + '\n' + content + '\n' + ticks;
+}
+
 function formatElapsed(ms: number): string {
 	if (ms <= 0) return '0:00';
 	const totalSec = Math.round(ms / 1000);
@@ -301,7 +313,7 @@ export class ReplayRenderer {
 			const inputEl = body.createDiv({ cls: 'agent-sessions-tool-input' });
 			inputEl.createDiv({ cls: 'agent-sessions-tool-section-label', text: 'INPUT' });
 			const inputText = this.formatInput(block.input);
-			const inputMd = '```json\n' + inputText + '\n```';
+			const inputMd = fence(inputText, 'json');
 			const inputMdContainer = inputEl.createDiv({ cls: 'agent-sessions-tool-input-code' });
 			MarkdownRenderer.render(this.app, inputMd, inputMdContainer, '', this.component);
 		}
@@ -323,11 +335,11 @@ export class ReplayRenderer {
 				const filePath = String(block.input['file_path'] || '');
 				const lang = langFromPath(filePath);
 				const cleaned = stripLineNumbers(resultText);
-				const md = '```' + lang + '\n' + cleaned + '\n```';
+				const md = fence(cleaned, lang);
 				const mdContainer = resultEl.createDiv({ cls: 'agent-sessions-read-result' });
 				MarkdownRenderer.render(this.app, md, mdContainer, '', this.component);
 			} else {
-				const resultMd = '```\n' + resultText + '\n```';
+				const resultMd = fence(resultText);
 				const resultMdContainer = resultEl.createDiv({ cls: 'agent-sessions-tool-result-code' });
 				MarkdownRenderer.render(this.app, resultMd, resultMdContainer, '', this.component);
 			}
@@ -362,7 +374,7 @@ export class ReplayRenderer {
 			diffLines.push('+ ' + line);
 		}
 
-		const md = '```diff\n' + diffLines.join('\n') + '\n```';
+		const md = fence(diffLines.join('\n'), 'diff');
 		const mdContainer = diffEl.createDiv({ cls: 'agent-sessions-diff-code' });
 		MarkdownRenderer.render(this.app, md, mdContainer, '', this.component);
 
@@ -384,7 +396,7 @@ export class ReplayRenderer {
 
 		const content = String(block.input['content'] || '');
 		const lang = langFromPath(filePath);
-		const md = '```' + lang + '\n' + content + '\n```';
+		const md = fence(content, lang);
 		const mdContainer = writeEl.createDiv({ cls: 'agent-sessions-tool-input-code' });
 		MarkdownRenderer.render(this.app, md, mdContainer, '', this.component);
 
@@ -393,7 +405,7 @@ export class ReplayRenderer {
 				cls: `agent-sessions-tool-result ${result.isError ? 'agent-sessions-tool-result-error' : ''}`,
 			});
 			resultEl.createDiv({ cls: 'agent-sessions-tool-section-label', text: 'RESULT' });
-			const resultMd = '```\n' + result.content + '\n```';
+			const resultMd = fence(result.content);
 			const resultMdContainer = resultEl.createDiv({ cls: 'agent-sessions-tool-result-code' });
 			MarkdownRenderer.render(this.app, resultMd, resultMdContainer, '', this.component);
 		}

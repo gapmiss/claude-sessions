@@ -43,8 +43,9 @@ interface ClaudeContentBlock {
 
 interface ToolResultContent {
 	type: string;
-	tool_use_id: string;
-	content: string;
+	tool_use_id?: string;
+	content?: string;
+	text?: string;
 	is_error?: boolean;
 }
 
@@ -260,7 +261,8 @@ export class ClaudeParser extends BaseParser {
 						? block.content
 						: Array.isArray(block.content)
 							? (block.content as ToolResultContent[])
-								.map(c => c.content)
+								.map(c => c.text ?? c.content ?? '')
+								.filter(s => s)
 								.join('\n')
 							: '';
 
