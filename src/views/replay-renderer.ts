@@ -295,6 +295,8 @@ export class ReplayRenderer {
 		// Input section
 		if (block.name === 'Edit' && block.input['old_string'] != null) {
 			this.renderDiffView(block, result, body);
+		} else if (block.name === 'Write' && block.input['content'] != null) {
+			this.renderWriteView(block, result, body);
 		} else {
 			const inputEl = body.createDiv({ cls: 'agent-sessions-tool-input' });
 			inputEl.createDiv({ cls: 'agent-sessions-tool-section-label', text: 'INPUT' });
@@ -304,8 +306,10 @@ export class ReplayRenderer {
 			MarkdownRenderer.render(this.app, inputMd, inputMdContainer, '', this.component);
 		}
 
-		// Result section
-		if (result && this.settings.showToolResults) {
+		// Result section (skip for Edit/Write which render their own results)
+		if (result && this.settings.showToolResults
+			&& !(block.name === 'Edit' && block.input['old_string'] != null)
+			&& !(block.name === 'Write' && block.input['content'] != null)) {
 			const resultEl = body.createDiv({
 				cls: `agent-sessions-tool-result ${isError ? 'agent-sessions-tool-result-error' : ''}`,
 			});
@@ -367,6 +371,31 @@ export class ReplayRenderer {
 				cls: `agent-sessions-diff-result ${result.isError ? 'agent-sessions-diff-result-error' : ''}`,
 				text: result.content,
 			});
+		}
+	}
+
+	private renderWriteView(block: ToolUseBlock, result: ToolResultBlock | undefined, container: HTMLElement): void {
+		const writeEl = container.createDiv({ cls: 'agent-sessions-tool-input' });
+
+		const filePath = String(block.input['file_path'] || '');
+		if (filePath) {
+			writeEl.createDiv({ cls: 'agent-sessions-diff-file', text: filePath });
+		}
+
+		const content = String(block.input['content'] || '');
+		const lang = langFromPath(filePath);
+		const md = '```' + lang + '\n' + content + '\n```';
+		const mdContainer = writeEl.createDiv({ cls: 'agent-sessions-tool-input-code' });
+		MarkdownRenderer.render(this.app, md, mdContainer, '', this.component);
+
+		if (result && this.settings.showToolResults) {
+			const resultEl = container.createDiv({
+				cls: `agent-sessions-tool-result ${result.isError ? 'agent-sessions-tool-result-error' : ''}`,
+			});
+			resultEl.createDiv({ cls: 'agent-sessions-tool-section-label', text: 'RESULT' });
+			const resultMd = '```\n' + result.content + '\n```';
+			const resultMdContainer = resultEl.createDiv({ cls: 'agent-sessions-tool-result-code' });
+			MarkdownRenderer.render(this.app, resultMd, resultMdContainer, '', this.component);
 		}
 	}
 
