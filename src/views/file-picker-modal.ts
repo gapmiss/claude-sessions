@@ -26,12 +26,12 @@ export class FilePickerModal extends Modal {
 			const fileInput = dropZone.createEl('input', { type: 'file' });
 			fileInput.accept = '.jsonl,.json';
 			fileInput.addClass('agent-sessions-drop-zone-input');
-			fileInput.style.display = 'none';
+			fileInput.addClass('agent-sessions-hidden');
 
 			const label = dropZone.createDiv({ cls: 'agent-sessions-drop-zone-label' });
 			label.createSpan({ text: 'Drop a session file here, or ' });
 			const browseLink = label.createEl('span', {
-				text: 'browse',
+				text: 'Browse',
 				cls: 'agent-sessions-drop-zone-browse',
 			});
 			label.createSpan({ text: '.' });

@@ -61,7 +61,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Export folder')
 			.setDesc('Vault folder for exported session files.')
 			.addText(text => text
-				.setPlaceholder('agent-sessions')
+				.setPlaceholder('Agent sessions')
 				.setValue(this.plugin.settings.exportFolder)
 				.onChange(async (value) => {
 					this.plugin.settings.exportFolder = value;
@@ -96,7 +96,7 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Show tool calls')
-			.setDesc('Display tool use blocks (Read, Bash, etc.) in replay.')
+			.setDesc('Display tool use blocks (read, bash, etc.) in replay.')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showToolCalls)
 				.onChange(async (value) => {

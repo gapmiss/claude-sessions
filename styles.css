@@ -766,6 +766,10 @@
 	color: var(--interactive-accent-hover);
 }
 
+.agent-sessions-hidden {
+	display: none;
+}
+
 .agent-sessions-drop-zone-hint {
 	color: var(--text-faint);
 	font-size: var(--font-ui-smaller);

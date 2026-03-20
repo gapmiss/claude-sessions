@@ -21,7 +21,7 @@ export default class AgentSessionsPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'browse-sessions',
-			name: 'Browse agent sessions',
+			name: 'Browse sessions',
 			callback: async () => {
 				new Notice('Scanning session directories...');
 				const entries = await scanSessionDirs(this);
@@ -44,7 +44,7 @@ export default class AgentSessionsPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'export-markdown',
-			name: 'Export session to markdown',
+			name: 'Export session to Markdown',
 			callback: () => this.exportActiveSession('markdown'),
 		});
 
@@ -83,7 +83,8 @@ export default class AgentSessionsPlugin extends Plugin {
 	}
 
 	async onunload(): Promise<void> {
-		this.app.workspace.detachLeavesOfType(VIEW_TYPE_REPLAY);
+		// Leaves are not detached here — Obsidian handles cleanup,
+		// and detaching resets leaf position on reload.
 	}
 
 	async loadSettings(): Promise<void> {
