@@ -15,9 +15,71 @@ export class FilePickerModal extends Modal {
 	onOpen(): void {
 		const { contentEl } = this;
 		contentEl.empty();
+		this.modalEl.addClass('agent-sessions-file-picker-modal');
 		contentEl.createEl('h3', { text: 'Import session file' });
 
 		let filePath = '';
+
+		// Drop zone / file picker
+		if (!Platform.isMobile) {
+			const dropZone = contentEl.createDiv({ cls: 'agent-sessions-drop-zone' });
+			const fileInput = dropZone.createEl('input', { type: 'file' });
+			fileInput.accept = '.jsonl,.json';
+			fileInput.addClass('agent-sessions-drop-zone-input');
+			fileInput.style.display = 'none';
+
+			const label = dropZone.createDiv({ cls: 'agent-sessions-drop-zone-label' });
+			label.createSpan({ text: 'Drop a session file here, or ' });
+			const browseLink = label.createEl('span', {
+				text: 'browse',
+				cls: 'agent-sessions-drop-zone-browse',
+			});
+			label.createSpan({ text: '.' });
+
+			const hint = dropZone.createDiv({
+				text: '.jsonl or .json',
+				cls: 'agent-sessions-drop-zone-hint',
+			});
+
+			// Click to browse
+			browseLink.addEventListener('click', (e) => {
+				e.stopPropagation();
+				fileInput.click();
+			});
+			dropZone.addEventListener('click', () => {
+				fileInput.click();
+			});
+
+			fileInput.addEventListener('change', () => {
+				const file = fileInput.files?.[0];
+				if (file) this.importFromFile(file);
+			});
+
+			// Drag events
+			dropZone.addEventListener('dragover', (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				dropZone.addClass('drag-over');
+			});
+			dropZone.addEventListener('dragleave', (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				dropZone.removeClass('drag-over');
+			});
+			dropZone.addEventListener('drop', (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				dropZone.removeClass('drag-over');
+				const file = e.dataTransfer?.files[0];
+				if (file) this.importFromFile(file);
+			});
+		}
+
+		// Divider with "or enter path"
+		if (!Platform.isMobile) {
+			const divider = contentEl.createDiv({ cls: 'agent-sessions-drop-zone-divider' });
+			divider.createSpan({ text: 'or enter a path' });
+		}
 
 		new Setting(contentEl)
 			.setName('File path')
@@ -50,6 +112,34 @@ export class FilePickerModal extends Modal {
 
 	onClose(): void {
 		this.contentEl.empty();
+	}
+
+	private async importFromFile(file: File): Promise<void> {
+		// On Electron, File objects have a `path` property with the absolute filesystem path
+		const electronPath = (file as File & { path?: string }).path;
+		if (electronPath) {
+			return this.importFile(electronPath);
+		}
+
+		// Fallback: read via FileReader (e.g. if path isn't available)
+		try {
+			new Notice('Reading file...');
+			const content = await file.text();
+
+			const parser = detectParser(content);
+			if (!parser) {
+				new Notice('Could not detect session format. Ensure this is a valid session file.');
+				return;
+			}
+
+			const session = parser.parse(content, file.name);
+			new Notice(`Loaded session with ${session.turns.length} turns.`);
+			this.close();
+			await this.plugin.openSession(session);
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : String(e);
+			new Notice(`Import failed: ${msg}`);
+		}
 	}
 
 	private async importFile(rawPath: string): Promise<void> {

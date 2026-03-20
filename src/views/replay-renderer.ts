@@ -1,10 +1,44 @@
-import { App, MarkdownRenderer, Component } from 'obsidian';
+import { App, Modal, MarkdownRenderer, Component } from 'obsidian';
 import {
 	Turn, ContentBlock, ToolUseBlock, ToolResultBlock, PluginSettings,
 } from '../types';
 
 const COLLAPSE_THRESHOLD = 10; // lines before "Show more"
 const TOOL_GROUP_THRESHOLD = 4; // consecutive tools before grouping
+
+/** Map file extensions to markdown fence language identifiers. */
+const EXT_TO_LANG: Record<string, string> = {
+	ts: 'typescript', tsx: 'tsx', js: 'javascript', jsx: 'jsx',
+	py: 'python', rb: 'ruby', rs: 'rust', go: 'go',
+	java: 'java', kt: 'kotlin', cs: 'csharp', cpp: 'cpp', c: 'c', h: 'c',
+	swift: 'swift', m: 'objectivec',
+	sh: 'bash', zsh: 'bash', bash: 'bash', fish: 'fish',
+	json: 'json', jsonl: 'json', yaml: 'yaml', yml: 'yaml', toml: 'toml',
+	xml: 'xml', html: 'html', css: 'css', scss: 'scss', less: 'less',
+	sql: 'sql', graphql: 'graphql', gql: 'graphql',
+	md: 'markdown', mdx: 'mdx', tex: 'latex',
+	dockerfile: 'dockerfile', makefile: 'makefile',
+	lua: 'lua', r: 'r', pl: 'perl', php: 'php', ex: 'elixir', erl: 'erlang',
+	hs: 'haskell', ml: 'ocaml', scala: 'scala', clj: 'clojure',
+	vue: 'vue', svelte: 'svelte', astro: 'astro',
+	tf: 'hcl', hcl: 'hcl', nix: 'nix', zig: 'zig', v: 'v',
+};
+
+/** Strip `cat -n` style line numbers: leading whitespace + digits + arrow/tab */
+function stripLineNumbers(text: string): string {
+	return text.replace(/^[ \t]*\d+[\u2192\t][ \t]?/gm, '');
+}
+
+/** Extract language from a file path's extension. */
+function langFromPath(filePath: string): string {
+	const basename = filePath.split('/').pop() ?? '';
+	// Handle extensionless names like Makefile, Dockerfile
+	const lowerBase = basename.toLowerCase();
+	if (lowerBase === 'makefile') return 'makefile';
+	if (lowerBase === 'dockerfile') return 'dockerfile';
+	const ext = basename.split('.').pop()?.toLowerCase() ?? '';
+	return EXT_TO_LANG[ext] ?? '';
+}
 
 function formatElapsed(ms: number): string {
 	if (ms <= 0) return '0:00';
@@ -116,12 +150,21 @@ export class ReplayRenderer {
 			userSection.createDiv({ cls: 'agent-sessions-role-label agent-sessions-role-user-label', text: 'USER' });
 
 			for (const block of userBlocks) {
+				const wrapper = userSection.createDiv({
+					cls: 'agent-sessions-block-wrapper',
+					attr: { 'data-block-idx': String(blockIdx++) },
+				});
 				if (block.type === 'text') {
-					const wrapper = userSection.createDiv({
-						cls: 'agent-sessions-block-wrapper',
-						attr: { 'data-block-idx': String(blockIdx++) },
-					});
 					this.renderTextContent(block.text, wrapper, 'agent-sessions-user-text');
+				} else if (block.type === 'image') {
+					const dataUri = `data:${block.mediaType};base64,${block.data}`;
+					const img = wrapper.createEl('img', {
+						cls: 'agent-sessions-image-thumbnail',
+						attr: { src: dataUri, alt: 'User attachment' },
+					});
+					img.addEventListener('click', () => {
+						this.openImageModal(dataUri, block.mediaType);
+					});
 				}
 			}
 		}
@@ -268,7 +311,18 @@ export class ReplayRenderer {
 			const resultText = result.content.length > 5000
 				? result.content.substring(0, 5000) + '\n... (truncated)'
 				: result.content;
-			resultEl.createEl('pre').createEl('code', { text: resultText });
+
+			if (block.name === 'Read' && !isError) {
+				// Render as syntax-highlighted code block via MarkdownRenderer
+				const filePath = String(block.input['file_path'] || '');
+				const lang = langFromPath(filePath);
+				const cleaned = stripLineNumbers(resultText);
+				const md = '```' + lang + '\n' + cleaned + '\n```';
+				const mdContainer = resultEl.createDiv({ cls: 'agent-sessions-read-result' });
+				MarkdownRenderer.render(this.app, md, mdContainer, '', this.component);
+			} else {
+				resultEl.createEl('pre').createEl('code', { text: resultText });
+			}
 		}
 
 		header.addEventListener('click', () => {
@@ -291,12 +345,18 @@ export class ReplayRenderer {
 		const oldStr = String(block.input['old_string'] || '');
 		const newStr = String(block.input['new_string'] || '');
 
+		// Build unified diff content for a diff code block
+		const diffLines: string[] = [];
 		for (const line of oldStr.split('\n')) {
-			diffEl.createDiv({ cls: 'agent-sessions-diff-del', text: '\u2212 ' + line });
+			diffLines.push('- ' + line);
 		}
 		for (const line of newStr.split('\n')) {
-			diffEl.createDiv({ cls: 'agent-sessions-diff-add', text: '+ ' + line });
+			diffLines.push('+ ' + line);
 		}
+
+		const md = '```diff\n' + diffLines.join('\n') + '\n```';
+		const mdContainer = diffEl.createDiv({ cls: 'agent-sessions-diff-code' });
+		MarkdownRenderer.render(this.app, md, mdContainer, '', this.component);
 
 		if (result) {
 			diffEl.createDiv({
@@ -375,5 +435,50 @@ export class ReplayRenderer {
 		} catch {
 			return String(input);
 		}
+	}
+
+	private openImageModal(dataUri: string, mediaType: string): void {
+		const modal = new ImagePreviewModal(this.app, dataUri, mediaType);
+		modal.open();
+	}
+}
+
+class ImagePreviewModal extends Modal {
+	private dataUri: string;
+	private mediaType: string;
+
+	constructor(app: App, dataUri: string, mediaType: string) {
+		super(app);
+		this.dataUri = dataUri;
+		this.mediaType = mediaType;
+	}
+
+	onOpen(): void {
+		const { contentEl } = this;
+		this.modalEl.addClass('agent-sessions-image-preview-modal');
+		contentEl.empty();
+
+		const scrollWrap = contentEl.createDiv({ cls: 'agent-sessions-image-preview-scroll' });
+		scrollWrap.createEl('img', {
+			cls: 'agent-sessions-image-preview',
+			attr: { src: this.dataUri, alt: 'Image attachment' },
+		});
+
+		const actions = contentEl.createDiv({ cls: 'agent-sessions-image-preview-actions' });
+		const downloadBtn = actions.createEl('button', {
+			cls: 'mod-cta',
+			text: 'Download',
+		});
+		downloadBtn.addEventListener('click', () => {
+			const ext = this.mediaType.split('/')[1] || 'png';
+			const a = document.createElement('a');
+			a.href = this.dataUri;
+			a.download = `attachment.${ext}`;
+			a.click();
+		});
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
 	}
 }

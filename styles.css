@@ -202,10 +202,12 @@
 }
 
 .agent-sessions-assistant-text code {
-	background: var(--background-primary);
-	padding: 1px 5px;
-	border-radius: 3px;
-	font-size: 0.92em;
+	background: var(--background-modifier-hover);
+	padding: 2px 6px;
+	border-radius: var(--radius-s);
+	border: 1px solid var(--background-modifier-border);
+	font-size: 0.9em;
+	color: var(--text-accent);
 }
 
 .agent-sessions-assistant-text pre code {
@@ -229,12 +231,13 @@
 .agent-sessions-collapsible-wrap.is-collapsed .agent-sessions-collapsible-fade {
 	display: block;
 	position: absolute;
-	bottom: 24px;
+	bottom: 44px;
 	left: 0;
 	right: 0;
-	height: 3em;
+	height: 4em;
 	background: linear-gradient(transparent, var(--background-primary));
 	pointer-events: none;
+	z-index: 1;
 }
 
 .agent-sessions-role-user .agent-sessions-collapsible-wrap.is-collapsed .agent-sessions-collapsible-fade {
@@ -246,21 +249,25 @@
 }
 
 .agent-sessions-collapsible-toggle {
-	display: inline-block;
-	font-size: 11px;
-	color: var(--interactive-accent);
+	display: block;
+	width: 100%;
+	text-align: center;
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
 	cursor: pointer;
-	padding: 2px 0;
+	padding: 8px 0;
 	user-select: none;
-	border: none;
-	background: none;
-	font-family: var(--font-monospace);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background: var(--background-secondary);
+	font-family: var(--font-ui);
 	min-height: 44px;
-	min-width: 44px;
+	position: relative;
+	z-index: 2;
 }
 
 .agent-sessions-collapsible-toggle:hover {
-	text-decoration: underline;
+	background: var(--background-modifier-hover);
 }
 
 /* ═══════════════════════════════════════════
@@ -351,8 +358,18 @@
 	background: var(--background-secondary);
 }
 
-.agent-sessions-tool-input pre,
-.agent-sessions-tool-result pre {
+.agent-sessions-tool-input pre {
+	margin: 0;
+	background: none;
+	border: none;
+	padding: 0;
+	overflow: visible;
+	font-size: inherit;
+	line-height: inherit;
+}
+
+/* Raw pre/code in tool results (non-MarkdownRenderer) */
+.agent-sessions-tool-result > pre {
 	margin: 0;
 	background: none;
 	border: none;
@@ -703,6 +720,127 @@
 	font-size: var(--font-ui-smaller);
 	color: var(--text-faint);
 	margin-left: auto;
+}
+
+/* ═══════════════════════════════════════════
+   Drop zone (file picker modal)
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-file-picker-modal .setting-item {
+	border-top: none !important;
+}
+
+.agent-sessions-drop-zone {
+	border: 2px dashed var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	padding: 28px 16px;
+	text-align: center;
+	cursor: pointer;
+	transition: border-color 0.2s, background 0.2s;
+	margin-bottom: 8px;
+}
+
+.agent-sessions-drop-zone:hover {
+	border-color: var(--interactive-accent);
+	background: rgba(var(--interactive-accent-rgb, 124, 108, 228), 0.06);
+}
+
+.agent-sessions-drop-zone.drag-over {
+	border-color: var(--interactive-accent);
+	background: rgba(var(--interactive-accent-rgb, 124, 108, 228), 0.12);
+}
+
+.agent-sessions-drop-zone-label {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.agent-sessions-drop-zone-browse {
+	color: var(--interactive-accent);
+	cursor: pointer;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.agent-sessions-drop-zone-browse:hover {
+	color: var(--interactive-accent-hover);
+}
+
+.agent-sessions-drop-zone-hint {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	margin-top: 6px;
+}
+
+.agent-sessions-drop-zone-divider {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin: 12px 0;
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+}
+
+.agent-sessions-drop-zone-divider::before,
+.agent-sessions-drop-zone-divider::after {
+	content: '';
+	flex: 1;
+	height: 1px;
+	background: var(--background-modifier-border);
+}
+
+/* ═══════════════════════════════════════════
+   Image attachments (thumbnails + preview modal)
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-image-thumbnail {
+	max-width: 200px;
+	max-height: 150px;
+	border-radius: var(--radius-s);
+	margin-top: 6px;
+	cursor: pointer;
+	border: 1px solid var(--background-modifier-border);
+	transition: border-color 0.2s, opacity 0.2s;
+	object-fit: cover;
+}
+
+.agent-sessions-image-thumbnail:hover {
+	border-color: var(--interactive-accent);
+	opacity: 0.85;
+}
+
+.agent-sessions-image-preview-modal {
+	width: 90vw;
+	max-width: 90vw;
+	height: 85vh;
+	max-height: 85vh;
+}
+
+.agent-sessions-image-preview-modal .modal-content {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	overflow: hidden;
+}
+
+.agent-sessions-image-preview-scroll {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	padding: 8px;
+}
+
+.agent-sessions-image-preview {
+	max-width: none;
+	max-height: none;
+	border-radius: var(--radius-m);
+}
+
+.agent-sessions-image-preview-actions {
+	display: flex;
+	justify-content: center;
+	padding: 12px 0 4px;
+	flex-shrink: 0;
 }
 
 /* Focus indicators for all interactive elements */

@@ -64,7 +64,7 @@ export class ReplayView extends ItemView {
 		contentEl.addClass('agent-sessions-replay-container');
 
 		// Timeline area (scrollable)
-		this.timelineEl = contentEl.createDiv({ cls: 'agent-sessions-timeline' });
+		this.timelineEl = contentEl.createDiv({ cls: 'agent-sessions-timeline markdown-rendered' });
 		this.renderer = new ReplayRenderer(this.timelineEl, this.app, this, this.settings);
 
 		// Controls bar (fixed at bottom)

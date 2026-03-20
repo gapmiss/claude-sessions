@@ -1,7 +1,7 @@
 import { BaseParser } from './base-parser';
 import {
 	Session, Turn, ContentBlock, TextBlock, ThinkingBlock,
-	ToolUseBlock, ToolResultBlock,
+	ToolUseBlock, ToolResultBlock, ImageBlock,
 } from '../types';
 import { extractProjectName, dirname } from '../utils/path-utils';
 
@@ -15,6 +15,7 @@ interface ClaudeRecord {
 	gitBranch?: string;
 	timestamp?: string;
 	isSidechain?: boolean;
+	isMeta?: boolean;
 	message?: {
 		role?: string;
 		content?: string | ClaudeContentBlock[];
@@ -32,6 +33,11 @@ interface ClaudeContentBlock {
 	tool_use_id?: string;
 	content?: string | ToolResultContent[];
 	is_error?: boolean;
+	source?: {
+		type?: string;
+		media_type?: string;
+		data?: string;
+	};
 }
 
 interface ToolResultContent {
@@ -80,6 +86,7 @@ export class ClaudeParser extends BaseParser {
 			if (!record) continue;
 			if (SKIP_TYPES.has(record.type)) continue;
 			if (record.isSidechain) continue;
+			if (record.isMeta) continue;
 
 			if (record.sessionId && !sessionId) sessionId = record.sessionId;
 			if (record.cwd && !cwd) cwd = record.cwd;
@@ -175,9 +182,9 @@ export class ClaudeParser extends BaseParser {
 					}
 				}
 
-				// Check if this user record has actual user text content
-				const hasText = typeof record.message?.content === 'string' && record.message.content.trim().length > 0;
-				if (hasText) {
+				// Check if this user record has actual user content (text and/or images)
+				const userBlocks = this.extractUserContent(record);
+				if (userBlocks.length > 0) {
 					// Flush any pending assistant turn before the user turn
 					flushAssistant();
 					const ts = this.formatTimestamp(record.timestamp);
@@ -186,7 +193,7 @@ export class ClaudeParser extends BaseParser {
 						role: 'user',
 						timestamp: ts,
 						endTimestamp: ts,
-						contentBlocks: [{ type: 'text', text: record.message!.content as string }],
+						contentBlocks: userBlocks,
 					});
 				}
 			}
@@ -268,6 +275,37 @@ export class ClaudeParser extends BaseParser {
 			}
 		}
 		return results;
+	}
+
+	/** Extract user content blocks from a record, handling string, text, and image blocks. */
+	private extractUserContent(record: ClaudeRecord): ContentBlock[] {
+		const content = record.message?.content;
+		const timestamp = record.timestamp;
+		if (typeof content === 'string') {
+			// Strip image source reference lines (e.g. "[Image: source: /path/to/file.png]")
+			const cleaned = content.replace(/\[Image:\s*source:\s*.+?\]/gi, '').trim();
+			if (!cleaned) {
+				return [];
+			}
+			return [{ type: 'text', text: cleaned, timestamp } as TextBlock];
+		}
+		if (Array.isArray(content)) {
+			const blocks: ContentBlock[] = [];
+			for (const block of content as ClaudeContentBlock[]) {
+				if (block.type === 'text' && block.text?.trim()) {
+					blocks.push({ type: 'text', text: block.text, timestamp } as TextBlock);
+				} else if (block.type === 'image' && block.source?.data) {
+					blocks.push({
+						type: 'image',
+						mediaType: block.source.media_type ?? 'image/png',
+						data: block.source.data,
+						timestamp,
+					} as ImageBlock);
+				}
+			}
+			return blocks;
+		}
+		return [];
 	}
 
 	private findLastAssistantTurn(turns: Turn[]): Turn | null {
