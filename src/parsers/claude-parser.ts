@@ -1,7 +1,7 @@
 import { BaseParser } from './base-parser';
 import {
 	Session, Turn, ContentBlock, TextBlock, ThinkingBlock,
-	ToolUseBlock, ToolResultBlock, ImageBlock, HookEvent,
+	ToolUseBlock, ToolResultBlock, ImageBlock, HookEvent, SessionStats,
 } from '../types';
 import { extractProjectName, dirname } from '../utils/path-utils';
 
@@ -26,6 +26,12 @@ interface ClaudeRecord {
 		role?: string;
 		content?: string | ClaudeContentBlock[];
 		model?: string;
+		usage?: {
+			input_tokens?: number;
+			output_tokens?: number;
+			cache_read_input_tokens?: number;
+			cache_creation_input_tokens?: number;
+		};
 	};
 }
 
@@ -91,6 +97,9 @@ export class ClaudeParser extends BaseParser {
 		// Collect hook events by toolUseID
 		const hookMap = new Map<string, HookEvent[]>();
 
+		// Token usage per message ID (keep max of each field across streaming duplicates)
+		const usageByMsg = new Map<string, { inp: number; out: number; cr: number; cc: number }>();
+
 		// First pass: parse all records and extract metadata
 		for (const line of lines) {
 			const record = this.tryParseJson(line) as ClaudeRecord | null;
@@ -106,6 +115,21 @@ export class ClaudeParser extends BaseParser {
 					timestamp: record.timestamp,
 				});
 				hookMap.set(record.toolUseID, hooks);
+			}
+
+			// Track max token usage per message ID (streaming produces duplicates)
+			if (record.type === 'assistant' && record.message?.usage) {
+				const msgId = (record.message as Record<string, unknown>)['id'] as string | undefined;
+				if (msgId) {
+					const u = record.message.usage;
+					const prev = usageByMsg.get(msgId);
+					usageByMsg.set(msgId, {
+						inp: Math.max(prev?.inp ?? 0, u.input_tokens ?? 0),
+						out: Math.max(prev?.out ?? 0, u.output_tokens ?? 0),
+						cr: Math.max(prev?.cr ?? 0, u.cache_read_input_tokens ?? 0),
+						cc: Math.max(prev?.cc ?? 0, u.cache_creation_input_tokens ?? 0),
+					});
+				}
 			}
 
 			if (SKIP_TYPES.has(record.type)) continue;
@@ -239,6 +263,54 @@ export class ClaudeParser extends BaseParser {
 
 		const project = extractProjectName(dirname(filePath));
 
+		// Compute stats
+		const toolUseCounts: Record<string, number> = {};
+		let userTurns = 0;
+		let assistantTurns = 0;
+		for (const turn of turns) {
+			if (turn.role === 'user') userTurns++;
+			else assistantTurns++;
+			for (const block of turn.contentBlocks) {
+				if (block.type === 'tool_use') {
+					toolUseCounts[block.name] = (toolUseCounts[block.name] ?? 0) + 1;
+				}
+			}
+		}
+
+		// Duration from first to last timestamp
+		let durationMs = 0;
+		if (turns.length > 0) {
+			const first = turns[0].timestamp;
+			const lastTurn = turns[turns.length - 1];
+			const last = lastTurn.endTimestamp ?? lastTurn.timestamp;
+			if (first && last) {
+				durationMs = new Date(last).getTime() - new Date(first).getTime();
+			}
+		}
+
+		// Sum token usage across all unique messages
+		let totalInputTokens = 0;
+		let totalOutputTokens = 0;
+		let totalCacheReadTokens = 0;
+		let totalCacheCreationTokens = 0;
+		for (const u of usageByMsg.values()) {
+			totalInputTokens += u.inp;
+			totalOutputTokens += u.out;
+			totalCacheReadTokens += u.cr;
+			totalCacheCreationTokens += u.cc;
+		}
+
+		const stats: SessionStats = {
+			userTurns,
+			assistantTurns,
+			inputTokens: totalInputTokens,
+			outputTokens: totalOutputTokens,
+			cacheReadTokens: totalCacheReadTokens,
+			cacheCreationTokens: totalCacheCreationTokens,
+			toolUseCounts,
+			durationMs,
+		};
+
 		return {
 			metadata: {
 				id: sessionId || basename(filePath),
@@ -251,6 +323,7 @@ export class ClaudeParser extends BaseParser {
 				startTime: this.formatTimestamp(startTime),
 				totalTurns: turns.length,
 			},
+			stats,
 			turns,
 			rawPath: filePath,
 		};

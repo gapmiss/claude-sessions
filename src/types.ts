@@ -14,8 +14,20 @@ export interface SessionMetadata {
 	totalTurns: number;
 }
 
+export interface SessionStats {
+	userTurns: number;
+	assistantTurns: number;
+	inputTokens: number;
+	outputTokens: number;
+	cacheReadTokens: number;
+	cacheCreationTokens: number;
+	toolUseCounts: Record<string, number>;
+	durationMs: number;
+}
+
 export interface Session {
 	metadata: SessionMetadata;
+	stats: SessionStats;
 	turns: Turn[];
 	rawPath: string;
 }

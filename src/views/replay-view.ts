@@ -598,8 +598,8 @@ export class ReplayView extends ItemView {
 			return;
 		}
 
-		// Render all turns into the timeline
-		this.renderer.renderTimeline(this.session.turns, this.sessionStartMs);
+		// Render all turns into the timeline (includes summary panel)
+		this.renderer.renderTimeline(this.session.turns, this.sessionStartMs, this.session);
 
 		// Set up IntersectionObserver for scroll-based opacity
 		this.setupScrollObserver();

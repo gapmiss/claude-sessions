@@ -34,6 +34,12 @@ export class CursorParser extends BaseParser {
 				cwd: '',
 				totalTurns: 0,
 			},
+			stats: {
+				userTurns: 0, assistantTurns: 0,
+				inputTokens: 0, outputTokens: 0,
+				cacheReadTokens: 0, cacheCreationTokens: 0,
+				toolUseCounts: {}, durationMs: 0,
+			},
 			turns: [],
 			rawPath: filePath,
 		};

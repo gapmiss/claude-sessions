@@ -83,6 +83,13 @@ export class CodexParser extends BaseParser {
 				startTime: this.formatTimestamp(startTime),
 				totalTurns: turns.length,
 			},
+			stats: {
+				userTurns: turns.filter(t => t.role === 'user').length,
+				assistantTurns: turns.filter(t => t.role === 'assistant').length,
+				inputTokens: 0, outputTokens: 0,
+				cacheReadTokens: 0, cacheCreationTokens: 0,
+				toolUseCounts: {}, durationMs: 0,
+			},
 			turns,
 			rawPath: filePath,
 		};

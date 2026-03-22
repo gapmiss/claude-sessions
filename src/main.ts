@@ -6,6 +6,9 @@ import { SessionBrowserModal, scanSessionDirs } from './views/session-browser-mo
 import { FilePickerModal } from './views/file-picker-modal';
 import { exportToMarkdown } from './exporters/markdown-exporter';
 import { exportToHtml } from './exporters/html-exporter';
+import { listDirectory, listSubdirectories, readFileContent } from './utils/streaming-reader';
+import { detectParser } from './parsers/detect';
+import { expandHome } from './utils/path-utils';
 
 export default class AgentSessionsPlugin extends Plugin {
 	settings: PluginSettings = DEFAULT_SETTINGS;
@@ -80,6 +83,33 @@ export default class AgentSessionsPlugin extends Plugin {
 				if (view) view.prevTurn();
 			},
 		});
+		// Protocol handler: obsidian://agent-sessions?session=/path/to/session.jsonl
+		this.registerObsidianProtocolHandler('agent-sessions', async (params) => {
+			const sessionPath = (params as Record<string, string>)['session'];
+			if (!sessionPath) {
+				new Notice('Missing session parameter in URI.');
+				return;
+			}
+			await this.openSessionByPath(sessionPath);
+		});
+	}
+
+	async openSessionByPath(sessionPath: string): Promise<void> {
+		try {
+			const filePath = expandHome(sessionPath);
+			new Notice('Loading session...');
+			const content = await readFileContent(filePath);
+			const parser = detectParser(content);
+			if (!parser) {
+				new Notice('Could not detect session format.');
+				return;
+			}
+			const session = parser.parse(content, filePath);
+			await this.openSession(session);
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : String(e);
+			new Notice(`Failed to load session: ${msg}`);
+		}
 	}
 
 	async onunload(): Promise<void> {

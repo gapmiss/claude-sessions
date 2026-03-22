@@ -121,7 +121,8 @@ export class FilePickerModal extends Modal {
 			return this.importFile(electronPath);
 		}
 
-		// Fallback: read via FileReader (e.g. if path isn't available)
+		// Fallback: read content directly (e.g. mobile or path unavailable).
+		// Try to resolve the full path from session metadata + configured dirs.
 		try {
 			new Notice('Reading file...');
 			const content = await file.text();
@@ -132,7 +133,9 @@ export class FilePickerModal extends Modal {
 				return;
 			}
 
-			const session = parser.parse(content, file.name);
+			// Attempt to find the full path by searching session directories
+			const fullPath = await this.resolveSessionPath(file.name) ?? file.name;
+			const session = parser.parse(content, fullPath);
 			new Notice(`Loaded session with ${session.turns.length} turns.`);
 			this.close();
 			await this.plugin.openSession(session);
@@ -140,6 +143,29 @@ export class FilePickerModal extends Modal {
 			const msg = e instanceof Error ? e.message : String(e);
 			new Notice(`Import failed: ${msg}`);
 		}
+	}
+
+	/** Search configured session directories for a file by name. */
+	private async resolveSessionPath(fileName: string): Promise<string | null> {
+		if (!Platform.isDesktop) return null;
+		const fs = require('fs') as typeof import('fs');
+		const path = require('path') as typeof import('path');
+		for (const dir of this.plugin.settings.sessionDirs) {
+			const expanded = expandHome(dir);
+			try {
+				const subdirs = fs.readdirSync(expanded, { withFileTypes: true });
+				for (const entry of subdirs) {
+					if (entry.isDirectory()) {
+						const candidate = path.join(expanded, entry.name, fileName);
+						if (fs.existsSync(candidate)) return candidate;
+					}
+				}
+				// Also check root of session dir
+				const rootCandidate = path.join(expanded, fileName);
+				if (fs.existsSync(rootCandidate)) return rootCandidate;
+			} catch { /* skip inaccessible dirs */ }
+		}
+		return null;
 	}
 
 	private async importFile(rawPath: string): Promise<void> {

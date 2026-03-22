@@ -85,6 +85,147 @@
 }
 
 /* ═══════════════════════════════════════════
+   Session summary panel
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-summary {
+	margin: 8px 12px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	overflow: hidden;
+}
+
+.agent-sessions-summary-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 12px;
+	cursor: pointer;
+	user-select: none;
+}
+
+.agent-sessions-summary-header:hover {
+	background: var(--background-modifier-hover);
+}
+
+.agent-sessions-summary-chevron {
+	font-size: 10px;
+	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+.agent-sessions-summary-icon {
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+}
+
+.agent-sessions-summary-icon .svg-icon {
+	width: 14px;
+	height: 14px;
+}
+
+.agent-sessions-summary-title {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.agent-sessions-summary-inline {
+	font-size: 11px;
+	color: var(--text-faint);
+	margin-left: 4px;
+}
+
+.agent-sessions-summary-inline::before {
+	content: '\b7';
+	margin-right: 4px;
+}
+
+.agent-sessions-summary-body {
+	display: none;
+	padding: 4px 16px 12px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.agent-sessions-summary.open .agent-sessions-summary-body {
+	display: block;
+}
+
+.agent-sessions-summary-section {
+	margin-top: 10px;
+}
+
+.agent-sessions-summary-section:first-child {
+	margin-top: 4px;
+}
+
+.agent-sessions-summary-label {
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--text-muted);
+	margin-bottom: 4px;
+	font-weight: 600;
+}
+
+.agent-sessions-summary-id-row {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	flex-wrap: wrap;
+}
+
+.agent-sessions-summary-value {
+	font-size: 12px;
+	color: var(--text-normal);
+	word-break: break-all;
+}
+
+.agent-sessions-summary-mono {
+	font-family: var(--font-monospace);
+	font-size: 11px;
+}
+
+.agent-sessions-summary-copy {
+	background: none;
+	border: none;
+	color: var(--text-faint);
+	cursor: pointer;
+	padding: 2px 4px;
+	border-radius: var(--radius-s);
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+.agent-sessions-summary-copy:hover {
+	color: var(--text-muted);
+	background: var(--background-modifier-hover);
+}
+
+.agent-sessions-summary-copy .svg-icon {
+	width: 12px;
+	height: 12px;
+}
+
+.agent-sessions-summary-grid {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 2px 12px;
+	font-size: 12px;
+}
+
+.agent-sessions-summary-grid-label {
+	color: var(--text-muted);
+}
+
+.agent-sessions-summary-grid-value {
+	color: var(--text-normal);
+}
+
+/* ═══════════════════════════════════════════
    Turn header bar
    ═══════════════════════════════════════════ */
 
