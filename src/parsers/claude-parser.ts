@@ -398,29 +398,30 @@ export class ClaudeParser extends BaseParser {
 		const timestamp = record.timestamp;
 		if (typeof content === 'string') {
 			// Consolidate /exit command sequences into a single subtle message
-			if (/<command-name>\/exit<\/command-name>/.test(content)) {
+			// Anchored to ^ so tags embedded in user text (e.g. pasted JSON) don't match
+			if (/^<command-name>\/exit<\/command-name>/.test(content)) {
 				this.pendingCommand = null;
 				return [{ type: 'text', text: '*Session ended*', timestamp } as TextBlock];
 			}
 			// Detect slash commands that produce ANSI output
-			const cmdMatch = content.match(/<command-name>(\/\w+)<\/command-name>/);
+			const cmdMatch = content.match(/^<command-name>(\/\w+)<\/command-name>/);
 			if (cmdMatch && ClaudeParser.ANSI_COMMANDS.has(cmdMatch[1])) {
 				this.pendingCommand = cmdMatch[1];
 				return [{ type: 'text', text: cmdMatch[1], timestamp } as TextBlock];
 			}
 			// Capture ANSI output from local command stdout when a pending command is active
-			if (/<local-command-stdout>/.test(content) && this.pendingCommand) {
+			if (/^<local-command-stdout>/.test(content) && this.pendingCommand) {
 				const label = this.pendingCommand;
 				this.pendingCommand = null;
 				const stdout = content.replace(/<\/?local-command-stdout>/g, '');
 				return [{ type: 'ansi', label, text: stdout, timestamp } as AnsiBlock];
 			}
 			// Skip local command output that follows /exit (e.g. "Goodbye!")
-			if (/<local-command-stdout>/.test(content)) {
+			if (/^<local-command-stdout>/.test(content)) {
 				return [];
 			}
 			// Skip local command caveats (usually also filtered by isMeta)
-			if (/<local-command-caveat>/.test(content)) {
+			if (/^<local-command-caveat>/.test(content)) {
 				return [];
 			}
 			// Strip image source reference lines (e.g. "[Image: source: /path/to/file.png]")

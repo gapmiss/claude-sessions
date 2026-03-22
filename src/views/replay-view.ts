@@ -374,7 +374,7 @@ export class ReplayView extends ItemView {
 	/** Map a progress bar percentage to a turn index (equally spaced). */
 	private turnFromPct(pct: number): number {
 		if (!this.session || this.session.turns.length === 0) return 0;
-		return Math.round(pct * (this.session.turns.length - 1));
+		return Math.min(Math.floor(pct * this.session.turns.length), this.session.turns.length - 1);
 	}
 
 	private formatTime(ms: number): string {
@@ -498,17 +498,18 @@ export class ReplayView extends ItemView {
 		}
 	}
 
-	// Turn dots on progress bar — equally spaced for easy clicking
+	// Turn separator dots on progress bar — placed at boundaries between turns
 	private renderTurnDots(): void {
 		if (!this.session || !this.progressBar) return;
 		this.progressBar.querySelectorAll('.agent-sessions-turn-dot').forEach(d => d.remove());
 
 		const total = this.session.turns.length;
-		if (total === 0) return;
+		if (total <= 1) return;
 
-		for (let i = 0; i < total; i++) {
+		// N turns → N-1 separator dots at 1/N, 2/N, ..., (N-1)/N
+		for (let i = 1; i < total; i++) {
 			const dot = this.progressBar.createDiv({ cls: 'agent-sessions-turn-dot' });
-			const pct = total > 1 ? (i / (total - 1)) * 100 : 0;
+			const pct = (i / total) * 100;
 			dot.style.left = `${pct}%`;
 			dot.dataset.turnIndex = String(i);
 		}
@@ -733,8 +734,8 @@ export class ReplayView extends ItemView {
 			}
 		}
 
-		if (this.progressFill && total > 1) {
-			const pct = (this.activeTurnIndex / (total - 1)) * 100;
+		if (this.progressFill && total > 0) {
+			const pct = ((this.activeTurnIndex + 1) / total) * 100;
 			this.progressFill.style.width = `${pct}%`;
 		}
 
