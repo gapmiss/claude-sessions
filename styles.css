@@ -902,6 +902,21 @@
 	color: var(--interactive-accent);
 }
 
+/* Watch button */
+.agent-sessions-watch-btn {
+	margin-left: 4px;
+}
+
+.agent-sessions-watch-btn.agent-sessions-watch-active {
+	color: var(--color-green);
+	animation: agent-sessions-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes agent-sessions-pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.4; }
+}
+
 /* Filtered (hidden) content */
 .agent-sessions-filtered {
 	display: none;

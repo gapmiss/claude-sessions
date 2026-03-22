@@ -1,6 +1,8 @@
-import { ItemView, Menu, WorkspaceLeaf } from 'obsidian';
+import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon } from 'obsidian';
 import { Session, ContentBlock, PluginSettings } from '../types';
 import { ReplayRenderer } from './replay-renderer';
+import { readFileContent } from '../utils/streaming-reader';
+import { detectParser } from '../parsers/detect';
 
 export const VIEW_TYPE_REPLAY = 'agent-sessions-replay';
 
@@ -51,6 +53,13 @@ export class ReplayView extends ItemView {
 	// Segment-level timing (flat across all turns)
 	private segmentMs: number[] = [];
 	private segmentStartIdx: number[] = []; // first flat index per turn
+
+	// File watcher
+	private watcher: import('fs').FSWatcher | null = null;
+	private debounceTimer: number | null = null;
+	private isWatching = false;
+	private isFollowing = true;
+	private watchBtn: HTMLButtonElement | null = null;
 
 	// Content filters
 	private filters: FilterState = {
@@ -106,6 +115,7 @@ export class ReplayView extends ItemView {
 	}
 
 	async onClose(): Promise<void> {
+		this.stopWatching();
 		this.stopPlayback();
 		this.destroyObserver();
 	}
@@ -118,12 +128,26 @@ export class ReplayView extends ItemView {
 	}
 
 	async setState(state: ReplayViewState): Promise<void> {
+		if (state.sessionPath && !this.session) {
+			try {
+				const content = await readFileContent(state.sessionPath);
+				const parser = detectParser(content);
+				if (parser) {
+					this.loadSession(parser.parse(content, state.sessionPath));
+				}
+			} catch {
+				// File may have been moved/deleted since last workspace save
+			}
+		}
 		if (state.turnIndex !== undefined && this.session) {
 			this.scrollToTurn(state.turnIndex);
 		}
 	}
 
-	loadSession(session: Session): void {
+	loadSession(session: Session, opts?: { preserveScroll?: boolean }): void {
+		const prevScrollTop = this.timelineEl?.scrollTop ?? 0;
+		const prevTurnIndex = this.activeTurnIndex;
+
 		this.session = session;
 		this.playIndex = 0;
 		this.activeTurnIndex = 0;
@@ -142,6 +166,17 @@ export class ReplayView extends ItemView {
 		this.renderSegmentDots();
 		this.syncTimer();
 		this.updateControls();
+
+		if (opts?.preserveScroll && this.timelineEl) {
+			if (this.isFollowing) {
+				// Scroll to the last turn
+				this.scrollToTurn(session.turns.length - 1);
+			} else {
+				// Restore previous scroll position
+				this.activeTurnIndex = Math.min(prevTurnIndex, session.turns.length - 1);
+				this.timelineEl.scrollTop = prevScrollTop;
+			}
+		}
 	}
 
 	updateSettings(settings: PluginSettings): void {
@@ -160,6 +195,107 @@ export class ReplayView extends ItemView {
 
 	getSession(): Session | null {
 		return this.session;
+	}
+
+	async reloadSession(): Promise<void> {
+		const filePath = this.session?.rawPath;
+		if (!filePath) {
+			new Notice('No session file path to reload from.');
+			return;
+		}
+		try {
+			const content = await readFileContent(filePath);
+			const parser = detectParser(content);
+			if (!parser) {
+				new Notice('Could not detect session format on reload.');
+				return;
+			}
+			this.loadSession(parser.parse(content, filePath), { preserveScroll: true });
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : String(e);
+			new Notice(`Failed to reload session: ${msg}`);
+			this.stopWatching();
+		}
+	}
+
+	toggleWatch(): void {
+		if (this.isWatching) {
+			this.stopWatching();
+		} else {
+			this.startWatching();
+		}
+	}
+
+	stopWatching(): void {
+		if (this.debounceTimer !== null) {
+			window.clearTimeout(this.debounceTimer);
+			this.debounceTimer = null;
+		}
+		if (this.watcher) {
+			this.watcher.close();
+			this.watcher = null;
+		}
+		this.isWatching = false;
+		this.updateWatchIndicator();
+	}
+
+	private startWatching(): void {
+		const filePath = this.session?.rawPath;
+		if (!filePath) {
+			new Notice('No session file path to watch.');
+			return;
+		}
+
+		const fs = require('fs') as typeof import('fs');
+
+		const onChange = () => {
+			if (this.debounceTimer !== null) {
+				window.clearTimeout(this.debounceTimer);
+			}
+			this.debounceTimer = window.setTimeout(() => {
+				this.debounceTimer = null;
+				this.reloadSession();
+			}, 1500);
+		};
+
+		try {
+			this.watcher = fs.watch(filePath, { persistent: false }, (eventType: string) => {
+				if (eventType === 'change') onChange();
+			});
+			this.watcher.on('error', () => {
+				new Notice('Session file watcher error — stopping.');
+				this.stopWatching();
+			});
+		} catch {
+			// fs.watch unavailable — fall back to polling
+			try {
+				fs.watchFile(filePath, { interval: 2000, persistent: false }, (curr, prev) => {
+					if (curr.mtimeMs !== prev.mtimeMs) onChange();
+				});
+				// Store a pseudo-watcher for cleanup
+				this.watcher = {
+					close: () => fs.unwatchFile(filePath),
+					on: () => this,
+				} as unknown as import('fs').FSWatcher;
+			} catch {
+				new Notice('Could not watch session file.');
+				return;
+			}
+		}
+
+		this.isWatching = true;
+		this.updateWatchIndicator();
+	}
+
+	private updateWatchIndicator(): void {
+		if (!this.watchBtn) return;
+		if (this.isWatching) {
+			this.watchBtn.addClass('agent-sessions-watch-active');
+			this.watchBtn.setAttribute('aria-label', 'Stop live watch');
+		} else {
+			this.watchBtn.removeClass('agent-sessions-watch-active');
+			this.watchBtn.setAttribute('aria-label', 'Start live watch');
+		}
 	}
 
 	getSessionStartMs(): number {
@@ -628,6 +764,7 @@ export class ReplayView extends ItemView {
 				const atBottom = scrollEl
 					? scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight - 30
 					: false;
+				this.isFollowing = atBottom;
 
 				// If at bottom, use last visible turn; otherwise use topmost
 				let active = -1;
@@ -754,6 +891,14 @@ export class ReplayView extends ItemView {
 		filterBtn.addEventListener('click', (e: MouseEvent) => {
 			this.showFilterMenu(e);
 		});
+
+		// Watch button
+		this.watchBtn = row.createEl('button', {
+			cls: 'agent-sessions-ctrl-btn agent-sessions-watch-btn',
+			attr: { 'aria-label': 'Start live watch', 'data-tooltip-position': 'top' },
+		});
+		setIcon(this.watchBtn, 'radio');
+		this.watchBtn.addEventListener('click', () => this.toggleWatch());
 
 		// Progress bar
 		const progressWrap = container.createDiv({ cls: 'agent-sessions-progress-wrap' });

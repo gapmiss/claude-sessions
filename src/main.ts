@@ -83,11 +83,29 @@ export default class AgentSessionsPlugin extends Plugin {
 				if (view) view.prevTurn();
 			},
 		});
+		this.addCommand({
+			id: 'refresh-session',
+			name: 'Refresh session',
+			callback: async () => {
+				const view = this.getActiveReplayView();
+				if (view) await view.reloadSession();
+			},
+		});
+
+		this.addCommand({
+			id: 'toggle-live-watch',
+			name: 'Toggle live watch',
+			callback: () => {
+				const view = this.getActiveReplayView();
+				if (view) view.toggleWatch();
+			},
+		});
+
 		// Protocol handler: obsidian://agent-sessions?session=/path/to/session.jsonl
 		this.registerObsidianProtocolHandler('agent-sessions', async (params) => {
 			const sessionPath = (params as Record<string, string>)['session'];
 			if (!sessionPath) {
-				new Notice('Missing session parameter in URI.');
+				new Notice('Missing session parameter.');
 				return;
 			}
 			await this.openSessionByPath(sessionPath);
@@ -113,8 +131,13 @@ export default class AgentSessionsPlugin extends Plugin {
 	}
 
 	async onunload(): Promise<void> {
-		// Leaves are not detached here — Obsidian handles cleanup,
-		// and detaching resets leaf position on reload.
+		// Stop all active file watchers before plugin unloads
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_REPLAY);
+		for (const leaf of leaves) {
+			if (leaf.view instanceof ReplayView) {
+				leaf.view.stopWatching();
+			}
+		}
 	}
 
 	async loadSettings(): Promise<void> {
