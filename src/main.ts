@@ -9,12 +9,17 @@ import { exportToHtml } from './exporters/html-exporter';
 import { listDirectory, listSubdirectories, readFileContent } from './utils/streaming-reader';
 import { detectParser } from './parsers/detect';
 import { expandHome } from './utils/path-utils';
+import { SessionIndex } from './utils/session-index';
 
 export default class AgentSessionsPlugin extends Plugin {
 	settings: PluginSettings = DEFAULT_SETTINGS;
+	sessionIndex!: SessionIndex;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
+
+		const adapter = this.app.vault.adapter as unknown as { basePath: string };
+		this.sessionIndex = new SessionIndex(adapter.basePath, this.app.vault.configDir);
 
 		this.registerView(VIEW_TYPE_REPLAY, (leaf: WorkspaceLeaf) => {
 			return new ReplayView(leaf, this.settings);
@@ -27,13 +32,17 @@ export default class AgentSessionsPlugin extends Plugin {
 			name: 'Browse sessions',
 			callback: async () => {
 				new Notice('Scanning session directories...');
-				const entries = await scanSessionDirs(this);
-				if (entries.length === 0) {
+				const result = await scanSessionDirs(this);
+				if (result.entries.length === 0) {
 					new Notice('No sessions found. Check your session directories in settings.');
 					return;
 				}
-				new Notice(`Found ${entries.length} sessions.`);
-				new SessionBrowserModal(this.app, this, entries).open();
+				if (result.updated === result.total) {
+					new Notice(`Indexed ${result.total} sessions.`);
+				} else {
+					new Notice(`Found ${result.total} sessions (${result.updated} updated).`);
+				}
+				new SessionBrowserModal(this.app, this, result.entries).open();
 			},
 		});
 

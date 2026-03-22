@@ -63,6 +63,103 @@ async function readDesktop(
 	});
 }
 
+export interface QuickMetadata {
+	sessionId?: string;
+	cwd?: string;
+	startTime?: string;
+	hasContent: boolean;
+}
+
+/** Substrings that identify large/irrelevant record types — skip without parsing. */
+const SKIP_TYPE_STRINGS = [
+	'"type":"file-history-snapshot"',
+	'"type":"queue-operation"',
+	'"type":"progress"',
+];
+
+/**
+ * Read a JSONL file line-by-line and extract metadata from early records.
+ * Skips large record types by prefix check to avoid parsing multi-KB JSON.
+ * Stops once all fields are populated or after 100 lines. Desktop only.
+ */
+export async function extractQuickMetadataAsync(filePath: string): Promise<QuickMetadata> {
+	if (!Platform.isDesktop) return { hasContent: false };
+
+	const fs = require('fs') as typeof import('fs');
+	const readline = require('readline') as typeof import('readline');
+
+	const result: QuickMetadata = { hasContent: false };
+	const MAX_LINES = 100;
+	let lineCount = 0;
+
+	return new Promise((resolve) => {
+		const stream = fs.createReadStream(filePath, { encoding: 'utf-8' });
+		const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+
+		const cleanup = () => {
+			rl.close();
+			stream.destroy();
+		};
+
+		const isDone = () =>
+			result.sessionId !== undefined
+			&& result.cwd !== undefined
+			&& result.startTime !== undefined
+			&& result.hasContent;
+
+		rl.on('line', (line: string) => {
+			lineCount++;
+
+			if (lineCount > MAX_LINES) {
+				cleanup();
+				return;
+			}
+
+			const trimmed = line.trim();
+			if (!trimmed) return;
+
+			// Skip large record types without full parsing — check substring within first 200 chars
+			const head = trimmed.length > 200 ? trimmed.slice(0, 200) : trimmed;
+			for (const sub of SKIP_TYPE_STRINGS) {
+				if (head.includes(sub)) return;
+			}
+
+			try {
+				const record = JSON.parse(trimmed) as Record<string, unknown>;
+				const recordType = record['type'] as string | undefined;
+
+				if (recordType === 'user' || recordType === 'assistant') {
+					result.hasContent = true;
+				}
+
+				if (record['sessionId'] && !result.sessionId) {
+					result.sessionId = String(record['sessionId']);
+				}
+				if (record['cwd'] && !result.cwd) {
+					result.cwd = String(record['cwd']);
+				}
+				if (record['timestamp'] && !result.startTime) {
+					result.startTime = String(record['timestamp']);
+				}
+			} catch {
+				// Malformed JSON — skip
+			}
+
+			if (isDone()) {
+				cleanup();
+			}
+		});
+
+		rl.on('close', () => {
+			resolve(result);
+		});
+
+		stream.on('error', () => {
+			resolve(result);
+		});
+	});
+}
+
 /**
  * List files in a directory. Desktop only.
  */
@@ -78,7 +175,7 @@ export async function listDirectory(dirPath: string): Promise<string[]> {
 		const entries = fs.readdirSync(resolved, { withFileTypes: true });
 		return entries
 			.filter((e: { isFile(): boolean; name: string }) =>
-				e.isFile() && (e.name.endsWith('.jsonl') || e.name.endsWith('.json'))
+				e.isFile() && e.name.endsWith('.jsonl') && !e.name.startsWith('agent-')
 			)
 			.map((e: { name: string }) => path.join(resolved, e.name));
 	} catch {

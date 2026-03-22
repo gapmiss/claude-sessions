@@ -1,21 +1,28 @@
-import { App, FuzzySuggestModal, FuzzyMatch, Notice, Platform } from 'obsidian';
+import { App, SuggestModal, Notice, Platform } from 'obsidian';
 import type AgentSessionsPlugin from '../main';
 import { SessionListEntry } from '../types';
-import { expandHome, extractProjectName, basename } from '../utils/path-utils';
-import { listDirectory, listSubdirectories, readFileContent } from '../utils/streaming-reader';
+import { expandHome, extractProjectName, basename, shortenPath, projectFromCwd } from '../utils/path-utils';
+import { listDirectory, listSubdirectories, readFileContent, extractQuickMetadataAsync } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
 
 /**
  * Scan configured session directories and return entries.
+ * Uses a persistent cache — only new/modified files are re-read.
  * Must be called before opening the modal so items are available synchronously.
  */
-export async function scanSessionDirs(plugin: AgentSessionsPlugin): Promise<SessionListEntry[]> {
+export async function scanSessionDirs(plugin: AgentSessionsPlugin): Promise<{ entries: SessionListEntry[]; total: number; updated: number }> {
 	if (Platform.isMobile) {
 		new Notice('On mobile, session browsing is limited to vault files.');
-		return [];
+		return { entries: [], total: 0, updated: 0 };
 	}
 
+	const fs = require('fs') as typeof import('fs');
+	const index = plugin.sessionIndex;
+	index.load();
+
 	const entries: SessionListEntry[] = [];
+	const discoveredPaths = new Set<string>();
+	let updated = 0;
 
 	for (const dir of plugin.settings.sessionDirs) {
 		const expanded = expandHome(dir);
@@ -24,42 +31,93 @@ export async function scanSessionDirs(plugin: AgentSessionsPlugin): Promise<Sess
 			for (const subdir of subdirs) {
 				const files = await listDirectory(subdir);
 				for (const file of files) {
-					entries.push({
-						id: basename(file).replace(/\.\w+$/, ''),
-						project: extractProjectName(subdir),
-						format: guessFormat(file),
-						date: getFileDate(file),
-						path: file,
-					});
+					discoveredPaths.add(file);
+					const entry = await buildEntry(file, extractProjectName(subdir), fs, index);
+					if (entry) {
+						if (entry._updated) updated++;
+						entries.push(entry.entry);
+					}
 				}
 			}
 
 			const rootFiles = await listDirectory(expanded);
 			for (const file of rootFiles) {
-				entries.push({
-					id: basename(file).replace(/\.\w+$/, ''),
-					project: extractProjectName(expanded),
-					format: guessFormat(file),
-					date: getFileDate(file),
-					path: file,
-				});
+				discoveredPaths.add(file);
+				const entry = await buildEntry(file, extractProjectName(expanded), fs, index);
+				if (entry) {
+					if (entry._updated) updated++;
+					entries.push(entry.entry);
+				}
 			}
 		} catch {
 			// Directory doesn't exist or isn't readable
 		}
 	}
 
-	entries.sort((a, b) => {
-		if (!a.date && !b.date) return 0;
-		if (!a.date) return 1;
-		if (!b.date) return -1;
-		return b.date.localeCompare(a.date);
-	});
+	index.prune(discoveredPaths);
+	index.save();
 
-	return entries;
+	entries.sort((a, b) => b.mtime - a.mtime);
+
+	return { entries, total: entries.length, updated };
 }
 
-export class SessionBrowserModal extends FuzzySuggestModal<SessionListEntry> {
+/**
+ * Build a SessionListEntry from a file path using stat + cached/async metadata extraction.
+ * Returns null for unreadable files or empty sessions (no user/assistant records).
+ */
+async function buildEntry(
+	filePath: string,
+	fallbackProject: string,
+	fs: typeof import('fs'),
+	index: InstanceType<typeof import('../utils/session-index').SessionIndex>,
+): Promise<{ entry: SessionListEntry; _updated: boolean } | null> {
+	let mtime: number;
+	try {
+		const stat = fs.statSync(filePath);
+		mtime = stat.mtimeMs;
+	} catch {
+		return null;
+	}
+
+	let wasUpdated = false;
+	let cached = index.get(filePath, mtime);
+	if (!cached) {
+		const meta = await extractQuickMetadataAsync(filePath);
+		cached = {
+			sessionId: meta.sessionId,
+			cwd: meta.cwd,
+			startTime: meta.startTime,
+			hasContent: meta.hasContent,
+			mtime,
+		};
+		index.set(filePath, cached);
+		wasUpdated = true;
+	}
+
+	// Filter out empty sessions
+	if (!cached.hasContent) return null;
+
+	const project = cached.cwd ? projectFromCwd(cached.cwd) : fallbackProject;
+	const dateSource = cached.startTime ? new Date(cached.startTime) : new Date(mtime);
+	const date = formatSessionDate(dateSource);
+
+	return {
+		entry: {
+			id: cached.sessionId || basename(filePath).replace(/\.\w+$/, ''),
+			project,
+			format: guessFormat(filePath),
+			date,
+			path: filePath,
+			cwd: cached.cwd,
+			startTime: cached.startTime,
+			mtime,
+		},
+		_updated: wasUpdated,
+	};
+}
+
+export class SessionBrowserModal extends SuggestModal<SessionListEntry> {
 	private plugin: AgentSessionsPlugin;
 	private entries: SessionListEntry[];
 
@@ -70,36 +128,33 @@ export class SessionBrowserModal extends FuzzySuggestModal<SessionListEntry> {
 		this.setPlaceholder('Search sessions...');
 	}
 
-	getItems(): SessionListEntry[] {
-		return this.entries;
-	}
-
-	getItemText(item: SessionListEntry): string {
-		const parts = [item.project];
-		if (item.date) parts.push(item.date);
-		parts.push(`[${item.format}]`);
-		return parts.join(' \u2014 ');
-	}
-
-	renderSuggestion(item: FuzzyMatch<SessionListEntry>, el: HTMLElement): void {
-		super.renderSuggestion(item, el);
-		const entry = item.item;
-		const badge = el.createSpan({
-			cls: 'agent-sessions-suggestion-format',
-			text: entry.format,
+	getSuggestions(query: string): SessionListEntry[] {
+		if (!query) return this.entries;
+		const q = query.toLowerCase();
+		return this.entries.filter((e) => {
+			return e.project.toLowerCase().includes(q)
+				|| (e.cwd?.toLowerCase().includes(q) ?? false)
+				|| e.id.toLowerCase().includes(q);
 		});
-		el.appendChild(badge);
-
-		if (entry.date) {
-			const dateEl = el.createSpan({
-				cls: 'agent-sessions-suggestion-date',
-				text: entry.date,
-			});
-			el.appendChild(dateEl);
-		}
 	}
 
-	async onChooseItem(item: SessionListEntry): Promise<void> {
+	renderSuggestion(item: SessionListEntry, el: HTMLElement): void {
+		el.addClass('agent-sessions-suggestion-item');
+
+		const line1 = el.createDiv({ cls: 'agent-sessions-suggestion-line1' });
+		line1.createSpan({ cls: 'agent-sessions-suggestion-project', text: item.project });
+		if (item.date) {
+			line1.createSpan({ cls: 'agent-sessions-suggestion-date', text: item.date });
+		}
+
+		const line2 = el.createDiv({ cls: 'agent-sessions-suggestion-line2' });
+		const pathText = item.cwd ? shortenPath(item.cwd) : '';
+		const line2Left = pathText ? `${pathText} · ${item.id}` : item.id;
+		line2.createSpan({ cls: 'agent-sessions-suggestion-path', text: line2Left });
+		line2.createSpan({ cls: 'agent-sessions-suggestion-format', text: item.format });
+	}
+
+	async onChooseSuggestion(item: SessionListEntry): Promise<void> {
 		try {
 			new Notice('Loading session...');
 			const content = await readFileContent(item.path);
@@ -125,13 +180,34 @@ function guessFormat(filePath: string): 'claude' | 'cursor' | 'codex' {
 	return 'claude';
 }
 
-function getFileDate(filePath: string): string | undefined {
-	if (!Platform.isDesktop) return undefined;
-	try {
-		const fs = require('fs') as typeof import('fs');
-		const stat = fs.statSync(filePath);
-		return stat.mtime.toISOString().split('T')[0];
-	} catch {
-		return undefined;
+/**
+ * Format a date for compact display in the session browser.
+ * Today: "12:03", this week: "Mon 12:03", this year: "Mar 22, 12:03", older: "Mar 22, 2025"
+ */
+function formatSessionDate(d: Date): string {
+	const now = new Date();
+	const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+
+	// Today
+	if (d.toDateString() === now.toDateString()) {
+		return time;
 	}
+
+	// Within the last 7 days
+	const weekAgo = new Date(now);
+	weekAgo.setDate(weekAgo.getDate() - 7);
+	if (d > weekAgo) {
+		const day = d.toLocaleDateString(undefined, { weekday: 'short' });
+		return `${day} ${time}`;
+	}
+
+	const month = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+	// Same year
+	if (d.getFullYear() === now.getFullYear()) {
+		return `${month}, ${time}`;
+	}
+
+	// Older
+	return `${month}, ${d.getFullYear()}`;
 }

@@ -50,7 +50,10 @@ Working features:
 - "Show more" with fade gradient for long text blocks (10+ lines)
 - Collapsible turn headers with `#N` label and timestamp
 - Role sections with colored left borders (accent for USER, cyan for CLAUDE)
-- Session browser (FuzzySuggestModal) — scans dirs before opening for synchronous getItems()
+- **Cached session index** — persists metadata to `session-index.json`; only new/modified files re-read on browse
+- **Async line-by-line metadata extraction** — skips large record types (file-history-snapshot, queue-operation, progress) by prefix check; reads up to 100 lines
+- **Empty session filtering** — sessions with zero user/assistant records are hidden from the browser
+- Session browser (SuggestModal) — scans dirs before opening for synchronous getItems()
 - File picker modal with drag-and-drop, path input, and session directory path resolution fallback
 - Markdown export with frontmatter and Obsidian callouts
 - HTML export as self-contained replay file with embedded player
@@ -149,13 +152,14 @@ src/
   views/
     replay-view.ts                 # ItemView — scrollable timeline with IntersectionObserver
     replay-renderer.ts             # DOM rendering (summary, timeline, tool bars, diff view, collapsibles)
-    session-browser-modal.ts       # FuzzySuggestModal + scanSessionDirs() pre-scan
+    session-browser-modal.ts       # SuggestModal + scanSessionDirs() with cached index
     file-picker-modal.ts           # Import from arbitrary path (drag-and-drop, path input)
   exporters/
     markdown-exporter.ts           # Markdown with frontmatter & callouts
     html-exporter.ts               # Self-contained HTML replay
   utils/
     path-utils.ts                  # Home dir expansion, path helpers
+    session-index.ts               # Cached session metadata index (JSON on disk)
     streaming-reader.ts            # File reading (Node.js streams on desktop)
 styles.css                         # Scoped styles using Obsidian CSS variables
 eslint.config.mjs                  # ESLint flat config with eslint-plugin-obsidianmd
@@ -201,6 +205,8 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 - Hook progress records have `type: "progress"` with `data.type: "hook_progress"` — must be captured before the `SKIP_TYPES` filter discards all progress records.
 - Electron `File` objects from drag-and-drop have a `.path` property with the absolute filesystem path. When unavailable, search configured session directories by filename as fallback.
 - Obsidian protocol handler params arrive as `Record<string, string>` from the query string; paths with special characters need `encodeURIComponent`/`decodeURIComponent`.
+- Claude Code sessions often start with multiple 6KB+ `file-history-snapshot` records — reading only the first 2KB misses all metadata. Use line-by-line reading with prefix-skip for large record types instead.
+- Session index cache uses `mtime` as staleness key — fast stat() check avoids re-reading unchanged files. Store in `.obsidian/plugins/agent-sessions/session-index.json` via direct `fs` (desktop-only).
 
 ## Roadmap
 

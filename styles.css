@@ -984,19 +984,48 @@
 	color: var(--text-error);
 }
 
-/* Session browser modal */
+/* Session browser modal — two-line suggestion items */
+.agent-sessions-suggestion-item {
+	padding: var(--size-4-1) var(--size-4-2);
+}
+
+.agent-sessions-suggestion-line1,
+.agent-sessions-suggestion-line2 {
+	display: flex;
+	align-items: baseline;
+}
+
+.agent-sessions-suggestion-project {
+	font-weight: var(--font-semibold);
+	color: var(--text-normal);
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.agent-sessions-suggestion-date {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+.agent-sessions-suggestion-line2 {
+	margin-top: 2px;
+}
+
+.agent-sessions-suggestion-path {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+}
+
 .agent-sessions-suggestion-format {
 	font-size: var(--font-ui-smaller);
 	padding: 2px 6px;
 	border-radius: var(--radius-s);
 	background: var(--background-modifier-border);
 	color: var(--text-muted);
-	margin-left: var(--size-4-2);
-}
-
-.agent-sessions-suggestion-date {
-	font-size: var(--font-ui-smaller);
-	color: var(--text-faint);
 	margin-left: auto;
 }
 

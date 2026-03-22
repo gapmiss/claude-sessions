@@ -29,6 +29,25 @@ export function dirname(path: string): string {
 	return normalized.substring(0, lastSlash);
 }
 
+export function shortenPath(fullPath: string): string {
+	if (Platform.isDesktop) {
+		try {
+			const os = require('os') as { homedir(): string };
+			const home = os.homedir();
+			if (fullPath.startsWith(home)) {
+				return '~' + fullPath.slice(home.length);
+			}
+		} catch {
+			// Fall through
+		}
+	}
+	return fullPath;
+}
+
+export function projectFromCwd(cwd: string): string {
+	return basename(cwd) || 'unknown';
+}
+
 export function extractProjectName(dirPath: string): string {
 	const parts = dirPath.replace(/\\/g, '/').split('/').filter(Boolean);
 	// Claude projects dirs are encoded like -Users-gm-myproject

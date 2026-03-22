@@ -125,4 +125,20 @@ export interface SessionListEntry {
 	format: SessionFormat;
 	date?: string;
 	path: string;
+	cwd?: string;
+	startTime?: string;
+	mtime: number;
+}
+
+export interface CachedSessionMeta {
+	sessionId?: string;
+	cwd?: string;
+	startTime?: string;
+	hasContent: boolean;
+	mtime: number;
+}
+
+export interface SessionIndexData {
+	version: number;
+	entries: Record<string, CachedSessionMeta>;
 }
