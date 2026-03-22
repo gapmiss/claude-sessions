@@ -2,6 +2,7 @@ import { App, Modal, MarkdownRenderer, Component, setIcon } from 'obsidian';
 import { diffLines } from 'diff';
 import {
 	Turn, ContentBlock, ToolUseBlock, ToolResultBlock, AnsiBlock, PluginSettings, Session,
+	SubAgentSession,
 } from '../types';
 
 const COLLAPSE_THRESHOLD = 10; // lines before "Show more"
@@ -118,7 +119,7 @@ export class ReplayRenderer {
 
 		// Header (click to toggle)
 		const header = el.createDiv({ cls: 'agent-sessions-summary-header' });
-		const chevron = header.createSpan({ cls: 'agent-sessions-summary-chevron', text: '\u25B6' });
+		header.createSpan({ cls: 'agent-sessions-summary-chevron', text: '\u25B6' });
 		const icon = header.createSpan({ cls: 'agent-sessions-summary-icon' });
 		setIcon(icon, 'bar-chart-2');
 		header.createSpan({ cls: 'agent-sessions-summary-title', text: 'Session summary' });
@@ -143,9 +144,7 @@ export class ReplayRenderer {
 		const body = el.createDiv({ cls: 'agent-sessions-summary-body' });
 
 		header.addEventListener('click', () => {
-			const isOpen = el.hasClass('open');
-			el.toggleClass('open', !isOpen);
-			chevron.setText(isOpen ? '\u25B6' : '\u25BC');
+			el.toggleClass('open', !el.hasClass('open'));
 		});
 
 		// --- Session ID ---
@@ -283,7 +282,7 @@ export class ReplayRenderer {
 
 		// Turn header (collapsible)
 		const header = turnEl.createDiv({ cls: 'agent-sessions-turn-header' });
-		const chevron = header.createSpan({ cls: 'agent-sessions-turn-chevron', text: '\u25BC' });
+		header.createSpan({ cls: 'agent-sessions-turn-chevron', text: '\u25B6' });
 		header.createSpan({ cls: 'agent-sessions-turn-label', text: `#${turn.index + 1}` });
 
 		if (turn.timestamp) {
@@ -304,7 +303,6 @@ export class ReplayRenderer {
 
 		header.addEventListener('click', () => {
 			turnEl.toggleClass('collapsed', !turnEl.hasClass('collapsed'));
-			chevron.setText(turnEl.hasClass('collapsed') ? '\u25B6' : '\u25BC');
 		});
 
 		// Turn body
@@ -423,7 +421,7 @@ export class ReplayRenderer {
 			// Group them
 			const groupEl = container.createDiv({ cls: 'agent-sessions-tool-group' });
 			const groupHeader = groupEl.createDiv({ cls: 'agent-sessions-tool-group-header' });
-			const groupChevron = groupHeader.createSpan({ cls: 'agent-sessions-tool-group-chevron', text: '\u25B6' });
+			groupHeader.createSpan({ cls: 'agent-sessions-tool-group-chevron', text: '\u25B6' });
 
 			const uniqueNames = [...new Set(toolUses.map(t => t.name))].join(', ');
 			const hasError = toolResults.some(r => r.isError);
@@ -436,9 +434,7 @@ export class ReplayRenderer {
 			const groupBody = groupEl.createDiv({ cls: 'agent-sessions-tool-group-body' });
 
 			groupHeader.addEventListener('click', () => {
-				const isOpen = groupEl.hasClass('open');
-				groupEl.toggleClass('open', !isOpen);
-				groupChevron.setText(isOpen ? '\u25B6' : '\u25BC');
+				groupEl.toggleClass('open', !groupEl.hasClass('open'));
 			});
 
 			for (const tu of toolUses) {
@@ -466,13 +462,15 @@ export class ReplayRenderer {
 			});
 			setIcon(hookIcon, 'fish');
 		}
-		const chevron = header.createSpan({ cls: 'agent-sessions-tool-chevron', text: '\u25B6' });
+		header.createSpan({ cls: 'agent-sessions-tool-chevron', text: '\u25B6' });
 
 		// Body (hidden by default)
 		const body = toolEl.createDiv({ cls: 'agent-sessions-tool-body' });
 
 		// Input section
-		if (block.name === 'Edit' && block.input['old_string'] != null) {
+		if (block.name === 'Agent' && block.subAgentSession) {
+			this.renderSubAgentSession(block.subAgentSession, body);
+		} else if (block.name === 'Edit' && block.input['old_string'] != null) {
 			this.renderDiffView(block, result, body);
 		} else if (block.name === 'Write' && block.input['content'] != null) {
 			this.renderWriteView(block, result, body);
@@ -487,10 +485,11 @@ export class ReplayRenderer {
 			MarkdownRenderer.render(this.app, inputMd, inputMdContainer, '', this.component);
 		}
 
-		// Result section (skip for Edit/Write which render their own results)
+		// Result section (skip for Edit/Write/Agent which render their own results)
 		if (result && this.settings.showToolResults
 			&& !(block.name === 'Edit' && block.input['old_string'] != null)
-			&& !(block.name === 'Write' && block.input['content'] != null)) {
+			&& !(block.name === 'Write' && block.input['content'] != null)
+			&& !(block.name === 'Agent' && block.subAgentSession)) {
 			const resultEl = body.createDiv({
 				cls: `agent-sessions-tool-result ${isError ? 'agent-sessions-tool-result-error' : ''}`,
 			});
@@ -519,9 +518,7 @@ export class ReplayRenderer {
 		}
 
 		header.addEventListener('click', () => {
-			const isOpen = toolEl.hasClass('open');
-			toolEl.toggleClass('open', !isOpen);
-			chevron.setText(isOpen ? '\u25B6' : '\u25BC');
+			toolEl.toggleClass('open', !toolEl.hasClass('open'));
 		});
 	}
 
@@ -537,6 +534,38 @@ export class ReplayRenderer {
 		const md = fence(command, 'bash');
 		const mdContainer = inputEl.createDiv({ cls: 'agent-sessions-tool-input-code' });
 		MarkdownRenderer.render(this.app, md, mdContainer, '', this.component);
+	}
+
+	private renderSubAgentSession(session: SubAgentSession, container: HTMLElement): void {
+		const timeline = container.createDiv({ cls: 'agent-sessions-subagent-timeline' });
+
+		// Header with prompt (collapsible)
+		const promptSection = timeline.createDiv({ cls: 'agent-sessions-subagent-prompt' });
+		const promptHeader = promptSection.createDiv({ cls: 'agent-sessions-subagent-prompt-header' });
+		promptHeader.createSpan({ cls: 'agent-sessions-subagent-prompt-chevron', text: '\u25B6' });
+		promptHeader.createSpan({ cls: 'agent-sessions-tool-section-label', text: 'PROMPT' });
+		const promptBody = promptSection.createDiv({ cls: 'agent-sessions-subagent-prompt-body' });
+		this.renderTextContent(session.prompt, promptBody, 'agent-sessions-user-text');
+		promptHeader.addEventListener('click', () => {
+			promptSection.toggleClass('open', !promptSection.hasClass('open'));
+		});
+
+		// Render sub-agent turns
+		for (const turn of session.turns) {
+			const turnEl = timeline.createDiv({ cls: 'agent-sessions-subagent-turn' });
+
+			if (turn.role === 'user') {
+				// Sub-agent user turns are tool results — skip rendering them
+				// (they're already attached to the preceding assistant turn)
+				continue;
+			}
+
+			// Assistant blocks
+			const blocks = turn.contentBlocks;
+			if (blocks.length > 0) {
+				this.renderAssistantBlocks(blocks, turnEl);
+			}
+		}
 	}
 
 	/** Check if a Bash tool result looks like diff/patch output. */
@@ -621,7 +650,7 @@ export class ReplayRenderer {
 		if (isRedacted) {
 			header.createSpan({ cls: 'agent-sessions-thinking-redacted', text: 'content encrypted' });
 		}
-		const chevron = header.createSpan({ cls: 'agent-sessions-thinking-chevron', text: '\u25B6' });
+		header.createSpan({ cls: 'agent-sessions-thinking-chevron', text: '\u25B6' });
 
 		// Body (collapsible)
 		const body = el.createDiv({ cls: 'agent-sessions-thinking-body' });
@@ -632,9 +661,7 @@ export class ReplayRenderer {
 		}
 
 		header.addEventListener('click', () => {
-			const isOpen = el.hasClass('open');
-			el.toggleClass('open', !isOpen);
-			chevron.setText(isOpen ? '\u25BC' : '\u25B6');
+			el.toggleClass('open', !el.hasClass('open'));
 		});
 	}
 
@@ -775,6 +802,10 @@ export class ReplayRenderer {
 				return (input['pattern'] || '') + (input['path'] ? ' in ' + input['path'] : '');
 			case 'Bash':
 				return String(input['command'] || '');
+			case 'Agent': {
+				const desc = String(input['description'] || '');
+				return desc.length > 60 ? desc.substring(0, 60) + '...' : desc;
+			}
 			default: {
 				const s = JSON.stringify(input);
 				return s.length > 60 ? s.substring(0, 60) + '...' : s;

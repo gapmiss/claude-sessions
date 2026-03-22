@@ -65,6 +65,15 @@ export interface ToolUseBlock {
 	input: Record<string, unknown>;
 	timestamp?: string;
 	hooks?: HookEvent[];
+	subAgentSession?: SubAgentSession;
+}
+
+export interface SubAgentSession {
+	agentId: string;
+	description?: string;
+	subagentType?: string;
+	prompt: string;
+	turns: Turn[];
 }
 
 export interface ToolResultBlock {

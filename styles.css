@@ -88,6 +88,11 @@
 	font-size: 10px;
 	color: var(--text-muted);
 	flex-shrink: 0;
+	transition: transform 0.2s;
+}
+
+.agent-sessions-summary.open .agent-sessions-summary-chevron {
+	transform: rotate(90deg);
 }
 
 .agent-sessions-summary-icon {
@@ -225,11 +230,12 @@
 
 .agent-sessions-turn-chevron {
 	font-size: 10px;
+	transform: rotate(90deg);
 	transition: transform 0.2s;
 }
 
 .agent-sessions-turn.collapsed .agent-sessions-turn-chevron {
-	transform: rotate(-90deg);
+	transform: rotate(0deg);
 }
 
 .agent-sessions-turn-label {
@@ -486,17 +492,17 @@
 	flex-shrink: 0;
 }
 
-.agent-sessions-tool-block.open .agent-sessions-tool-chevron {
+.agent-sessions-tool-block.open > .agent-sessions-tool-header > .agent-sessions-tool-chevron {
 	transform: rotate(90deg);
 }
 
-/* Tool body (input + result) */
+/* Tool body (input + result) — direct child only to avoid leaking into nested sub-agent tools */
 .agent-sessions-tool-body {
 	display: none;
 	border-top: 1px solid var(--background-modifier-border);
 }
 
-.agent-sessions-tool-block.open .agent-sessions-tool-body {
+.agent-sessions-tool-block.open > .agent-sessions-tool-body {
 	display: block;
 }
 
@@ -683,7 +689,7 @@
 	transition: transform 0.2s;
 }
 
-.agent-sessions-tool-group.open .agent-sessions-tool-group-chevron {
+.agent-sessions-tool-group.open > .agent-sessions-tool-group-header > .agent-sessions-tool-group-chevron {
 	transform: rotate(90deg);
 }
 
@@ -700,11 +706,11 @@
 	display: none;
 }
 
-.agent-sessions-tool-group.open .agent-sessions-tool-group-body {
+.agent-sessions-tool-group.open > .agent-sessions-tool-group-body {
 	display: block;
 }
 
-.agent-sessions-tool-group.open .agent-sessions-tool-group-header {
+.agent-sessions-tool-group.open > .agent-sessions-tool-group-header {
 	border-radius: var(--radius-s) var(--radius-s) 0 0;
 	border-bottom: none;
 }
@@ -1118,6 +1124,54 @@
 	gap: 8px;
 	padding: 12px 0 4px;
 	flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════
+   Sub-agent timeline (nested within Agent tool body)
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-subagent-timeline {
+	border-left: 2px solid var(--color-orange);
+	margin: var(--size-4-2) 0;
+	padding-left: var(--size-4-3);
+}
+
+.agent-sessions-subagent-prompt {
+	margin-bottom: var(--size-4-2);
+}
+
+.agent-sessions-subagent-prompt-header {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	cursor: pointer;
+	user-select: none;
+	padding: var(--size-4-1) 0;
+}
+
+.agent-sessions-subagent-prompt-chevron {
+	font-size: 10px;
+	color: var(--text-muted);
+	width: 12px;
+	flex-shrink: 0;
+	transition: transform 0.2s;
+}
+
+.agent-sessions-subagent-prompt.open .agent-sessions-subagent-prompt-chevron {
+	transform: rotate(90deg);
+}
+
+.agent-sessions-subagent-prompt-body {
+	display: none;
+	padding: var(--size-4-2) 0;
+}
+
+.agent-sessions-subagent-prompt.open .agent-sessions-subagent-prompt-body {
+	display: block;
+}
+
+.agent-sessions-subagent-turn {
+	margin-bottom: var(--size-4-1);
 }
 
 /* Focus indicators for all interactive elements */

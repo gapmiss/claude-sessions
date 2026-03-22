@@ -2,11 +2,14 @@ import { BaseParser } from './base-parser';
 import {
 	Session, Turn, ContentBlock, TextBlock, ThinkingBlock,
 	ToolUseBlock, ToolResultBlock, ImageBlock, AnsiBlock, HookEvent, SessionStats,
+	SubAgentSession,
 } from '../types';
 import { extractProjectName, dirname } from '../utils/path-utils';
 
 interface ClaudeRecord {
 	type: string;
+	subtype?: string;
+	content?: string;
 	uuid?: string;
 	parentUuid?: string | null;
 	sessionId?: string;
@@ -17,10 +20,31 @@ interface ClaudeRecord {
 	isSidechain?: boolean;
 	isMeta?: boolean;
 	toolUseID?: string;
+	parentToolUseID?: string;
 	data?: {
 		type?: string;
 		hookEvent?: string;
 		hookName?: string;
+		// agent_progress fields
+		agentId?: string;
+		prompt?: string;
+		message?: {
+			type?: string;
+			uuid?: string;
+			timestamp?: string;
+			message?: {
+				role?: string;
+				model?: string;
+				id?: string;
+				content?: string | ClaudeContentBlock[];
+				usage?: {
+					input_tokens?: number;
+					output_tokens?: number;
+					cache_read_input_tokens?: number;
+					cache_creation_input_tokens?: number;
+				};
+			};
+		};
 	};
 	message?: {
 		role?: string;
@@ -97,6 +121,9 @@ export class ClaudeParser extends BaseParser {
 		// Collect hook events by toolUseID
 		const hookMap = new Map<string, HookEvent[]>();
 
+		// Collect sub-agent progress records by parentToolUseID
+		const agentProgressMap = new Map<string, ClaudeRecord[]>();
+
 		// Token usage per message ID (keep max of each field across streaming duplicates)
 		const usageByMsg = new Map<string, { inp: number; out: number; cr: number; cc: number }>();
 
@@ -115,6 +142,14 @@ export class ClaudeParser extends BaseParser {
 					timestamp: record.timestamp,
 				});
 				hookMap.set(record.toolUseID, hooks);
+			}
+
+			// Capture agent_progress records for sub-agent rendering
+			if (record.type === 'progress' && record.data?.type === 'agent_progress'
+				&& record.parentToolUseID) {
+				const group = agentProgressMap.get(record.parentToolUseID) ?? [];
+				group.push(record);
+				agentProgressMap.set(record.parentToolUseID, group);
 			}
 
 			// Track max token usage per message ID (streaming produces duplicates)
@@ -164,91 +199,8 @@ export class ClaudeParser extends BaseParser {
 			}
 		}
 
-		// Second pass: build turns by merging consecutive same-role records.
-		// Claude streams assistant responses as multiple records (thinking, text, tool_use),
-		// each with its own uuid. These should form a single assistant turn.
-		// User records containing only tool_result blocks should have those results
-		// attached to the preceding assistant turn (not become separate user turns).
-		const turns: Turn[] = [];
-		const toolUseNames = new Map<string, string>();
-
-		let currentAssistantTurn: Turn | null = null;
-
-		const flushAssistant = () => {
-			if (currentAssistantTurn && currentAssistantTurn.contentBlocks.length > 0) {
-				currentAssistantTurn.index = turns.length;
-				turns.push(currentAssistantTurn);
-			}
-			currentAssistantTurn = null;
-		};
-
-		for (const record of ordered) {
-			if (record.type === 'assistant') {
-				// Merge into current assistant turn, or start a new one
-				const blocks = this.parseAssistantBlocks(record, toolUseNames);
-				if (blocks.length === 0) continue;
-
-				if (!currentAssistantTurn) {
-					currentAssistantTurn = {
-						index: 0,
-						role: 'assistant',
-						timestamp: this.formatTimestamp(record.timestamp),
-						endTimestamp: this.formatTimestamp(record.timestamp),
-						contentBlocks: [],
-					};
-				}
-				// Always update endTimestamp with the latest record
-				if (record.timestamp) {
-					currentAssistantTurn.endTimestamp = this.formatTimestamp(record.timestamp);
-				}
-				for (const b of blocks) {
-					currentAssistantTurn.contentBlocks.push(b);
-				}
-			} else if (record.type === 'user') {
-				// Check for tool_result blocks
-				const toolResults = this.extractToolResultBlocks(record, toolUseNames);
-
-				if (toolResults.length > 0 && currentAssistantTurn) {
-					// Attach results to the current (not-yet-flushed) assistant turn
-					for (const result of toolResults) {
-						currentAssistantTurn.contentBlocks.push(result);
-					}
-					// Update endTimestamp — tool results complete after the tool_use
-					if (record.timestamp) {
-						currentAssistantTurn.endTimestamp = this.formatTimestamp(record.timestamp);
-					}
-				} else if (toolResults.length > 0) {
-					// No current assistant turn — attach to the last one in the list
-					const lastAssistant = this.findLastAssistantTurn(turns);
-					if (lastAssistant) {
-						for (const result of toolResults) {
-							lastAssistant.contentBlocks.push(result);
-						}
-						if (record.timestamp) {
-							lastAssistant.endTimestamp = this.formatTimestamp(record.timestamp);
-						}
-					}
-				}
-
-				// Check if this user record has actual user content (text and/or images)
-				const userBlocks = this.extractUserContent(record);
-				if (userBlocks.length > 0) {
-					// Flush any pending assistant turn before the user turn
-					flushAssistant();
-					const ts = this.formatTimestamp(record.timestamp);
-					turns.push({
-						index: turns.length,
-						role: 'user',
-						timestamp: ts,
-						endTimestamp: ts,
-						contentBlocks: userBlocks,
-					});
-				}
-			}
-		}
-
-		// Flush any remaining assistant turn
-		flushAssistant();
+		// Second pass: build turns from deduplicated records
+		const turns = this.buildTurns(ordered);
 
 		// Attach hook events to their corresponding tool_use blocks
 		if (hookMap.size > 0) {
@@ -256,6 +208,19 @@ export class ClaudeParser extends BaseParser {
 				for (const block of turn.contentBlocks) {
 					if (block.type === 'tool_use' && hookMap.has(block.id)) {
 						block.hooks = hookMap.get(block.id);
+					}
+				}
+			}
+		}
+
+		// Attach sub-agent sessions to their corresponding Agent tool_use blocks
+		if (agentProgressMap.size > 0) {
+			for (const turn of turns) {
+				for (const block of turn.contentBlocks) {
+					if (block.type === 'tool_use' && block.name === 'Agent'
+						&& agentProgressMap.has(block.id)) {
+						const agentRecords = agentProgressMap.get(block.id)!;
+						block.subAgentSession = this.buildSubAgentSession(agentRecords, block);
 					}
 				}
 			}
@@ -329,6 +294,174 @@ export class ClaudeParser extends BaseParser {
 		};
 	}
 
+	/**
+	 * Build turns by merging consecutive same-role records.
+	 * Claude streams assistant responses as multiple records (thinking, text, tool_use),
+	 * each with its own uuid. These should form a single assistant turn.
+	 * User records containing only tool_result blocks should have those results
+	 * attached to the preceding assistant turn (not become separate user turns).
+	 */
+	private buildTurns(ordered: ClaudeRecord[]): Turn[] {
+		const turns: Turn[] = [];
+		const toolUseNames = new Map<string, string>();
+		let currentAssistantTurn: Turn | null = null;
+
+		const flushAssistant = () => {
+			if (currentAssistantTurn && currentAssistantTurn.contentBlocks.length > 0) {
+				currentAssistantTurn.index = turns.length;
+				turns.push(currentAssistantTurn);
+			}
+			currentAssistantTurn = null;
+		};
+
+		for (const record of ordered) {
+			// System records with local_command subtype (slash commands like /rename)
+			if (record.type === 'system' && record.subtype === 'local_command' && record.content) {
+				const blocks = this.extractSystemContent(record);
+				if (blocks.length > 0) {
+					flushAssistant();
+					const ts = this.formatTimestamp(record.timestamp);
+					turns.push({
+						index: turns.length,
+						role: 'user',
+						timestamp: ts,
+						endTimestamp: ts,
+						contentBlocks: blocks,
+					});
+				}
+				continue;
+			}
+
+			if (record.type === 'assistant') {
+				const blocks = this.parseAssistantBlocks(record, toolUseNames);
+				if (blocks.length === 0) continue;
+
+				if (!currentAssistantTurn) {
+					currentAssistantTurn = {
+						index: 0,
+						role: 'assistant',
+						timestamp: this.formatTimestamp(record.timestamp),
+						endTimestamp: this.formatTimestamp(record.timestamp),
+						contentBlocks: [],
+					};
+				}
+				if (record.timestamp) {
+					currentAssistantTurn.endTimestamp = this.formatTimestamp(record.timestamp);
+				}
+				for (const b of blocks) {
+					currentAssistantTurn.contentBlocks.push(b);
+				}
+			} else if (record.type === 'user') {
+				const toolResults = this.extractToolResultBlocks(record, toolUseNames);
+
+				if (toolResults.length > 0 && currentAssistantTurn) {
+					for (const result of toolResults) {
+						currentAssistantTurn.contentBlocks.push(result);
+					}
+					if (record.timestamp) {
+						currentAssistantTurn.endTimestamp = this.formatTimestamp(record.timestamp);
+					}
+				} else if (toolResults.length > 0) {
+					const lastAssistant = this.findLastAssistantTurn(turns);
+					if (lastAssistant) {
+						for (const result of toolResults) {
+							lastAssistant.contentBlocks.push(result);
+						}
+						if (record.timestamp) {
+							lastAssistant.endTimestamp = this.formatTimestamp(record.timestamp);
+						}
+					}
+				}
+
+				const userBlocks = this.extractUserContent(record);
+				if (userBlocks.length > 0) {
+					flushAssistant();
+					const ts = this.formatTimestamp(record.timestamp);
+					turns.push({
+						index: turns.length,
+						role: 'user',
+						timestamp: ts,
+						endTimestamp: ts,
+						contentBlocks: userBlocks,
+					});
+				}
+			}
+		}
+
+		flushAssistant();
+		return turns;
+	}
+
+	/**
+	 * Parse sub-agent progress records into a SubAgentSession.
+	 * Normalizes the nested agent_progress format into standard ClaudeRecords,
+	 * deduplicates by uuid, and builds turns using the same merging logic.
+	 */
+	private buildSubAgentSession(
+		agentRecords: ClaudeRecord[],
+		parentBlock: ToolUseBlock,
+	): SubAgentSession {
+		// Normalize agent_progress records into standard ClaudeRecord shape
+		const normalized: ClaudeRecord[] = [];
+		let agentId = '';
+		let prompt = '';
+
+		for (const record of agentRecords) {
+			const data = record.data;
+			if (!data?.message) continue;
+
+			if (data.agentId && !agentId) agentId = data.agentId;
+			if (data.prompt && !prompt) prompt = data.prompt;
+
+			const innerMsg = data.message;
+			const innerType = innerMsg.type; // 'user' or 'assistant'
+			if (!innerType) continue;
+
+			normalized.push({
+				type: innerType,
+				uuid: innerMsg.uuid,
+				timestamp: innerMsg.timestamp ?? record.timestamp,
+				message: innerMsg.message ? {
+					role: innerMsg.message.role,
+					content: innerMsg.message.content,
+					model: innerMsg.message.model,
+					usage: innerMsg.message.usage,
+				} : undefined,
+			});
+		}
+
+		// Deduplicate by uuid (same as main parse)
+		const byUuid = new Map<string, ClaudeRecord>();
+		const ordered: ClaudeRecord[] = [];
+		for (const record of normalized) {
+			if (record.uuid) {
+				if (byUuid.has(record.uuid)) {
+					const idx = ordered.indexOf(byUuid.get(record.uuid)!);
+					if (idx !== -1) ordered[idx] = record;
+				} else {
+					ordered.push(record);
+				}
+				byUuid.set(record.uuid, record);
+			} else {
+				ordered.push(record);
+			}
+		}
+
+		// Save/restore pendingCommand state so sub-agent parsing doesn't interfere
+		const savedPending = this.pendingCommand;
+		this.pendingCommand = null;
+		const turns = this.buildTurns(ordered);
+		this.pendingCommand = savedPending;
+
+		return {
+			agentId,
+			description: String(parentBlock.input['description'] || ''),
+			subagentType: String(parentBlock.input['subagent_type'] || ''),
+			prompt,
+			turns,
+		};
+	}
+
 	private parseAssistantBlocks(
 		record: ClaudeRecord,
 		toolUseNames: Map<string, string>
@@ -391,6 +524,31 @@ export class ClaudeParser extends BaseParser {
 
 	/** Commands whose <local-command-stdout> should be rendered as ANSI output. */
 	private static readonly ANSI_COMMANDS = new Set(['/context']);
+
+	/** Extract content from system records (slash commands like /rename, /compact). */
+	private extractSystemContent(record: ClaudeRecord): ContentBlock[] {
+		const content = record.content ?? '';
+		const timestamp = record.timestamp;
+
+		// Skip stdout/caveat follow-up records (they follow the command record)
+		if (/^<local-command-stdout>/.test(content) || /^<local-command-caveat>/.test(content)) {
+			return [];
+		}
+
+		// Extract command name from <command-name>/foo</command-name>
+		const cmdMatch = content.match(/<command-name>(\/\w+)<\/command-name>/);
+		if (!cmdMatch) return [];
+
+		const cmd = cmdMatch[1];
+		// /exit is handled separately (consolidated into "*Session ended*")
+		if (cmd === '/exit') return [];
+
+		// Extract args if present
+		const argsMatch = content.match(/<command-args>([\s\S]*?)<\/command-args>/);
+		const text = argsMatch ? `${cmd} ${argsMatch[1]}` : cmd;
+
+		return [{ type: 'text', text, timestamp } as TextBlock];
+	}
 
 	/** Extract user content blocks from a record, handling string, text, and image blocks. */
 	private extractUserContent(record: ClaudeRecord): ContentBlock[] {
