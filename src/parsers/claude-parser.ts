@@ -170,6 +170,7 @@ export class ClaudeParser extends BaseParser {
 			if (SKIP_TYPES.has(record.type)) continue;
 			if (record.isSidechain) continue;
 			if (record.isMeta) continue;
+			if (record.type === 'assistant' && record.message?.model === '<synthetic>') continue;
 
 			if (record.sessionId && !sessionId) sessionId = record.sessionId;
 			if (record.cwd && !cwd) cwd = record.cwd;

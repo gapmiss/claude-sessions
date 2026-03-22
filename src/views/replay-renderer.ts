@@ -792,21 +792,98 @@ export class ReplayRenderer {
 
 	private toolPreview(block: ToolUseBlock): string {
 		const input = block.input;
+		const truncate = (s: string, max: number) =>
+			s.length > max ? s.substring(0, max) + '...' : s;
+		const baseName = (p: string) => p.split('/').pop() ?? p;
+
 		switch (block.name) {
-			case 'Edit':
-			case 'Write':
-			case 'Read':
-				return String(input['file_path'] || '');
-			case 'Grep':
-			case 'Glob':
-				return (input['pattern'] || '') + (input['path'] ? ' in ' + input['path'] : '');
-			case 'Bash':
-				return String(input['command'] || '');
-			case 'Agent': {
+			case 'Edit': {
+				const fp = String(input['file_path'] || '');
+				if (!fp) return '';
+				const name = baseName(fp);
+				const old = input['old_string'] as string | undefined;
+				const nw = input['new_string'] as string | undefined;
+				if (old && nw) {
+					const ol = old.split('\n').length;
+					const nl = nw.split('\n').length;
+					return ol === nl
+						? `${name} \u2014 ${ol} line${ol > 1 ? 's' : ''}`
+						: `${name} \u2014 ${ol} \u2192 ${nl} lines`;
+				}
+				return name;
+			}
+			case 'Write': {
+				const fp = String(input['file_path'] || '');
+				if (!fp) return '';
+				const name = baseName(fp);
+				const content = input['content'] as string | undefined;
+				if (content) {
+					return `${name} \u2014 ${content.split('\n').length} lines`;
+				}
+				return name;
+			}
+			case 'Read': {
+				const fp = String(input['file_path'] || '');
+				if (!fp) return '';
+				const name = baseName(fp);
+				const limit = input['limit'] as number | undefined;
+				const offset = input['offset'] as number | undefined;
+				if (limit) {
+					const start = offset ?? 1;
+					return `${name} \u2014 lines ${start}\u2013${start + limit - 1}`;
+				}
+				return name;
+			}
+			case 'Grep': {
+				const pat = input['pattern'] as string | undefined;
+				if (!pat) return '';
+				const patStr = `"${truncate(pat, 30)}"`;
+				const glob = input['glob'] as string | undefined;
+				const path = input['path'] as string | undefined;
+				if (glob) return `${patStr} in ${glob}`;
+				if (path) return `${patStr} in ${baseName(path)}`;
+				return patStr;
+			}
+			case 'Glob': {
+				const pat = input['pattern'] as string | undefined;
+				if (!pat) return '';
+				const patStr = `"${truncate(pat, 30)}"`;
+				const path = input['path'] as string | undefined;
+				if (path) return `${patStr} in ${baseName(path)}`;
+				return patStr;
+			}
+			case 'Bash': {
+				const desc = input['description'] as string | undefined;
+				if (desc) return truncate(desc, 50);
+				return truncate(String(input['command'] || ''), 50);
+			}
+			case 'Agent':
+			case 'Task': {
 				const desc = String(input['description'] || '');
-				return desc.length > 60 ? desc.substring(0, 60) + '...' : desc;
+				const subType = input['subagent_type'] as string | undefined;
+				const prefix = subType ? `${subType} \u2014 ` : '';
+				if (desc) return `${prefix}${truncate(desc, 40)}`;
+				return subType ?? '';
+			}
+			case 'WebFetch': {
+				const url = input['url'] as string | undefined;
+				if (url) {
+					try {
+						const u = new URL(url);
+						return truncate(u.hostname + u.pathname, 50);
+					} catch {
+						return truncate(url, 50);
+					}
+				}
+				return '';
+			}
+			case 'WebSearch': {
+				const query = input['query'] as string | undefined;
+				return query ? `"${truncate(query, 40)}"` : '';
 			}
 			default: {
+				const nameField = input['name'] ?? input['path'] ?? input['file'] ?? input['query'] ?? input['command'];
+				if (typeof nameField === 'string') return truncate(nameField, 50);
 				const s = JSON.stringify(input);
 				return s.length > 60 ? s.substring(0, 60) + '...' : s;
 			}
