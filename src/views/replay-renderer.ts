@@ -1,4 +1,5 @@
 import { App, Modal, MarkdownRenderer, Component, setIcon } from 'obsidian';
+import { diffLines } from 'diff';
 import {
 	Turn, ContentBlock, ToolUseBlock, ToolResultBlock, AnsiBlock, PluginSettings, Session,
 } from '../types';
@@ -559,16 +560,19 @@ export class ReplayRenderer {
 		const oldStr = String(block.input['old_string'] || '');
 		const newStr = String(block.input['new_string'] || '');
 
-		// Build unified diff content for a diff code block
-		const diffLines: string[] = [];
-		for (const line of oldStr.split('\n')) {
-			diffLines.push('- ' + line);
-		}
-		for (const line of newStr.split('\n')) {
-			diffLines.push('+ ' + line);
+		// Compute real line-level diff
+		const changes = diffLines(oldStr, newStr);
+		const outputLines: string[] = [];
+		for (const change of changes) {
+			// Remove trailing newline that diffLines adds to each chunk
+			const lines = change.value.replace(/\n$/, '').split('\n');
+			const prefix = change.added ? '+ ' : change.removed ? '- ' : '  ';
+			for (const line of lines) {
+				outputLines.push(prefix + line);
+			}
 		}
 
-		const md = fence(diffLines.join('\n'), 'diff');
+		const md = fence(outputLines.join('\n'), 'diff');
 		const mdContainer = diffEl.createDiv({ cls: 'agent-sessions-diff-code' });
 		MarkdownRenderer.render(this.app, md, mdContainer, '', this.component);
 
