@@ -4,19 +4,29 @@
 
 Inspired by [claude-replay](https://github.com/es617/claude-replay), this plugin brings AI coding agent session replay natively into Obsidian. Rather than a standalone web app, sessions live alongside your notes — importable, replayable, and exportable as markdown or self-contained HTML.
 
-The claude-replay repo is cloned at `/tmp/claude-replay` for reference. Its `template/player.html` (2499 lines) contains the complete CSS and JS player that informed our rendering approach. Licensed MIT.
-
 ## Status
 
-**v0.3.0 — Content filtering, code blocks, and thinking block rendering.**
+**v0.1.0 — Desktop-only. Session replay with summary panel, deep linking, and rich tool rendering.**
 
 Working features:
-- Claude Code JSONL parser with record merging, deduplication, and tool result attachment
+- Claude Code JSONL parser with record merging, deduplication, tool result attachment, and token usage extraction
 - Per-record timestamps preserved on content blocks for segment-level timing
-- Thinking blocks parsed from both plaintext (v2.1.50) and encrypted/signature-only (v2.1.79+) formats
+- Thinking blocks parsed from plaintext (v2.1.50); encrypted/signature-only blocks (v2.1.79+) silently skipped
+- Hook event parsing from `hook_progress` records, attached to tool use blocks by `toolUseID`
+- `/exit` command consolidation — three records collapsed into single "*Session ended*" message
+- Local command tags (`<local-command-stdout>`, `<local-command-caveat>`) stripped from user content
 - Codex CLI parser (event-based format)
 - Cursor parser (stub — detection only)
 - Auto-format detection from first lines of file
+- **Session summary panel** (collapsible) at top of timeline:
+  - Inline token count and turn count in collapsed header
+  - Session ID with copy buttons (ID only + full JSONL path)
+  - Obsidian URI with copy buttons (raw URI + markdown link)
+  - Metadata grid: project, model, version, branch, cwd, start time, duration
+  - Token breakdown: total input (cache read + cache write + uncached), output
+  - Tool usage breakdown sorted by count descending
+  - User/assistant/total turn counts
+- **Obsidian protocol handler**: `obsidian://agent-sessions?session=/path/to/session.jsonl` opens session directly
 - Timeline replay view — all turns visible and scrollable from the start
 - Segment-level navigation: arrow keys step through segments (text, thinking, tool run) within turns
 - Segment-level playback: reveals segments with real timestamp-based delays (clamped 600ms–10s)
@@ -24,20 +34,24 @@ Working features:
 - Progress bar dots = one per segment, positioned by real timestamp
 - Progress bar counter = real elapsed time, updates live on scroll
 - Scroll-based opacity via IntersectionObserver (turns fade in as they enter viewport)
-- Scroll listener syncs timer to topmost visible segment during free browsing
 - Click-to-seek on progress bar targets specific segment (turn + block)
 - Keyboard shortcuts: Arrow keys (segment nav), Space (play/pause), `[`/`]` (speed)
-- **Content filter menu** (⋯ button): hierarchical toggles for User (text, images) and Assistant (text, thinking, tool calls, tool results). Parent toggle hides entire section.
-- Tool calls as compact bars: status dot (blue/red), bold name, arg preview, expand chevron
-- Tool use INPUT rendered as `json` code block, RESULT as plain code block (both with copy button via MarkdownRenderer)
-- Diff view for Edit tool calls (red/green lines)
+- **Content filter menu** (⋯ button): hierarchical toggles for User (text, images) and Assistant (text, thinking, tool calls, tool results)
+- Tool calls as compact bars: status dot (blue/red), bold name, arg preview, hook icon (fish) with tooltip, expand chevron
+- **Bash tool input** rendered as `` ```bash `` code block with description next to INPUT label
+- **Bash diff detection**: results from commands containing `diff` render as `` ```diff `` code block when output matches unified diff format
+- **Edit tool** renders as diff view (red/green lines); success messages hidden (errors only)
+- **Write tool** renders file content as syntax-highlighted code block; success messages hidden (errors only)
+- **Read tool results** use language-specific highlighting based on file extension via `langFromPath()`
 - Tool grouping: 5+ consecutive calls collapse into `▸ N tool calls Name, Name`
-- Thinking blocks as ghost-style collapsible cards: brain icon, 55% opacity (85% on hover/open), matching tool call structure. Redacted blocks show "content encrypted" hint.
+- Thinking blocks as ghost-style collapsible cards: brain icon, 55% opacity (85% on hover/open)
+- Copy-to-clipboard buttons on user/assistant text blocks (hover to reveal)
+- Image blocks with thumbnail preview, click-to-zoom modal with Download and Copy buttons
 - "Show more" with fade gradient for long text blocks (10+ lines)
 - Collapsible turn headers with `#N` label and timestamp
 - Role sections with colored left borders (accent for USER, cyan for CLAUDE)
 - Session browser (FuzzySuggestModal) — scans dirs before opening for synchronous getItems()
-- File picker modal for arbitrary .jsonl import
+- File picker modal with drag-and-drop, path input, and session directory path resolution fallback
 - Markdown export with frontmatter and Obsidian callouts
 - HTML export as self-contained replay file with embedded player
 - Settings tab: session directories (with Add button), export preferences, display toggles
@@ -51,15 +65,28 @@ Working features:
 The Claude Code JSONL format has these record types:
 - `user` — either actual user text (`message.content` is a string) or tool results (`message.content` is an array of `{type: "tool_result", tool_use_id, content}` blocks)
 - `assistant` — each content block (thinking, text, tool_use) is a **separate record** with its own uuid. A single logical assistant turn spans multiple consecutive records.
-- `file-history-snapshot`, `progress`, `queue-operation` — skipped (non-content)
+- `progress` — hook events (`data.type === "hook_progress"`) are captured; all other progress records are skipped
+- `file-history-snapshot`, `queue-operation` — skipped (non-content)
 
 **Critical parsing logic:**
 1. **Consecutive assistant records are merged into a single Turn.** The parser accumulates assistant blocks until a user record with actual text content arrives, then flushes.
 2. **Tool results from user records are attached to the preceding assistant turn**, not created as separate user turns. A user record with only `tool_result` blocks and no text content produces no user turn.
 3. **Deduplication by uuid** — streaming produces multiple records with the same uuid; we keep the last (most complete) version.
-4. **`isSidechain` records are skipped** — these are branch explorations.
+4. **`isSidechain` and `isMeta` records are skipped.**
 5. **Per-record timestamps are propagated to content blocks** — `record.timestamp` is set on each `TextBlock`, `ThinkingBlock`, `ToolUseBlock`, and `ToolResultBlock` for segment-level timing.
-6. **Thinking blocks with `signature` but empty `thinking`** are preserved as empty `ThinkingBlock`s. Claude Code v2.1.79+ encrypts thinking content — only the `signature` field is stored. Older versions (e.g. v2.1.50) store plaintext in the `thinking` field.
+6. **Encrypted thinking blocks (signature-only) are skipped** — Claude Code v2.1.79+ encrypts thinking content. Only plaintext thinking blocks are rendered.
+7. **Hook events** are collected from `hook_progress` records, mapped by `toolUseID`, and attached to corresponding `ToolUseBlock.hooks[]` after turns are built.
+8. **Token usage** is extracted from `message.usage` on assistant records, deduplicated by message ID (keeping the max of each field across streaming duplicates), then summed into `SessionStats`.
+9. **Exit consolidation** — records containing `<command-name>/exit</command-name>` produce a single "*Session ended*" text block. Following `<local-command-stdout>` and `<local-command-caveat>` records are skipped.
+
+### Session Statistics (`types.ts: SessionStats`)
+
+Computed during parsing and stored on `Session.stats`:
+- `inputTokens` / `outputTokens` — raw token counts (input is typically small due to caching)
+- `cacheReadTokens` / `cacheCreationTokens` — where most input usage actually lives
+- `toolUseCounts` — `Record<string, number>` of tool name → invocation count
+- `userTurns` / `assistantTurns` — role-based turn counts
+- `durationMs` — elapsed time from first to last timestamp
 
 ### Replay View (`views/replay-view.ts`)
 
@@ -68,62 +95,62 @@ The Claude Code JSONL format has these record types:
 - `IntersectionObserver` on the timeline container watches each turn element; turns in viewport get `visible` class (opacity 1.0), others dim to 0.3
 - **Segment-level navigation**: arrow keys move a highlight cursor (`block-active`) through segments within turns, then across turns. A segment is: one text block, one thinking block, or one run of consecutive tool calls.
 - **Segment-level playback**: `animateCurrentTurn()` → `playNextSegment()` walks through segments with real timestamp delays (clamped 600ms–10s, fallback 800ms), scaled by `playbackSpeed`. After all segments in a turn, 500ms dwell then advance to next turn.
-- `activeBlockIdx` tracks the highlighted segment within the current turn (-1 = none)
-- `setActiveBlock(turnIdx, blockIdx)` clears previous highlight, applies `block-active` class, scrolls into view
-- **Segment timing data**: `segmentMs[]` (flat array of segment timestamps as ms offsets from session start), `segmentStartIdx[]` (first flat index per turn). Built by `computeSegmentTiming()` during `computeTiming()`.
+- **Segment timing data**: `segmentMs[]` (flat array of segment timestamps as ms offsets from session start), `segmentStartIdx[]` (first flat index per turn).
 - **Progress bar**: dots positioned per-segment by real timestamp. `segmentFromPct()` maps click position to `{turnIdx, blockIdx}` for seek.
-- **Live scroll timer**: scroll event listener on timeline calls `syncTimerToScroll()`, which finds the topmost visible block wrapper in the active turn and updates `displayedTimeMs` from `segmentMs[]`.
-- `syncTimerToBlock()` uses actual segment timestamp from `segmentMs[]` (not interpolation)
 - `getState()`/`setState()` persist turn position for workspace restore
-- **Content filters**: `FilterState` tracks 8 toggles in two groups — User (text, images) and Assistant (text, thinking, tool calls, tool results). Parent toggles (`user`, `assistant`) hide entire role sections; children toggle individual block types. Filter button (⋯) opens Obsidian `Menu` with `setChecked()`/`setDisabled()` for hierarchical UX. `applyFilters()` toggles `.agent-sessions-filtered` (display: none) on matching elements. Filter button highlights with accent color when any filter is active.
+- **Content filters**: `FilterState` tracks 8 toggles in two groups — User (text, images) and Assistant (text, thinking, tool calls, tool results). Parent toggles hide entire role sections; children toggle individual block types.
 
 ### Replay Renderer (`views/replay-renderer.ts`)
 
-- `renderTimeline(turns)` — renders all turns, returns array of turn elements for observer
-- **Each segment wrapped in `.block-wrapper[data-block-idx]`** — enables highlight-based navigation without hiding content
-- User text blocks and assistant segments (text, thinking, tool runs) all get wrappers with sequential `data-block-idx` within their turn
-- Consecutive `tool_use` + `tool_result` blocks are grouped into tool runs
-- Tool runs of ≤4 render individually; 5+ collapse into a group header
-- Each tool call bar shows: indicator dot (blue=ok, red=error), bold name, preview text (file_path for Read/Write/Edit, command for Bash, pattern for Grep/Glob), expand chevron
-- **Spinner elements** (`.block-spinner`) on tool headers, tool group headers, and thinking headers — visible only when parent wrapper has `block-active`
-- **Tool use INPUT** rendered as `` ```json `` fenced code block via `MarkdownRenderer` (gives syntax highlighting + copy button)
-- **Tool RESULT** rendered as plain `` ``` `` fenced code block via `MarkdownRenderer` (copy button). Read tool results use language-specific highlighting based on file extension via `langFromPath()`.
-- Edit tool calls render as diff view (red deletions, green additions) instead of raw JSON
-- Text blocks use `MarkdownRenderer.render()` for syntax highlighting
-- **Thinking blocks** rendered as ghost-style collapsible cards: `setIcon(icon, 'brain')` for brain icon, same structure as tool call bars (header + collapsible body). Opacity 0.55 at rest, 0.85 on hover/open. Redacted blocks (empty content) show "content encrypted" in header and explanation in body.
-- Long text (>10 lines) wrapped in collapsible with fade gradient and "Show more (N lines)" toggle
-- `getBlockWrappers(turnIndex)` returns all wrapper elements within a turn for the view to query
+- `renderTimeline(turns, sessionStartMs, session?)` — renders summary panel (if session provided) + all turns, returns array of turn elements
+- `renderSummary(session, container)` — collapsible panel with metadata grid, token stats, tool breakdown, copyable IDs and URIs
+- **Tool-specific input rendering**:
+  - `Bash` → `renderBashInput()`: `` ```bash `` code block with description label
+  - `Edit` → `renderDiffView()`: red/green diff lines; only shows result on error
+  - `Write` → `renderWriteView()`: syntax-highlighted code block via `langFromPath()`; only shows result on error
+  - Other tools → JSON code block
+- **Tool-specific result rendering**:
+  - `Read` → language-specific highlighting based on file extension, line numbers stripped
+  - `Bash` with diff command → `` ```diff `` code block (detected via `isBashDiffResult()`)
+  - Other → plain code block
+- **Hook indicators**: fish icon on tool call headers when `block.hooks` is present, tooltip shows hook names
+- **Text blocks** wrapped in `.agent-sessions-text-block` with hover-reveal copy button
+- **Image blocks**: thumbnail with click handler → `ImagePreviewModal` (full-size view + Download + Copy buttons)
+- Tool grouping: ≤4 render individually, 5+ collapse into group header
+- Long text (>10 lines) wrapped in collapsible with fade gradient
+- `getBlockWrappers(turnIndex)` returns all wrapper elements within a turn
 
-### Session Browser Modal (`views/session-browser-modal.ts`)
+### Protocol Handler (`main.ts`)
 
-- Directory scanning happens **before** opening the modal (async `scanSessionDirs()` in main.ts)
-- Results passed to constructor so `getItems()` returns synchronously — avoids `FuzzySuggestModal` timing issues
-- Previous approach of dispatching input events to refresh caused infinite recursion
+- Registered via `registerObsidianProtocolHandler('agent-sessions', ...)`
+- URI format: `obsidian://agent-sessions?session=/full/path/to/session.jsonl`
+- Calls `openSessionByPath()` which reads the file, detects format, parses, and opens in a new tab
+- Supports `~` home directory expansion via `expandHome()`
 
-### Settings (`settings.ts`)
+### File Picker Modal (`views/file-picker-modal.ts`)
 
-- Settings interface and defaults live in `types.ts`, re-exported from `settings.ts`
-- "Add session directory" has both Enter-key handler and explicit "Add" button
-- Types must use `export type` for interfaces due to `isolatedModules`
+- Drag-and-drop + file input + manual path entry
+- On Electron desktop, `File.path` provides the full filesystem path
+- Fallback when `File.path` is unavailable: `resolveSessionPath()` searches configured session directories for the filename to recover the full path
 
 ## Architecture
 
 ```
 src/
-  main.ts                          # Plugin entry, commands, view registration
+  main.ts                          # Plugin entry, commands, protocol handler, view registration
   settings.ts                      # Settings tab
-  types.ts                         # Shared interfaces (Session, Turn, ContentBlock, etc.)
+  types.ts                         # Shared interfaces (Session, SessionStats, Turn, ContentBlock, HookEvent, etc.)
   parsers/
     base-parser.ts                 # Abstract base with shared utilities
-    claude-parser.ts               # Claude Code JSONL parser (merges consecutive records)
+    claude-parser.ts               # Claude Code JSONL parser (merges records, extracts stats + hooks)
     codex-parser.ts                # Codex CLI parser
     cursor-parser.ts               # Cursor transcript parser (stub)
     detect.ts                      # Format auto-detection
   views/
     replay-view.ts                 # ItemView — scrollable timeline with IntersectionObserver
-    replay-renderer.ts             # DOM rendering (timeline, tool bars, diff view, collapsibles)
+    replay-renderer.ts             # DOM rendering (summary, timeline, tool bars, diff view, collapsibles)
     session-browser-modal.ts       # FuzzySuggestModal + scanSessionDirs() pre-scan
-    file-picker-modal.ts           # Import from arbitrary path
+    file-picker-modal.ts           # Import from arbitrary path (drag-and-drop, path input)
   exporters/
     markdown-exporter.ts           # Markdown with frontmatter & callouts
     html-exporter.ts               # Self-contained HTML replay
@@ -151,11 +178,11 @@ eslint.config.mjs                  # ESLint flat config with eslint-plugin-obsid
 ```bash
 npm install
 npm run dev      # watch mode
-npm run build    # production build (typecheck + bundle)
+npm run build    # production build (typecheck + bundle + copy to vault)
 npx eslint .     # lint with eslint-plugin-obsidianmd rules
 ```
 
-Copy `main.js`, `styles.css`, and `manifest.json` to your vault's `.obsidian/plugins/agent-sessions/` directory.
+Build script automatically copies `main.js`, `styles.css`, and `manifest.json` to `~/Vaults/Master/.obsidian/plugins/agent-sessions/`.
 
 ## Gotchas & Lessons Learned
 
@@ -166,35 +193,32 @@ Copy `main.js`, `styles.css`, and `manifest.json` to your vault's `.obsidian/plu
 - `export type` required for interfaces when `isolatedModules` is enabled
 - Obsidian CSS variables like `--color-cyan`, `--color-blue`, `--color-red`, `--color-green` provide theme-aware colors for tool indicators and diff views
 - Claude Code streams each assistant content block as a separate JSONL record with its own uuid — must merge consecutive assistant records or tool results end up orphaned
-- Claude Code v2.1.79+ encrypts thinking content — the `thinking` field is empty, content lives in `signature`. Older versions store plaintext. Parser must handle both.
+- Claude Code v2.1.79+ encrypts thinking content — the `thinking` field is empty, content lives in `signature`. Parser skips these (nothing useful to display).
 - `eslint-plugin-obsidianmd` recommended config exports rules as a flat object (not under `rules` key) — must wrap manually for ESLint 9 flat config. Needs `@typescript-eslint/parser` with `parserOptions.project` for type-aware rules.
 - Don't `detachLeavesOfType()` in `onunload` — resets leaf position when plugin reloads
+- Token usage must be deduplicated by message ID — streaming produces multiple records per message with the same usage values except `output_tokens` which grows. Keep the max of each field, then sum across messages.
+- `input_tokens` in Claude Code usage is typically tiny (single digits) because prompt caching handles most input. Real input cost is in `cache_read_input_tokens` + `cache_creation_input_tokens`.
+- Hook progress records have `type: "progress"` with `data.type: "hook_progress"` — must be captured before the `SKIP_TYPES` filter discards all progress records.
+- Electron `File` objects from drag-and-drop have a `.path` property with the absolute filesystem path. When unavailable, search configured session directories by filename as fallback.
+- Obsidian protocol handler params arrive as `Record<string, string>` from the query string; paths with special characters need `encodeURIComponent`/`decodeURIComponent`.
 
 ## Roadmap
 
 ### Near-term
 - [ ] Cursor parser — full implementation once transcript format is documented
 - [ ] Progress bar/notice for large file imports (10MB+)
-- [ ] Vault-based session browsing for mobile support
 - [ ] Search/filter sessions by project, date range, or model
 - [ ] Persist last-viewed turn per session across restarts (setState/getState)
 - [ ] Skip filtered blocks during segment-level navigation (arrow keys currently land on hidden blocks)
-- [x] ~~Block-level playback animation~~ — segment-level navigation and playback with real timestamp delays
-- [x] ~~Content filter menu~~ — hierarchical toggles for User/Assistant content types
 
 ### Medium-term
-- [x] ~~Diff view for tool results~~ — Edit tool calls render as red/green diff
-- [x] ~~Multi-turn view~~ — full scrollable timeline with all turns visible
-- [x] ~~Tool input/result code blocks~~ — JSON code block for input, plain code block for result (with copy button)
-- [x] ~~Thinking block rendering~~ — ghost-style cards with brain icon, handles both plaintext and encrypted content
-- [ ] Session statistics panel (token counts, tool usage breakdown, duration)
 - [ ] Linked mentions — link tool_use file paths to vault files when they exist
 - [ ] Tag/bookmark individual turns for later reference
-- [ ] Write tool calls render file content with syntax highlighting
+- [ ] Cost estimation from token usage metadata
+- [ ] Session comparison — side-by-side diff of two sessions
 
 ### Long-term
-- [ ] Session comparison — side-by-side diff of two sessions
-- [ ] Cost estimation from token usage metadata
 - [ ] Timeline visualization of session flow
 - [ ] Plugin API for custom parsers (third-party agent formats)
 - [ ] Obsidian Publish-compatible export theme
+- [ ] Mobile support (vault-based session browsing)
