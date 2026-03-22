@@ -1,7 +1,7 @@
 import { BaseParser } from './base-parser';
 import {
 	Session, Turn, ContentBlock, TextBlock, ThinkingBlock,
-	ToolUseBlock, ToolResultBlock, ImageBlock,
+	ToolUseBlock, ToolResultBlock, ImageBlock, HookEvent,
 } from '../types';
 import { extractProjectName, dirname } from '../utils/path-utils';
 
@@ -16,6 +16,12 @@ interface ClaudeRecord {
 	timestamp?: string;
 	isSidechain?: boolean;
 	isMeta?: boolean;
+	toolUseID?: string;
+	data?: {
+		type?: string;
+		hookEvent?: string;
+		hookName?: string;
+	};
 	message?: {
 		role?: string;
 		content?: string | ClaudeContentBlock[];
@@ -82,10 +88,26 @@ export class ClaudeParser extends BaseParser {
 		let model = '';
 		let startTime = '';
 
+		// Collect hook events by toolUseID
+		const hookMap = new Map<string, HookEvent[]>();
+
 		// First pass: parse all records and extract metadata
 		for (const line of lines) {
 			const record = this.tryParseJson(line) as ClaudeRecord | null;
 			if (!record) continue;
+
+			// Capture hook_progress before skipping progress records
+			if (record.type === 'progress' && record.data?.type === 'hook_progress'
+				&& record.toolUseID && record.data.hookEvent && record.data.hookName) {
+				const hooks = hookMap.get(record.toolUseID) ?? [];
+				hooks.push({
+					hookEvent: record.data.hookEvent,
+					hookName: record.data.hookName,
+					timestamp: record.timestamp,
+				});
+				hookMap.set(record.toolUseID, hooks);
+			}
+
 			if (SKIP_TYPES.has(record.type)) continue;
 			if (record.isSidechain) continue;
 			if (record.isMeta) continue;
@@ -203,6 +225,17 @@ export class ClaudeParser extends BaseParser {
 
 		// Flush any remaining assistant turn
 		flushAssistant();
+
+		// Attach hook events to their corresponding tool_use blocks
+		if (hookMap.size > 0) {
+			for (const turn of turns) {
+				for (const block of turn.contentBlocks) {
+					if (block.type === 'tool_use' && hookMap.has(block.id)) {
+						block.hooks = hookMap.get(block.id);
+					}
+				}
+			}
+		}
 
 		const project = extractProjectName(dirname(filePath));
 

@@ -351,6 +351,18 @@
 	flex: 1;
 }
 
+.agent-sessions-hook-icon {
+	color: var(--text-faint);
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+}
+
+.agent-sessions-hook-icon .svg-icon {
+	width: 14px;
+	height: 14px;
+}
+
 .agent-sessions-tool-chevron {
 	color: var(--text-muted);
 	font-size: 10px;

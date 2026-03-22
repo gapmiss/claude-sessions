@@ -40,12 +40,19 @@ export interface ThinkingBlock {
 	timestamp?: string;
 }
 
+export interface HookEvent {
+	hookEvent: string;
+	hookName: string;
+	timestamp?: string;
+}
+
 export interface ToolUseBlock {
 	type: 'tool_use';
 	id: string;
 	name: string;
 	input: Record<string, unknown>;
 	timestamp?: string;
+	hooks?: HookEvent[];
 }
 
 export interface ToolResultBlock {

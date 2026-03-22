@@ -298,6 +298,14 @@ export class ReplayRenderer {
 		});
 		header.createSpan({ cls: 'agent-sessions-tool-name', text: block.name });
 		header.createSpan({ cls: 'agent-sessions-tool-preview', text: this.toolPreview(block) });
+		if (block.hooks && block.hooks.length > 0) {
+			const hookNames = [...new Set(block.hooks.map(h => h.hookName))].join(', ');
+			const hookIcon = header.createSpan({
+				cls: 'agent-sessions-hook-icon',
+				attr: { 'aria-label': hookNames, 'data-tooltip-position': 'top' },
+			});
+			setIcon(hookIcon, 'fish');
+		}
 		header.createSpan({ cls: 'agent-sessions-block-spinner' });
 		const chevron = header.createSpan({ cls: 'agent-sessions-tool-chevron', text: '\u25B6' });
 
