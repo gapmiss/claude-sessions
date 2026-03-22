@@ -98,7 +98,6 @@ export interface PluginSettings {
 	showThinkingBlocks: boolean;
 	showToolCalls: boolean;
 	showToolResults: boolean;
-	playbackSpeed: number;
 	defaultExportFormat: 'markdown' | 'html';
 }
 
@@ -108,7 +107,6 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	showThinkingBlocks: true,
 	showToolCalls: true,
 	showToolResults: true,
-	playbackSpeed: 1,
 	defaultExportFormat: 'markdown',
 };
 

@@ -58,15 +58,6 @@ export default class AgentSessionsPlugin extends Plugin {
 		});
 
 		this.addCommand({
-			id: 'toggle-playback',
-			name: 'Toggle session playback',
-			callback: () => {
-				const view = this.getActiveReplayView();
-				if (view) view.togglePlayback();
-			},
-		});
-
-		this.addCommand({
 			id: 'next-turn',
 			name: 'Go to next turn',
 			callback: () => {
@@ -83,6 +74,7 @@ export default class AgentSessionsPlugin extends Plugin {
 				if (view) view.prevTurn();
 			},
 		});
+
 		this.addCommand({
 			id: 'refresh-session',
 			name: 'Refresh session',

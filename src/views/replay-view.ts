@@ -1,5 +1,5 @@
 import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon } from 'obsidian';
-import { Session, ContentBlock, PluginSettings } from '../types';
+import { Session, PluginSettings } from '../types';
 import { ReplayRenderer } from './replay-renderer';
 import { readFileContent } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
@@ -29,19 +29,14 @@ export class ReplayView extends ItemView {
 	private session: Session | null = null;
 	private renderer: ReplayRenderer | null = null;
 	private settings: PluginSettings;
-	private isPlaying = false;
-	private playTimer: number | null = null;
-	private playIndex = 0;
 	private controlsEl: HTMLElement | null = null;
 	private timelineEl: HTMLElement | null = null;
 	private statusEl: HTMLElement | null = null;
 	private progressFill: HTMLElement | null = null;
 	private progressBar: HTMLElement | null = null;
 	private progressTooltip: HTMLElement | null = null;
-	private playBtn: HTMLButtonElement | null = null;
 	private observer: IntersectionObserver | null = null;
 	private activeTurnIndex = 0;
-	private activeBlockIdx = -1; // -1 = no block highlighted within turn
 
 	// Timing data
 	private sessionStartMs = 0;
@@ -49,10 +44,6 @@ export class ReplayView extends ItemView {
 	private turnStartMs: number[] = [];
 	private turnEndMs: number[] = [];
 	private displayedTimeMs = 0;
-
-	// Segment-level timing (flat across all turns)
-	private segmentMs: number[] = [];
-	private segmentStartIdx: number[] = []; // first flat index per turn
 
 	// File watcher
 	private watcher: import('fs').FSWatcher | null = null;
@@ -116,7 +107,6 @@ export class ReplayView extends ItemView {
 
 	async onClose(): Promise<void> {
 		this.stopWatching();
-		this.stopPlayback();
 		this.destroyObserver();
 	}
 
@@ -144,15 +134,11 @@ export class ReplayView extends ItemView {
 		}
 	}
 
-	loadSession(session: Session, opts?: { preserveScroll?: boolean }): void {
-		const prevScrollTop = this.timelineEl?.scrollTop ?? 0;
-		const prevTurnIndex = this.activeTurnIndex;
-
+	loadSession(session: Session, opts?: { scrollToEnd?: boolean }): void {
 		this.session = session;
-		this.playIndex = 0;
-		this.activeTurnIndex = 0;
-		this.activeBlockIdx = -1;
-		this.stopPlayback();
+		this.activeTurnIndex = opts?.scrollToEnd && session.turns.length > 0
+			? session.turns.length - 1
+			: 0;
 
 		if (this.renderer) {
 			this.renderer.updateSettings(this.settings);
@@ -163,19 +149,16 @@ export class ReplayView extends ItemView {
 		(this.leaf as unknown as { updateHeader?(): void }).updateHeader?.();
 
 		this.renderFullTimeline();
-		this.renderSegmentDots();
+		this.renderTurnDots();
 		this.syncTimer();
 		this.updateControls();
 
-		if (opts?.preserveScroll && this.timelineEl) {
-			if (this.isFollowing) {
-				// Scroll to the last turn
-				this.scrollToTurn(session.turns.length - 1);
-			} else {
-				// Restore previous scroll position
-				this.activeTurnIndex = Math.min(prevTurnIndex, session.turns.length - 1);
-				this.timelineEl.scrollTop = prevScrollTop;
-			}
+		if (opts?.scrollToEnd && this.timelineEl) {
+			requestAnimationFrame(() => {
+				if (this.timelineEl) {
+					this.timelineEl.scrollTop = this.timelineEl.scrollHeight;
+				}
+			});
 		}
 	}
 
@@ -186,7 +169,7 @@ export class ReplayView extends ItemView {
 			if (this.session) {
 				const savedIndex = this.activeTurnIndex;
 				this.renderFullTimeline();
-				this.renderSegmentDots();
+				this.renderTurnDots();
 				this.scrollToTurn(savedIndex);
 				this.updateControls();
 			}
@@ -210,7 +193,7 @@ export class ReplayView extends ItemView {
 				new Notice('Could not detect session format on reload.');
 				return;
 			}
-			this.loadSession(parser.parse(content, filePath), { preserveScroll: true });
+			this.loadSession(parser.parse(content, filePath), { scrollToEnd: true });
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			new Notice(`Failed to reload session: ${msg}`);
@@ -272,7 +255,6 @@ export class ReplayView extends ItemView {
 				fs.watchFile(filePath, { interval: 2000, persistent: false }, (curr, prev) => {
 					if (curr.mtimeMs !== prev.mtimeMs) onChange();
 				});
-				// Store a pseudo-watcher for cleanup
 				this.watcher = {
 					close: () => fs.unwatchFile(filePath),
 					on: () => this,
@@ -285,6 +267,9 @@ export class ReplayView extends ItemView {
 
 		this.isWatching = true;
 		this.updateWatchIndicator();
+
+		// Immediately reload to catch any changes since the session was first opened
+		this.reloadSession();
 	}
 
 	private updateWatchIndicator(): void {
@@ -306,90 +291,28 @@ export class ReplayView extends ItemView {
 	scrollToTurn(index: number): void {
 		if (!this.session) return;
 		const target = Math.max(0, Math.min(index, this.session.turns.length - 1));
-		this.clearActiveBlock();
 		const turnEls = this.renderer?.getTurnElements() || [];
 		const el = turnEls[target];
 		if (el) {
 			el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 		}
-		this.playIndex = target;
 		this.activeTurnIndex = target;
-		this.activeBlockIdx = -1;
 		this.syncTimer();
 		this.updateControls();
 	}
 
 	nextTurn(): void {
-		this.stepForward();
+		if (!this.session) return;
+		if (this.activeTurnIndex < this.session.turns.length - 1) {
+			this.scrollToTurn(this.activeTurnIndex + 1);
+		}
 	}
 
 	prevTurn(): void {
-		this.stepBack();
-	}
-
-	private stepForward(): void {
 		if (!this.session) return;
-		const turnEls = this.renderer?.getTurnElements() || [];
-		const wrappers = this.getBlockWrappers(turnEls[this.activeTurnIndex]);
-
-		if (this.activeBlockIdx < wrappers.length - 1) {
-			// Move to next block within current turn
-			this.setActiveBlock(this.activeTurnIndex, this.activeBlockIdx + 1);
-		} else if (this.activeTurnIndex < this.session.turns.length - 1) {
-			// Move to first block of next turn
-			this.setActiveBlock(this.activeTurnIndex + 1, 0);
+		if (this.activeTurnIndex > 0) {
+			this.scrollToTurn(this.activeTurnIndex - 1);
 		}
-	}
-
-	private stepBack(): void {
-		if (!this.session) return;
-
-		if (this.activeBlockIdx > 0) {
-			// Move to previous block within current turn
-			this.setActiveBlock(this.activeTurnIndex, this.activeBlockIdx - 1);
-		} else if (this.activeTurnIndex > 0) {
-			// Move to last block of previous turn
-			const turnEls = this.renderer?.getTurnElements() || [];
-			const prevWrappers = this.getBlockWrappers(turnEls[this.activeTurnIndex - 1]);
-			this.setActiveBlock(this.activeTurnIndex - 1, Math.max(0, prevWrappers.length - 1));
-		}
-	}
-
-	/**
-	 * Move the active highlight to a specific block within a specific turn.
-	 */
-	private setActiveBlock(turnIdx: number, blockIdx: number): void {
-		// Clear previous active block
-		this.clearActiveBlock();
-
-		this.activeTurnIndex = turnIdx;
-		this.activeBlockIdx = blockIdx;
-
-		const turnEls = this.renderer?.getTurnElements() || [];
-		const turnEl = turnEls[turnIdx];
-		if (!turnEl) return;
-
-		const wrappers = this.getBlockWrappers(turnEl);
-		const target = wrappers[blockIdx];
-		if (target) {
-			target.addClass('agent-sessions-block-active');
-			target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-		}
-
-		this.syncTimerToBlock();
-		this.updateControls();
-	}
-
-	private clearActiveBlock(): void {
-		if (!this.timelineEl) return;
-		this.timelineEl.querySelectorAll('.agent-sessions-block-active').forEach(el => {
-			el.removeClass('agent-sessions-block-active');
-		});
-	}
-
-	private getBlockWrappers(turnEl: HTMLElement | undefined): HTMLElement[] {
-		if (!turnEl) return [];
-		return Array.from(turnEl.querySelectorAll('.agent-sessions-block-wrapper')) as HTMLElement[];
 	}
 
 	// Timing computation
@@ -402,10 +325,9 @@ export class ReplayView extends ItemView {
 
 		if (!this.session || this.session.turns.length === 0) return;
 
-		// Determine session start from metadata or first turn
 		const startStr = this.session.metadata.startTime
 			|| this.session.turns[0].timestamp;
-		if (!startStr) return; // no timestamps available
+		if (!startStr) return;
 
 		const startMs = new Date(startStr).getTime();
 		if (isNaN(startMs)) return;
@@ -437,129 +359,22 @@ export class ReplayView extends ItemView {
 
 		const last = this.session.turns.length - 1;
 		this.sessionTotalMs = this.turnEndMs[last] || this.turnStartMs[last] || 0;
-
-		this.computeSegmentTiming();
-	}
-
-	/**
-	 * Build flat array of segment timestamps across all turns.
-	 * One entry per block-wrapper in the DOM, ordered by turn then block index.
-	 */
-	private computeSegmentTiming(): void {
-		this.segmentMs = [];
-		this.segmentStartIdx = [];
-		if (!this.session) return;
-
-		for (let t = 0; t < this.session.turns.length; t++) {
-			this.segmentStartIdx[t] = this.segmentMs.length;
-			const turn = this.session.turns[t];
-			const turnMs = this.turnStartMs[t] || 0;
-
-			if (turn.role === 'user') {
-				// User turns: one wrapper per text block
-				const textBlocks = turn.contentBlocks.filter(b => b.type === 'text');
-				if (textBlocks.length === 0) {
-					this.segmentMs.push(turnMs);
-				} else {
-					for (const b of textBlocks) {
-						const ms = b.timestamp
-							? new Date(b.timestamp).getTime() - this.sessionStartMs
-							: NaN;
-						this.segmentMs.push(!isNaN(ms) ? ms : turnMs);
-					}
-				}
-			} else {
-				// Assistant turns: groups consecutive tool_use/result into one segment
-				const timestamps = this.buildSegmentTimestamps(turn.contentBlocks);
-				if (timestamps.length === 0) {
-					this.segmentMs.push(turnMs);
-				} else {
-					for (const ts of timestamps) {
-						const ms = ts
-							? new Date(ts).getTime() - this.sessionStartMs
-							: NaN;
-						this.segmentMs.push(!isNaN(ms) ? ms : turnMs);
-					}
-				}
-			}
-		}
 	}
 
 	private syncTimer(): void {
-		if (this.segmentMs.length > 0 && this.segmentStartIdx.length > this.activeTurnIndex) {
-			this.displayedTimeMs = this.segmentMs[this.segmentStartIdx[this.activeTurnIndex]] || 0;
-		} else if (this.turnStartMs.length > 0) {
-			this.displayedTimeMs = this.turnStartMs[this.activeTurnIndex] || 0;
+		if (this.turnStartMs.length > this.activeTurnIndex) {
+			// Use turn end time for the last turn so the progress bar reaches 100%
+			const isLast = this.session && this.activeTurnIndex === this.session.turns.length - 1;
+			this.displayedTimeMs = isLast
+				? (this.turnEndMs[this.activeTurnIndex] || this.turnStartMs[this.activeTurnIndex] || 0)
+				: (this.turnStartMs[this.activeTurnIndex] || 0);
 		}
 	}
 
-	private syncTimerToBlock(): void {
-		if (this.segmentMs.length === 0 || !this.session) return;
-		const startIdx = this.segmentStartIdx[this.activeTurnIndex] || 0;
-		const flatIdx = startIdx + Math.max(0, this.activeBlockIdx);
-		if (flatIdx < this.segmentMs.length) {
-			this.displayedTimeMs = this.segmentMs[flatIdx];
-		}
-	}
-
-	/**
-	 * On free scroll (no playback, no active block), update timer from topmost visible wrapper.
-	 */
-	private syncTimerToScroll(): void {
-		if (!this.timelineEl || !this.session || this.segmentMs.length === 0) return;
-
-		const timelineRect = this.timelineEl.getBoundingClientRect();
-		const turnEls = this.renderer?.getTurnElements() || [];
-		const turnEl = turnEls[this.activeTurnIndex];
-		if (!turnEl) return;
-
-		const wrappers = this.getBlockWrappers(turnEl);
-		const startIdx = this.segmentStartIdx[this.activeTurnIndex] || 0;
-
-		// Find the wrapper closest to the top third of the viewport
-		const threshold = timelineRect.top + timelineRect.height / 3;
-		let bestIdx = 0;
-		for (let i = 0; i < wrappers.length; i++) {
-			if (wrappers[i].getBoundingClientRect().top <= threshold) {
-				bestIdx = i;
-			}
-		}
-
-		const flatIdx = startIdx + bestIdx;
-		if (flatIdx < this.segmentMs.length) {
-			this.displayedTimeMs = this.segmentMs[flatIdx];
-			this.updateControls();
-		}
-	}
-
-	/**
-	 * Map a progress bar percentage to a segment location.
-	 */
-	private segmentFromPct(pct: number): { turnIdx: number; blockIdx: number } {
-		if (this.segmentMs.length === 0) return { turnIdx: 0, blockIdx: 0 };
-
-		let flatIdx: number;
-		if (this.sessionTotalMs > 0) {
-			const targetMs = pct * this.sessionTotalMs;
-			flatIdx = this.segmentMs.findIndex((ms, i) =>
-				i === this.segmentMs.length - 1 || this.segmentMs[i + 1] > targetMs
-			);
-			if (flatIdx < 0) flatIdx = 0;
-		} else {
-			flatIdx = Math.round(pct * (this.segmentMs.length - 1));
-		}
-
-		// Find which turn owns this flat index
-		let turnIdx = 0;
-		for (let t = 0; t < this.segmentStartIdx.length; t++) {
-			if (this.segmentStartIdx[t] <= flatIdx) {
-				turnIdx = t;
-			} else {
-				break;
-			}
-		}
-		const blockIdx = flatIdx - (this.segmentStartIdx[turnIdx] || 0);
-		return { turnIdx, blockIdx };
+	/** Map a progress bar percentage to a turn index (equally spaced). */
+	private turnFromPct(pct: number): number {
+		if (!this.session || this.session.turns.length === 0) return 0;
+		return Math.round(pct * (this.session.turns.length - 1));
 	}
 
 	private formatTime(ms: number): string {
@@ -572,157 +387,44 @@ export class ReplayView extends ItemView {
 		return `${m}:${String(s).padStart(2, '0')}`;
 	}
 
-	// Playback — auto-scroll through the timeline (time-based)
-	togglePlayback(): void {
-		if (this.isPlaying) {
-			this.stopPlayback();
-		} else {
-			this.startPlayback();
-		}
-	}
-
-	private startPlayback(): void {
-		if (!this.session) return;
-		this.isPlaying = true;
-		this.playIndex = this.activeTurnIndex;
-		this.updatePlayButton();
-		this.animateCurrentTurn();
-	}
-
-	private animateCurrentTurn(): void {
-		if (!this.session || !this.isPlaying) return;
+	/** Capture expand/collapse state of turns, tool blocks, and summary panel. */
+	private captureCollapseState(): { collapsedTurns: Set<number>; summaryOpen: boolean } {
+		const collapsedTurns = new Set<number>();
 		const turnEls = this.renderer?.getTurnElements() || [];
-		const turnEl = turnEls[this.playIndex];
-		if (!turnEl) {
-			this.advanceToNextTurn();
-			return;
-		}
-
-		const wrappers = this.getBlockWrappers(turnEl);
-		const turn = this.session.turns[this.playIndex];
-		const gaps = this.computeSegmentGaps(turn.contentBlocks, wrappers.length);
-
-		// Start from the block after the current active one, or 0
-		const startIdx = (this.playIndex === this.activeTurnIndex && this.activeBlockIdx >= 0)
-			? this.activeBlockIdx + 1
-			: 0;
-
-		this.playNextSegment(wrappers, gaps, startIdx);
-	}
-
-	private playNextSegment(
-		wrappers: HTMLElement[],
-		gaps: number[],
-		idx: number
-	): void {
-		if (!this.isPlaying) return;
-
-		if (idx >= wrappers.length) {
-			// All segments in this turn visited — dwell then advance
-			this.playTimer = window.setTimeout(
-				() => this.advanceToNextTurn(),
-				500 / this.settings.playbackSpeed
-			);
-			this.registerInterval(this.playTimer);
-			return;
-		}
-
-		const delayMs = gaps[idx] / this.settings.playbackSpeed;
-		this.playTimer = window.setTimeout(() => {
-			if (!this.isPlaying) return;
-			this.setActiveBlock(this.playIndex, idx);
-			this.playNextSegment(wrappers, gaps, idx + 1);
-		}, delayMs);
-		this.registerInterval(this.playTimer);
-	}
-
-	private advanceToNextTurn(): void {
-		if (!this.session || !this.isPlaying) return;
-		this.playIndex++;
-		if (this.playIndex >= this.session.turns.length) {
-			this.stopPlayback();
-			return;
-		}
-		this.animateCurrentTurn();
-	}
-
-	/**
-	 * Build segment grouping from content blocks to compute timestamp gaps.
-	 * Groups consecutive tool_use/tool_result into a single segment (matching renderer logic).
-	 * Returns array of timestamps (one per segment/wrapper).
-	 */
-	private buildSegmentTimestamps(blocks: ContentBlock[]): (string | undefined)[] {
-		const timestamps: (string | undefined)[] = [];
-		let inToolRun = false;
-
-		for (const block of blocks) {
-			if (block.type === 'tool_use' || block.type === 'tool_result') {
-				if (!inToolRun) {
-					// Start of a new tool run segment — use the first tool_use timestamp
-					timestamps.push(block.timestamp);
-					inToolRun = true;
-				}
-			} else {
-				inToolRun = false;
-				timestamps.push(block.timestamp);
+		for (let i = 0; i < turnEls.length; i++) {
+			if (turnEls[i].hasClass('collapsed')) {
+				collapsedTurns.add(i);
 			}
 		}
-		return timestamps;
+		const summaryEl = this.timelineEl?.querySelector('.agent-sessions-summary');
+		const summaryOpen = summaryEl?.hasClass('open') ?? false;
+		return { collapsedTurns, summaryOpen };
 	}
 
-	/**
-	 * Compute delays between segments for playback.
-	 * First segment: 0ms. Others: real timestamp gap clamped to [600, 10000], fallback 800ms.
-	 */
-	private computeSegmentGaps(blocks: ContentBlock[], wrapperCount: number): number[] {
-		const timestamps = this.buildSegmentTimestamps(blocks);
-		const gaps: number[] = [];
-
-		for (let i = 0; i < wrapperCount; i++) {
-			if (i === 0) {
-				gaps.push(0);
-				continue;
+	/** Restore expand/collapse state after re-render. */
+	private restoreCollapseState(state: { collapsedTurns: Set<number>; summaryOpen: boolean }): void {
+		const turnEls = this.renderer?.getTurnElements() || [];
+		for (const idx of state.collapsedTurns) {
+			if (idx < turnEls.length) {
+				turnEls[idx].addClass('collapsed');
+				const chevron = turnEls[idx].querySelector('.agent-sessions-turn-chevron');
+				if (chevron) chevron.textContent = '\u25B6';
 			}
-
-			const prevTs = timestamps[i - 1];
-			const currTs = timestamps[i];
-			if (prevTs && currTs) {
-				const prevMs = new Date(prevTs).getTime();
-				const currMs = new Date(currTs).getTime();
-				if (!isNaN(prevMs) && !isNaN(currMs)) {
-					const gap = currMs - prevMs;
-					gaps.push(Math.max(600, Math.min(gap, 10000)));
-					continue;
-				}
-			}
-			gaps.push(800); // fallback
 		}
-		return gaps;
-	}
-
-	private stopPlayback(): void {
-		this.isPlaying = false;
-		if (this.playTimer !== null) {
-			window.clearTimeout(this.playTimer);
-			this.playTimer = null;
+		if (state.summaryOpen) {
+			const summaryEl = this.timelineEl?.querySelector('.agent-sessions-summary');
+			summaryEl?.addClass('open');
+			const chevron = summaryEl?.querySelector('.agent-sessions-summary-chevron');
+			if (chevron) chevron.textContent = '\u25BC';
 		}
-		this.clearActiveBlock();
-		this.activeBlockIdx = -1;
-		this.updatePlayButton();
-	}
-
-	setSpeed(speed: number): void {
-		this.settings.playbackSpeed = speed;
-		if (this.isPlaying) {
-			this.stopPlayback();
-			this.startPlayback();
-		}
-		this.updateControls();
 	}
 
 	// Rendering
 	private renderFullTimeline(): void {
 		if (!this.session || !this.renderer || !this.timelineEl) return;
+
+		// Capture collapse state before destroying the DOM
+		const collapseState = this.captureCollapseState();
 		this.destroyObserver();
 
 		if (this.session.turns.length === 0) {
@@ -734,10 +436,8 @@ export class ReplayView extends ItemView {
 			return;
 		}
 
-		// Render all turns into the timeline (includes summary panel)
 		this.renderer.renderTimeline(this.session.turns, this.sessionStartMs, this.session);
-
-		// Set up IntersectionObserver for scroll-based opacity
+		this.restoreCollapseState(collapseState);
 		this.setupScrollObserver();
 	}
 
@@ -747,7 +447,6 @@ export class ReplayView extends ItemView {
 		const turnEls = this.renderer?.getTurnElements() || [];
 		if (turnEls.length === 0) return;
 
-		// Use IntersectionObserver to detect which turns are in view
 		this.observer = new IntersectionObserver(
 			(entries) => {
 				for (const entry of entries) {
@@ -759,21 +458,18 @@ export class ReplayView extends ItemView {
 					}
 				}
 
-				// Check if scrolled to bottom
 				const scrollEl = this.timelineEl;
 				const atBottom = scrollEl
-					? scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight - 30
+					? scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight - 50
 					: false;
 				this.isFollowing = atBottom;
 
-				// If at bottom, use last visible turn; otherwise use topmost
+				// Use the bottommost visible turn as the active turn
 				let active = -1;
 				if (atBottom) {
-					for (let i = turnEls.length - 1; i >= 0; i--) {
-						if (turnEls[i].hasClass('visible')) { active = i; break; }
-					}
+					active = turnEls.length - 1;
 				} else {
-					for (let i = 0; i < turnEls.length; i++) {
+					for (let i = turnEls.length - 1; i >= 0; i--) {
 						if (turnEls[i].hasClass('visible')) { active = i; break; }
 					}
 				}
@@ -793,12 +489,6 @@ export class ReplayView extends ItemView {
 		for (const el of turnEls) {
 			this.observer.observe(el);
 		}
-
-		// Live scroll → update timer from topmost visible segment
-		this.registerDomEvent(this.timelineEl, 'scroll', () => {
-			if (this.isPlaying || this.activeBlockIdx >= 0) return;
-			this.syncTimerToScroll();
-		});
 	}
 
 	private destroyObserver(): void {
@@ -808,30 +498,28 @@ export class ReplayView extends ItemView {
 		}
 	}
 
-	// Segment dots on progress bar
-	private renderSegmentDots(): void {
+	// Turn dots on progress bar — equally spaced for easy clicking
+	private renderTurnDots(): void {
 		if (!this.session || !this.progressBar) return;
 		this.progressBar.querySelectorAll('.agent-sessions-turn-dot').forEach(d => d.remove());
 
-		const total = this.segmentMs.length;
+		const total = this.session.turns.length;
 		if (total === 0) return;
 
 		for (let i = 0; i < total; i++) {
 			const dot = this.progressBar.createDiv({ cls: 'agent-sessions-turn-dot' });
-			const pct = this.sessionTotalMs > 0
-				? (this.segmentMs[i] / this.sessionTotalMs) * 100
-				: (total > 1 ? (i / (total - 1)) * 100 : 0);
+			const pct = total > 1 ? (i / (total - 1)) * 100 : 0;
 			dot.style.left = `${pct}%`;
-			dot.dataset.segmentIndex = String(i);
+			dot.dataset.turnIndex = String(i);
 		}
 	}
 
-	private updateSegmentDots(): void {
+	private updateTurnDots(): void {
 		if (!this.progressBar) return;
 		const dots = this.progressBar.querySelectorAll('.agent-sessions-turn-dot');
 		dots.forEach((dot) => {
-			const idx = parseInt((dot as HTMLElement).dataset.segmentIndex || '0', 10);
-			dot.toggleClass('reached', this.segmentMs[idx] <= this.displayedTimeMs);
+			const idx = parseInt((dot as HTMLElement).dataset.turnIndex || '0', 10);
+			dot.toggleClass('reached', idx <= this.activeTurnIndex);
 		});
 	}
 
@@ -839,48 +527,8 @@ export class ReplayView extends ItemView {
 	private buildControls(container: HTMLElement): void {
 		const row = container.createDiv({ cls: 'agent-sessions-controls-row' });
 
-		// Nav buttons
-		const prevBtn = row.createEl('button', {
-			cls: 'agent-sessions-ctrl-btn',
-			attr: { 'aria-label': 'Previous turn', 'data-tooltip-position': 'top' },
-			text: '\u2190',
-		});
-		prevBtn.addEventListener('click', () => {
-			this.stopPlayback();
-			this.prevTurn();
-		});
-
-		this.playBtn = row.createEl('button', {
-			cls: 'agent-sessions-ctrl-btn agent-sessions-play-btn',
-			attr: { 'aria-label': 'Play/pause', 'data-tooltip-position': 'top' },
-			text: '\u25B6',
-		});
-		this.playBtn.addEventListener('click', () => this.togglePlayback());
-
-		const nextBtn = row.createEl('button', {
-			cls: 'agent-sessions-ctrl-btn',
-			attr: { 'aria-label': 'Next turn', 'data-tooltip-position': 'top' },
-			text: '\u2192',
-		});
-		nextBtn.addEventListener('click', () => {
-			this.stopPlayback();
-			this.nextTurn();
-		});
-
 		// Status text
 		this.statusEl = row.createSpan({ cls: 'agent-sessions-progress-text' });
-
-		// Speed controls
-		const speedWrap = row.createDiv({ cls: 'agent-sessions-speed-wrap' });
-		const speeds = [0.5, 1, 2, 3, 5];
-		for (const s of speeds) {
-			const btn = speedWrap.createEl('button', {
-				cls: 'agent-sessions-ctrl-btn agent-sessions-speed-btn',
-				text: `${s}x`,
-				attr: { 'aria-label': `Speed ${s}x`, 'data-tooltip-position': 'top', 'data-speed': String(s) },
-			});
-			btn.addEventListener('click', () => this.setSpeed(s));
-		}
 
 		// Filter button
 		const filterBtn = row.createEl('button', {
@@ -904,8 +552,6 @@ export class ReplayView extends ItemView {
 		const progressWrap = container.createDiv({ cls: 'agent-sessions-progress-wrap' });
 		this.progressBar = progressWrap.createDiv({ cls: 'agent-sessions-progress-bar' });
 		this.progressFill = this.progressBar.createDiv({ cls: 'agent-sessions-progress-fill' });
-
-		// Tooltip
 		this.progressTooltip = this.progressBar.createDiv({ cls: 'agent-sessions-progress-tooltip' });
 
 		// Hover tooltip on progress bar
@@ -914,26 +560,22 @@ export class ReplayView extends ItemView {
 			const rect = this.progressBar!.getBoundingClientRect();
 			const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
 
-			const { turnIdx } = this.segmentFromPct(pct);
+			const turnIdx = this.turnFromPct(pct);
 			let label = `#${turnIdx + 1}`;
 			if (this.turnStartMs[turnIdx] !== undefined && this.sessionTotalMs > 0) {
-				const ms = pct * this.sessionTotalMs;
-				label += ` \u00B7 ${this.formatTime(ms)}`;
+				label += ` \u00B7 ${this.formatTime(this.turnStartMs[turnIdx])}`;
 			}
 			this.progressTooltip.setText(label);
 			const left = Math.max(20, Math.min(rect.width - 20, e.clientX - rect.left));
 			this.progressTooltip.style.left = `${left}px`;
 		});
 
-		// Click on progress bar to seek (segment-level)
+		// Click on progress bar to seek
 		this.progressBar.addEventListener('click', (e: MouseEvent) => {
 			if (!this.session) return;
-			this.stopPlayback();
 			const rect = this.progressBar!.getBoundingClientRect();
 			const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-
-			const { turnIdx, blockIdx } = this.segmentFromPct(pct);
-			this.setActiveBlock(turnIdx, blockIdx);
+			this.scrollToTurn(this.turnFromPct(pct));
 		});
 
 		// Keyboard shortcuts
@@ -945,25 +587,11 @@ export class ReplayView extends ItemView {
 			switch (e.key) {
 				case 'ArrowLeft':
 					e.preventDefault();
-					this.stopPlayback();
 					this.prevTurn();
 					break;
 				case 'ArrowRight':
 					e.preventDefault();
-					this.stopPlayback();
 					this.nextTurn();
-					break;
-				case ' ':
-					e.preventDefault();
-					this.togglePlayback();
-					break;
-				case '[':
-					e.preventDefault();
-					this.setSpeed(Math.max(0.5, this.settings.playbackSpeed - 0.5));
-					break;
-				case ']':
-					e.preventDefault();
-					this.setSpeed(Math.min(5, this.settings.playbackSpeed + 0.5));
 					break;
 			}
 		});
@@ -1093,49 +721,23 @@ export class ReplayView extends ItemView {
 
 	private updateControls(): void {
 		if (!this.session) return;
+		const total = this.session.turns.length;
 
 		if (this.statusEl) {
 			if (this.sessionTotalMs > 0) {
-				this.statusEl.setText(`${this.formatTime(this.displayedTimeMs)} / ${this.formatTime(this.sessionTotalMs)}`);
+				this.statusEl.setText(
+					`#${this.activeTurnIndex + 1}/${total} \u00B7 ${this.formatTime(this.displayedTimeMs)} / ${this.formatTime(this.sessionTotalMs)}`
+				);
 			} else {
-				// No timestamps — show segment position
-				const flatIdx = (this.segmentStartIdx[this.activeTurnIndex] || 0)
-					+ Math.max(0, this.activeBlockIdx);
-				const total = this.segmentMs.length || this.session.turns.length;
-				this.statusEl.setText(`${flatIdx + 1} / ${total}`);
+				this.statusEl.setText(`#${this.activeTurnIndex + 1} / ${total}`);
 			}
 		}
 
-		if (this.progressFill) {
-			if (this.sessionTotalMs > 0) {
-				const pct = (this.displayedTimeMs / this.sessionTotalMs) * 100;
-				this.progressFill.style.width = `${Math.min(100, pct)}%`;
-			} else if (this.segmentMs.length > 1) {
-				const flatIdx = (this.segmentStartIdx[this.activeTurnIndex] || 0)
-					+ Math.max(0, this.activeBlockIdx);
-				const pct = (flatIdx / (this.segmentMs.length - 1)) * 100;
-				this.progressFill.style.width = `${pct}%`;
-			}
+		if (this.progressFill && total > 1) {
+			const pct = (this.activeTurnIndex / (total - 1)) * 100;
+			this.progressFill.style.width = `${pct}%`;
 		}
 
-		this.updateSegmentDots();
-		this.updatePlayButton();
-		this.updateSpeedButtons();
-	}
-
-	private updatePlayButton(): void {
-		if (this.playBtn) {
-			this.playBtn.setText(this.isPlaying ? '\u23F8' : '\u25B6');
-			this.playBtn.ariaLabel = this.isPlaying ? 'Pause' : 'Play';
-		}
-	}
-
-	private updateSpeedButtons(): void {
-		if (!this.controlsEl) return;
-		const btns = this.controlsEl.querySelectorAll('.agent-sessions-speed-btn');
-		btns.forEach((btn) => {
-			const s = parseFloat((btn as HTMLElement).dataset.speed || '1');
-			btn.toggleClass('agent-sessions-speed-active', s === this.settings.playbackSpeed);
-		});
+		this.updateTurnDots();
 	}
 }

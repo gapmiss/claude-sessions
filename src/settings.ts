@@ -118,21 +118,7 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setHeading()
-			.setName('Playback');
-
-		new Setting(containerEl)
-			.setName('Default speed')
-			.setDesc('Default playback speed multiplier.')
-			.addDropdown(dd => dd
-				.addOption('0.5', '0.5x')
-				.addOption('1', '1x')
-				.addOption('2', '2x')
-				.addOption('5', '5x')
-				.setValue(String(this.plugin.settings.playbackSpeed))
-				.onChange(async (value) => {
-					this.plugin.settings.playbackSpeed = parseFloat(value);
-					await this.plugin.saveSettings();
-				}));
+			.setName('Display');
 	}
 
 	private renderDirsList(container: HTMLElement): void {

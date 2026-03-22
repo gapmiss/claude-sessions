@@ -431,7 +431,6 @@ export class ReplayRenderer {
 			}
 			groupHeader.createSpan({ text: `${toolUses.length} tool calls ` });
 			groupHeader.createSpan({ cls: 'agent-sessions-tool-group-names', text: uniqueNames });
-			groupHeader.createSpan({ cls: 'agent-sessions-block-spinner' });
 
 			const groupBody = groupEl.createDiv({ cls: 'agent-sessions-tool-group-body' });
 
@@ -466,7 +465,6 @@ export class ReplayRenderer {
 			});
 			setIcon(hookIcon, 'fish');
 		}
-		header.createSpan({ cls: 'agent-sessions-block-spinner' });
 		const chevron = header.createSpan({ cls: 'agent-sessions-tool-chevron', text: '\u25B6' });
 
 		// Body (hidden by default)
@@ -619,7 +617,6 @@ export class ReplayRenderer {
 		if (isRedacted) {
 			header.createSpan({ cls: 'agent-sessions-thinking-redacted', text: 'content encrypted' });
 		}
-		header.createSpan({ cls: 'agent-sessions-block-spinner' });
 		const chevron = header.createSpan({ cls: 'agent-sessions-thinking-chevron', text: '\u25B6' });
 
 		// Body (collapsible)
