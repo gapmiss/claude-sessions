@@ -117,6 +117,10 @@ function renderBlock(block: ContentBlock, settings: PluginSettings): string | nu
 			].join('\n');
 		}
 
+		case 'ansi':
+			// Strip ANSI escape codes for markdown export
+			return '```\n' + block.text.replace(/\x1b\[[\d;]*m/g, '') + '\n```';
+
 		default:
 			return null;
 	}

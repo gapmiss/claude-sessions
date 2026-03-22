@@ -1,6 +1,6 @@
 import { App, Modal, MarkdownRenderer, Component, setIcon } from 'obsidian';
 import {
-	Turn, ContentBlock, ToolUseBlock, ToolResultBlock, PluginSettings, Session,
+	Turn, ContentBlock, ToolUseBlock, ToolResultBlock, AnsiBlock, PluginSettings, Session,
 } from '../types';
 
 const COLLAPSE_THRESHOLD = 10; // lines before "Show more"
@@ -326,6 +326,8 @@ export class ReplayRenderer {
 				});
 				if (block.type === 'text') {
 					this.renderTextContent(block.text, wrapper, 'agent-sessions-user-text');
+				} else if (block.type === 'ansi') {
+					this.renderAnsiBlock(block as AnsiBlock, wrapper);
 				} else if (block.type === 'image') {
 					const dataUri = `data:${block.mediaType};base64,${block.data}`;
 					const img = wrapper.createEl('img', {
@@ -672,6 +674,92 @@ export class ReplayRenderer {
 			const mdEl = wrapEl.createDiv({ cls });
 			MarkdownRenderer.render(this.app, text, mdEl, '', this.component);
 		}
+	}
+
+	/**
+	 * Convert ANSI escape sequences to HTML spans.
+	 * Handles: bold (1/22), italic (3/23), 24-bit fg color (38;2;R;G;B), default fg (39), reset (0).
+	 */
+	private ansiToHtml(text: string): string {
+		const out: string[] = [];
+		const openTags: string[] = [];
+
+		const closeAll = () => {
+			while (openTags.length) {
+				out.push('</span>');
+				openTags.pop();
+			}
+		};
+
+		const re = /\x1b\[([\d;]*)m/g;
+		let last = 0;
+		let match: RegExpExecArray | null;
+
+		while ((match = re.exec(text)) !== null) {
+			// Push text between escapes (HTML-escaped)
+			if (match.index > last) {
+				out.push(this.escapeHtml(text.slice(last, match.index)));
+			}
+			last = re.lastIndex;
+
+			const params = match[1].split(';').map(Number);
+			let i = 0;
+			while (i < params.length) {
+				const code = params[i];
+				if (code === 0 || (isNaN(code) && match[1] === '')) {
+					closeAll();
+				} else if (code === 1) {
+					out.push('<span class="ansi-bold">');
+					openTags.push('bold');
+				} else if (code === 3) {
+					out.push('<span class="ansi-italic">');
+					openTags.push('italic');
+				} else if (code === 22 || code === 23) {
+					// End bold/italic — pop the most recent matching tag
+					const target = code === 22 ? 'bold' : 'italic';
+					const idx = openTags.lastIndexOf(target);
+					if (idx !== -1) {
+						// Close tags down to and including the target
+						for (let j = openTags.length - 1; j >= idx; j--) {
+							out.push('</span>');
+							openTags.pop();
+						}
+					}
+				} else if (code === 38 && params[i + 1] === 2 && i + 4 < params.length) {
+					const r = params[i + 2], g = params[i + 3], b = params[i + 4];
+					out.push(`<span class="ansi-fg" style="--ansi-r:${r};--ansi-g:${g};--ansi-b:${b}">`);
+					openTags.push('fg');
+					i += 4; // skip the 2;R;G;B params
+				} else if (code === 39) {
+					// Reset foreground — close the last fg span
+					const idx = openTags.lastIndexOf('fg');
+					if (idx !== -1) {
+						for (let j = openTags.length - 1; j >= idx; j--) {
+							out.push('</span>');
+							openTags.pop();
+						}
+					}
+				}
+				i++;
+			}
+		}
+
+		// Remaining text
+		if (last < text.length) {
+			out.push(this.escapeHtml(text.slice(last)));
+		}
+		closeAll();
+		return out.join('');
+	}
+
+	private escapeHtml(s: string): string {
+		return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+	}
+
+	private renderAnsiBlock(block: AnsiBlock, container: HTMLElement): void {
+		const pre = container.createEl('pre', { cls: 'agent-sessions-ansi-block' });
+		// Use innerHTML for ANSI-converted spans — input is from parsed session data, not user HTML
+		pre.innerHTML = this.ansiToHtml(block.text);
 	}
 
 	private toolPreview(block: ToolUseBlock): string {

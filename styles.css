@@ -592,6 +592,48 @@
 }
 
 /* ═══════════════════════════════════════════
+   ANSI terminal output (e.g. /context)
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-ansi-block {
+	margin: 0;
+	padding: var(--size-4-3) var(--size-4-4);
+	background: var(--code-background);
+	border-radius: var(--radius-s);
+	font-family: var(--font-monospace);
+	font-size: var(--font-smaller);
+	line-height: 1.5;
+	white-space: pre-wrap;
+	word-break: break-word;
+	overflow-x: auto;
+	color: var(--text-normal);
+}
+
+.agent-sessions-ansi-block .ansi-bold {
+	font-weight: var(--bold-weight);
+}
+
+.agent-sessions-ansi-block .ansi-italic {
+	font-style: italic;
+}
+
+/* 24-bit ANSI foreground — CSS custom properties set inline by the converter.
+   In dark mode: use the original RGB values directly.
+   In light mode: darken bright colors for readability on light backgrounds. */
+.theme-dark .agent-sessions-ansi-block .ansi-fg {
+	color: rgb(var(--ansi-r), var(--ansi-g), var(--ansi-b));
+}
+
+.theme-light .agent-sessions-ansi-block .ansi-fg {
+	/* Clamp each channel to at most 60% brightness for legibility on light bg */
+	color: rgb(
+		min(var(--ansi-r), 153),
+		min(var(--ansi-g), 153),
+		min(var(--ansi-b), 153)
+	);
+}
+
+/* ═══════════════════════════════════════════
    Diff view (Edit tool)
    ═══════════════════════════════════════════ */
 

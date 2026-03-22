@@ -1,7 +1,7 @@
 import { BaseParser } from './base-parser';
 import {
 	Session, Turn, ContentBlock, TextBlock, ThinkingBlock,
-	ToolUseBlock, ToolResultBlock, ImageBlock, HookEvent, SessionStats,
+	ToolUseBlock, ToolResultBlock, ImageBlock, AnsiBlock, HookEvent, SessionStats,
 } from '../types';
 import { extractProjectName, dirname } from '../utils/path-utils';
 
@@ -386,6 +386,12 @@ export class ClaudeParser extends BaseParser {
 		return results;
 	}
 
+	/** Track commands whose stdout should be captured as ANSI blocks. */
+	private pendingCommand: string | null = null;
+
+	/** Commands whose <local-command-stdout> should be rendered as ANSI output. */
+	private static readonly ANSI_COMMANDS = new Set(['/context']);
+
 	/** Extract user content blocks from a record, handling string, text, and image blocks. */
 	private extractUserContent(record: ClaudeRecord): ContentBlock[] {
 		const content = record.message?.content;
@@ -393,7 +399,21 @@ export class ClaudeParser extends BaseParser {
 		if (typeof content === 'string') {
 			// Consolidate /exit command sequences into a single subtle message
 			if (/<command-name>\/exit<\/command-name>/.test(content)) {
+				this.pendingCommand = null;
 				return [{ type: 'text', text: '*Session ended*', timestamp } as TextBlock];
+			}
+			// Detect slash commands that produce ANSI output
+			const cmdMatch = content.match(/<command-name>(\/\w+)<\/command-name>/);
+			if (cmdMatch && ClaudeParser.ANSI_COMMANDS.has(cmdMatch[1])) {
+				this.pendingCommand = cmdMatch[1];
+				return [{ type: 'text', text: cmdMatch[1], timestamp } as TextBlock];
+			}
+			// Capture ANSI output from local command stdout when a pending command is active
+			if (/<local-command-stdout>/.test(content) && this.pendingCommand) {
+				const label = this.pendingCommand;
+				this.pendingCommand = null;
+				const stdout = content.replace(/<\/?local-command-stdout>/g, '');
+				return [{ type: 'ansi', label, text: stdout, timestamp } as AnsiBlock];
 			}
 			// Skip local command output that follows /exit (e.g. "Goodbye!")
 			if (/<local-command-stdout>/.test(content)) {

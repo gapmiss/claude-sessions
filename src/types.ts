@@ -1,6 +1,6 @@
 export type SessionFormat = 'claude' | 'cursor' | 'codex';
 export type TurnRole = 'user' | 'assistant';
-export type ContentBlockType = 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'image';
+export type ContentBlockType = 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'image' | 'ansi';
 
 export interface SessionMetadata {
 	id: string;
@@ -83,7 +83,14 @@ export interface ImageBlock {
 	timestamp?: string;
 }
 
-export type ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock | ImageBlock;
+export interface AnsiBlock {
+	type: 'ansi';
+	label: string;
+	text: string;
+	timestamp?: string;
+}
+
+export type ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock | ImageBlock | AnsiBlock;
 
 export interface PluginSettings {
 	sessionDirs: string[];
