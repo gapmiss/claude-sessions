@@ -309,6 +309,8 @@ export class ReplayRenderer {
 			this.renderDiffView(block, result, body);
 		} else if (block.name === 'Write' && block.input['content'] != null) {
 			this.renderWriteView(block, result, body);
+		} else if (block.name === 'Bash') {
+			this.renderBashInput(block, body);
 		} else {
 			const inputEl = body.createDiv({ cls: 'agent-sessions-tool-input' });
 			inputEl.createDiv({ cls: 'agent-sessions-tool-section-label', text: 'INPUT' });
@@ -338,6 +340,10 @@ export class ReplayRenderer {
 				const md = fence(cleaned, lang);
 				const mdContainer = resultEl.createDiv({ cls: 'agent-sessions-read-result' });
 				MarkdownRenderer.render(this.app, md, mdContainer, '', this.component);
+			} else if (block.name === 'Bash' && !isError && this.isBashDiffResult(block, resultText)) {
+				const resultMd = fence(resultText, 'diff');
+				const resultMdContainer = resultEl.createDiv({ cls: 'agent-sessions-tool-result-code' });
+				MarkdownRenderer.render(this.app, resultMd, resultMdContainer, '', this.component);
 			} else {
 				const resultMd = fence(resultText);
 				const resultMdContainer = resultEl.createDiv({ cls: 'agent-sessions-tool-result-code' });
@@ -350,6 +356,28 @@ export class ReplayRenderer {
 			toolEl.toggleClass('open', !isOpen);
 			chevron.setText(isOpen ? '\u25B6' : '\u25BC');
 		});
+	}
+
+	private renderBashInput(block: ToolUseBlock, container: HTMLElement): void {
+		const inputEl = container.createDiv({ cls: 'agent-sessions-tool-input' });
+		const labelRow = inputEl.createDiv({ cls: 'agent-sessions-tool-section-label' });
+		labelRow.createSpan({ text: 'INPUT' });
+		const description = String(block.input['description'] || '');
+		if (description) {
+			labelRow.createSpan({ cls: 'agent-sessions-tool-section-desc', text: description });
+		}
+		const command = String(block.input['command'] || '');
+		const md = fence(command, 'bash');
+		const mdContainer = inputEl.createDiv({ cls: 'agent-sessions-tool-input-code' });
+		MarkdownRenderer.render(this.app, md, mdContainer, '', this.component);
+	}
+
+	/** Check if a Bash tool result looks like diff/patch output. */
+	private isBashDiffResult(block: ToolUseBlock, resultText: string): boolean {
+		const command = String(block.input['command'] || '').toLowerCase();
+		if (!/\bdiff\b/.test(command)) return false;
+		// Verify the result looks like unified diff output
+		return /^(diff\s|---\s|@@\s)/m.test(resultText);
 	}
 
 	private renderDiffView(block: ToolUseBlock, result: ToolResultBlock | undefined, container: HTMLElement): void {
@@ -378,9 +406,9 @@ export class ReplayRenderer {
 		const mdContainer = diffEl.createDiv({ cls: 'agent-sessions-diff-code' });
 		MarkdownRenderer.render(this.app, md, mdContainer, '', this.component);
 
-		if (result) {
+		if (result?.isError) {
 			diffEl.createDiv({
-				cls: `agent-sessions-diff-result ${result.isError ? 'agent-sessions-diff-result-error' : ''}`,
+				cls: 'agent-sessions-diff-result agent-sessions-diff-result-error',
 				text: result.content,
 			});
 		}
@@ -400,9 +428,9 @@ export class ReplayRenderer {
 		const mdContainer = writeEl.createDiv({ cls: 'agent-sessions-tool-input-code' });
 		MarkdownRenderer.render(this.app, md, mdContainer, '', this.component);
 
-		if (result && this.settings.showToolResults) {
+		if (result?.isError) {
 			const resultEl = container.createDiv({
-				cls: `agent-sessions-tool-result ${result.isError ? 'agent-sessions-tool-result-error' : ''}`,
+				cls: 'agent-sessions-tool-result agent-sessions-tool-result-error',
 			});
 			resultEl.createDiv({ cls: 'agent-sessions-tool-section-label', text: 'RESULT' });
 			const resultMd = fence(result.content);
@@ -443,7 +471,19 @@ export class ReplayRenderer {
 
 	private renderTextContent(text: string, container: HTMLElement, cls: string): void {
 		const lines = text.split('\n').length;
-		const wrapEl = container.createDiv();
+		const wrapEl = container.createDiv({ cls: 'agent-sessions-text-block' });
+
+		// Copy button
+		const copyBtn = wrapEl.createEl('button', {
+			cls: 'agent-sessions-text-copy',
+			attr: { 'aria-label': 'Copy to clipboard', 'data-tooltip-position': 'top' },
+		});
+		setIcon(copyBtn, 'copy');
+		copyBtn.addEventListener('click', () => {
+			navigator.clipboard.writeText(text);
+			setIcon(copyBtn, 'check');
+			setTimeout(() => setIcon(copyBtn, 'copy'), 1500);
+		});
 
 		if (lines > COLLAPSE_THRESHOLD) {
 			// Collapsible wrapper
@@ -533,6 +573,25 @@ class ImagePreviewModal extends Modal {
 			a.href = this.dataUri;
 			a.download = `attachment.${ext}`;
 			a.click();
+		});
+
+		const copyBtn = actions.createEl('button', {
+			cls: 'mod-cta',
+			text: 'Copy',
+		});
+		copyBtn.addEventListener('click', async () => {
+			const parts = this.dataUri.split(',');
+			const byteString = atob(parts[1]);
+			const bytes = new Uint8Array(byteString.length);
+			for (let i = 0; i < byteString.length; i++) {
+				bytes[i] = byteString.charCodeAt(i);
+			}
+			const blob = new Blob([bytes], { type: this.mediaType });
+			await navigator.clipboard.write([
+				new ClipboardItem({ [this.mediaType]: blob }),
+			]);
+			copyBtn.setText('Copied!');
+			setTimeout(() => copyBtn.setText('Copy'), 1500);
 		});
 	}
 

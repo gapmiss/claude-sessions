@@ -285,6 +285,18 @@ export class ClaudeParser extends BaseParser {
 		const content = record.message?.content;
 		const timestamp = record.timestamp;
 		if (typeof content === 'string') {
+			// Consolidate /exit command sequences into a single subtle message
+			if (/<command-name>\/exit<\/command-name>/.test(content)) {
+				return [{ type: 'text', text: '*Session ended*', timestamp } as TextBlock];
+			}
+			// Skip local command output that follows /exit (e.g. "Goodbye!")
+			if (/<local-command-stdout>/.test(content)) {
+				return [];
+			}
+			// Skip local command caveats (usually also filtered by isMeta)
+			if (/<local-command-caveat>/.test(content)) {
+				return [];
+			}
 			// Strip image source reference lines (e.g. "[Image: source: /path/to/file.png]")
 			const cleaned = content.replace(/\[Image:\s*source:\s*.+?\]/gi, '').trim();
 			if (!cleaned) {
@@ -334,10 +346,7 @@ export class ClaudeParser extends BaseParser {
 				if (block.thinking && block.thinking.trim()) {
 					return { type: 'thinking', thinking: block.thinking, timestamp } as ThinkingBlock;
 				}
-				// Thinking occurred but content is encrypted (signature-only)
-				if (block.signature) {
-					return { type: 'thinking', thinking: '', timestamp } as ThinkingBlock;
-				}
+				// Encrypted thinking (signature-only) — skip, nothing useful to display
 				return null;
 
 			case 'tool_use':
