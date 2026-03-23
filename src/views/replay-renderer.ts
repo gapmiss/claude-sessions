@@ -492,7 +492,7 @@ export class ReplayRenderer {
 
 		// Input section
 		if ((block.name === 'Agent' || block.name === 'Task') && block.subAgentSession) {
-			this.renderSubAgentSession(block.subAgentSession, body);
+			this.renderSubAgentSession(block.subAgentSession, body, result);
 		} else if (block.name === 'Edit' && block.input['old_string'] != null) {
 			this.renderDiffView(block, result, body);
 		} else if (block.name === 'Write' && block.input['content'] != null) {
@@ -624,7 +624,7 @@ export class ReplayRenderer {
 		previewBtn.addEventListener('click', () => setActive('preview'));
 	}
 
-	private renderSubAgentSession(session: SubAgentSession, container: HTMLElement): void {
+	private renderSubAgentSession(session: SubAgentSession, container: HTMLElement, result?: ToolResultBlock): void {
 		const timeline = container.createDiv({ cls: 'agent-sessions-subagent-timeline' });
 
 		// Header with prompt (collapsible)
@@ -653,6 +653,16 @@ export class ReplayRenderer {
 			if (blocks.length > 0) {
 				this.renderAssistantBlocks(blocks, turnEl);
 			}
+		}
+
+		// Render agent output inside the timeline (under the orange border)
+		if (result && this.settings.showToolResults) {
+			const outputEl = timeline.createDiv({ cls: 'agent-sessions-subagent-output' });
+			const outputLabel = outputEl.createDiv({ cls: 'agent-sessions-tool-section-label' });
+			outputLabel.createSpan({ text: 'OUTPUT' });
+			this.addCopyButton(outputLabel, result.content, 'Copy output');
+			const outputBody = outputEl.createDiv({ cls: 'agent-sessions-subagent-output-body' });
+			MarkdownRenderer.render(this.app, result.content, outputBody, '', this.component);
 		}
 	}
 
