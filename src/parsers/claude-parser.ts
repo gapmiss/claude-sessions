@@ -362,6 +362,8 @@ export class ClaudeParser extends BaseParser {
 		for (const record of ordered) {
 			// Queue-operation enqueue → user turn with the queued message
 			if (record.type === 'queue-operation' && record.operation === 'enqueue' && record.content) {
+				// Skip system-injected task notifications
+				if (record.content.startsWith('<task-notification>')) continue;
 				flushAssistant();
 				const ts = this.formatTimestamp(record.timestamp);
 				turns.push({
@@ -454,6 +456,12 @@ export class ClaudeParser extends BaseParser {
 							timestamp: record.timestamp,
 						} as CompactionBlock],
 					});
+					continue;
+				}
+
+				// Skip task notification messages (system-injected, not user-typed)
+				if (typeof record.message?.content === 'string'
+					&& record.message.content.startsWith('<task-notification>')) {
 					continue;
 				}
 
@@ -730,7 +738,11 @@ export class ClaudeParser extends BaseParser {
 			if (/^<local-command-caveat>/.test(content) || /^<local-command-stderr>/.test(content)) {
 				return [];
 			}
-			// Strip system-reminder, command-message, command-args tags and image references
+			// Skip task notification messages (system-injected, not user-typed)
+			if (/^<task-notification>/.test(content)) {
+				return [];
+			}
+			// Strip system/internal tags and image references
 			let cleaned = content;
 			cleaned = cleaned.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '');
 			cleaned = cleaned.replace(/<command-message>[\s\S]*?<\/command-message>/g, '');
