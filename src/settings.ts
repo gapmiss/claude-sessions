@@ -128,6 +128,20 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
+			.setName('Tool group threshold')
+			.setDesc('Consecutive tool calls above this number are collapsed into a group.')
+			.addText(text => text
+				.setValue(String(this.plugin.settings.toolGroupThreshold))
+				.onChange(async (value) => {
+					const n = parseInt(value, 10);
+					if (!isNaN(n) && n >= 1) {
+						this.plugin.settings.toolGroupThreshold = n;
+						await this.plugin.saveSettings();
+						this.plugin.updateReplayViews();
+					}
+				}));
+
+		new Setting(containerEl)
 			.setHeading()
 			.setName('Live watch');
 

@@ -23,6 +23,15 @@ export class FilePickerModal extends Modal {
 		// Drop zone / file picker
 		if (!Platform.isMobile) {
 			const dropZone = contentEl.createDiv({ cls: 'agent-sessions-drop-zone' });
+			dropZone.setAttribute('tabindex', '0');
+			dropZone.setAttribute('role', 'button');
+			dropZone.setAttribute('aria-label', 'Drop or click to select a session file');
+			dropZone.addEventListener('keydown', (e: KeyboardEvent) => {
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault();
+					dropZone.click();
+				}
+			});
 			const fileInput = dropZone.createEl('input', { type: 'file' });
 			fileInput.accept = '.jsonl,.json';
 			fileInput.addClass('agent-sessions-drop-zone-input');
@@ -30,9 +39,10 @@ export class FilePickerModal extends Modal {
 
 			const label = dropZone.createDiv({ cls: 'agent-sessions-drop-zone-label' });
 			label.createSpan({ text: 'Drop a session file here, or ' });
-			const browseLink = label.createEl('span', {
+			const browseLink = label.createEl('button', {
 				text: 'Browse',
 				cls: 'agent-sessions-drop-zone-browse',
+				attr: { 'aria-label': 'Browse for session file', type: 'button' },
 			});
 			label.createSpan({ text: '.' });
 

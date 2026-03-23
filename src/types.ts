@@ -122,6 +122,7 @@ export interface PluginSettings {
 	showHookIcons: boolean;
 	autoScrollOnUpdate: boolean;
 	defaultExportFormat: 'markdown' | 'html';
+	toolGroupThreshold: number;
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -133,6 +134,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	showHookIcons: true,
 	autoScrollOnUpdate: true,
 	defaultExportFormat: 'markdown',
+	toolGroupThreshold: 4,
 };
 
 export interface SessionListEntry {

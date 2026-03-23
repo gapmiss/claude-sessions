@@ -6,7 +6,6 @@ import {
 } from '../types';
 
 const COLLAPSE_THRESHOLD = 10; // lines before "Show more"
-const TOOL_GROUP_THRESHOLD = 4; // consecutive tools before grouping
 
 /** Map file extensions to markdown fence language identifiers. */
 const EXT_TO_LANG: Record<string, string> = {
@@ -52,6 +51,22 @@ function fence(content: string, lang = ''): string {
 	}
 	const ticks = '`'.repeat(max + 1);
 	return ticks + lang + '\n' + content + '\n' + ticks;
+}
+
+/** Make a clickable div keyboard-accessible: tabindex, role, aria attrs, Enter/Space handler. */
+function makeClickable(el: HTMLElement, opts: {
+	label?: string; role?: string; expanded?: boolean;
+}): void {
+	el.setAttribute('tabindex', '0');
+	el.setAttribute('role', opts.role ?? 'button');
+	if (opts.label) el.setAttribute('aria-label', opts.label);
+	if (opts.expanded !== undefined) el.setAttribute('aria-expanded', String(opts.expanded));
+	el.addEventListener('keydown', (e: KeyboardEvent) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			el.click();
+		}
+	});
 }
 
 function formatElapsed(ms: number): string {
@@ -143,8 +158,11 @@ export class ReplayRenderer {
 		// Body (collapsed by default)
 		const body = el.createDiv({ cls: 'agent-sessions-summary-body' });
 
+		makeClickable(header, { label: 'Toggle session summary', expanded: false });
 		header.addEventListener('click', () => {
-			el.toggleClass('open', !el.hasClass('open'));
+			const willOpen = !el.hasClass('open');
+			el.toggleClass('open', willOpen);
+			header.setAttribute('aria-expanded', String(willOpen));
 		});
 
 		// --- Session ID ---
@@ -312,8 +330,11 @@ export class ReplayRenderer {
 			});
 		}
 
+		makeClickable(header, { label: `Toggle turn ${turn.index + 1}`, expanded: true });
 		header.addEventListener('click', () => {
-			turnEl.toggleClass('collapsed', !turnEl.hasClass('collapsed'));
+			const willCollapse = !turnEl.hasClass('collapsed');
+			turnEl.toggleClass('collapsed', willCollapse);
+			header.setAttribute('aria-expanded', String(!willCollapse));
 		});
 
 		// Turn body
@@ -344,6 +365,7 @@ export class ReplayRenderer {
 						cls: 'agent-sessions-image-thumbnail',
 						attr: { src: dataUri, alt: 'User attachment' },
 					});
+					makeClickable(img, { label: 'View image attachment' });
 					img.addEventListener('click', () => {
 						this.openImageModal(dataUri, block.mediaType);
 					});
@@ -426,7 +448,7 @@ export class ReplayRenderer {
 
 		if (!this.settings.showToolCalls) return;
 
-		if (toolUses.length <= TOOL_GROUP_THRESHOLD) {
+		if (toolUses.length <= this.settings.toolGroupThreshold) {
 			// Render individually
 			for (const tu of toolUses) {
 				this.renderToolCall(tu, resultMap.get(tu.id), container);
@@ -447,8 +469,11 @@ export class ReplayRenderer {
 
 			const groupBody = groupEl.createDiv({ cls: 'agent-sessions-tool-group-body' });
 
+			makeClickable(groupHeader, { label: `Toggle ${toolUses.length} tool calls`, expanded: false });
 			groupHeader.addEventListener('click', () => {
-				groupEl.toggleClass('open', !groupEl.hasClass('open'));
+				const willOpen = !groupEl.hasClass('open');
+				groupEl.toggleClass('open', willOpen);
+				groupHeader.setAttribute('aria-expanded', String(willOpen));
 			});
 
 			for (const tu of toolUses) {
@@ -566,8 +591,11 @@ export class ReplayRenderer {
 			}
 		}
 
+		makeClickable(header, { label: `Toggle ${block.name} details`, expanded: false });
 		header.addEventListener('click', () => {
-			toolEl.toggleClass('open', !toolEl.hasClass('open'));
+			const willOpen = !toolEl.hasClass('open');
+			toolEl.toggleClass('open', willOpen);
+			header.setAttribute('aria-expanded', String(willOpen));
 		});
 	}
 
@@ -636,8 +664,11 @@ export class ReplayRenderer {
 		promptHeader.createSpan({ cls: 'agent-sessions-tool-section-label', text: 'PROMPT' });
 		const promptBody = promptSection.createDiv({ cls: 'agent-sessions-subagent-prompt-body' });
 		this.renderTextContent(session.prompt, promptBody, 'agent-sessions-user-text');
+		makeClickable(promptHeader, { label: 'Toggle sub-agent prompt', expanded: false });
 		promptHeader.addEventListener('click', () => {
-			promptSection.toggleClass('open', !promptSection.hasClass('open'));
+			const willOpen = !promptSection.hasClass('open');
+			promptSection.toggleClass('open', willOpen);
+			promptHeader.setAttribute('aria-expanded', String(willOpen));
 		});
 
 		// Render sub-agent turns
@@ -673,11 +704,13 @@ export class ReplayRenderer {
 				const toggleBtn = wrapEl.createEl('button', {
 					cls: 'agent-sessions-collapsible-toggle',
 					text: `Show more (${lines} lines)`,
+					attr: { 'aria-expanded': 'false' },
 				});
 				toggleBtn.addEventListener('click', () => {
 					const collapsed = wrapEl.hasClass('is-collapsed');
 					wrapEl.toggleClass('is-collapsed', !collapsed);
 					toggleBtn.setText(collapsed ? 'Show less' : `Show more (${lines} lines)`);
+					toggleBtn.setAttribute('aria-expanded', String(collapsed));
 				});
 			} else {
 				const bodyEl = outputEl.createDiv({ cls: 'agent-sessions-subagent-output-body' });
@@ -778,8 +811,11 @@ export class ReplayRenderer {
 			MarkdownRenderer.render(this.app, text, body, '', this.component);
 		}
 
+		makeClickable(header, { label: 'Toggle thinking block', expanded: false });
 		header.addEventListener('click', () => {
-			el.toggleClass('open', !el.hasClass('open'));
+			const willOpen = !el.hasClass('open');
+			el.toggleClass('open', willOpen);
+			header.setAttribute('aria-expanded', String(willOpen));
 		});
 	}
 
@@ -810,11 +846,13 @@ export class ReplayRenderer {
 			const toggleBtn = wrapEl.createEl('button', {
 				cls: 'agent-sessions-collapsible-toggle',
 				text: `Show more (${lines} lines)`,
+				attr: { 'aria-expanded': 'false' },
 			});
 			toggleBtn.addEventListener('click', () => {
 				const collapsed = wrapEl.hasClass('is-collapsed');
 				wrapEl.toggleClass('is-collapsed', !collapsed);
 				toggleBtn.setText(collapsed ? 'Show less' : `Show more (${lines} lines)`);
+				toggleBtn.setAttribute('aria-expanded', String(collapsed));
 			});
 		} else {
 			const mdEl = wrapEl.createDiv({ cls });
@@ -1068,6 +1106,7 @@ class ImagePreviewModal extends Modal {
 		const downloadBtn = actions.createEl('button', {
 			cls: 'mod-cta',
 			text: 'Download',
+			attr: { 'aria-label': 'Download image' },
 		});
 		downloadBtn.addEventListener('click', () => {
 			const ext = this.mediaType.split('/')[1] || 'png';
@@ -1080,6 +1119,7 @@ class ImagePreviewModal extends Modal {
 		const copyBtn = actions.createEl('button', {
 			cls: 'mod-cta',
 			text: 'Copy',
+			attr: { 'aria-label': 'Copy image to clipboard' },
 		});
 		copyBtn.addEventListener('click', async () => {
 			const parts = this.dataUri.split(',');

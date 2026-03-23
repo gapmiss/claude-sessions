@@ -445,6 +445,8 @@ export class ReplayView extends ItemView {
 				turnEls[idx].addClass('collapsed');
 				const chevron = turnEls[idx].querySelector('.agent-sessions-turn-chevron');
 				if (chevron) chevron.textContent = '\u25B6';
+				const header = turnEls[idx].querySelector('.agent-sessions-turn-header');
+				header?.setAttribute('aria-expanded', 'false');
 			}
 		}
 		if (state.summaryOpen) {
@@ -452,6 +454,8 @@ export class ReplayView extends ItemView {
 			summaryEl?.addClass('open');
 			const chevron = summaryEl?.querySelector('.agent-sessions-summary-chevron');
 			if (chevron) chevron.textContent = '\u25BC';
+			const header = summaryEl?.querySelector('.agent-sessions-summary-header');
+			header?.setAttribute('aria-expanded', 'true');
 		}
 
 		// Restore expanded tool blocks
@@ -461,6 +465,8 @@ export class ReplayView extends ItemView {
 				const toolBlocks = turnEls[t].querySelectorAll('.agent-sessions-tool-block');
 				if (b < toolBlocks.length) {
 					toolBlocks[b].addClass('open');
+					const header = toolBlocks[b].querySelector('.agent-sessions-tool-header');
+					header?.setAttribute('aria-expanded', 'true');
 				}
 			}
 		}
@@ -473,7 +479,10 @@ export class ReplayView extends ItemView {
 				if (w < wraps.length) {
 					wraps[w].removeClass('is-collapsed');
 					const btn = wraps[w].querySelector('.agent-sessions-collapsible-toggle');
-					if (btn) btn.textContent = 'Show less';
+					if (btn) {
+						btn.textContent = 'Show less';
+						(btn as HTMLElement).setAttribute('aria-expanded', 'true');
+					}
 				}
 			}
 		}
@@ -627,9 +636,15 @@ export class ReplayView extends ItemView {
 		setIcon(this.watchBtn, 'radio');
 		this.watchBtn.addEventListener('click', () => this.toggleWatch());
 
-		// Progress bar
+		// Progress bar (read-only indicator, not keyboard-interactive)
 		const progressWrap = container.createDiv({ cls: 'agent-sessions-progress-wrap' });
 		this.progressBar = progressWrap.createDiv({ cls: 'agent-sessions-progress-bar' });
+		this.progressBar.setAttribute('role', 'progressbar');
+		this.progressBar.setAttribute('aria-label', 'Session progress');
+		this.progressBar.setAttribute('aria-valuemin', '0');
+		this.progressBar.setAttribute('aria-valuemax', '0');
+		this.progressBar.setAttribute('aria-valuenow', '0');
+		this.progressBar.setAttribute('aria-valuetext', 'No session loaded');
 		this.progressFill = this.progressBar.createDiv({ cls: 'agent-sessions-progress-fill' });
 		this.progressTooltip = this.progressBar.createDiv({ cls: 'agent-sessions-progress-tooltip' });
 
@@ -663,6 +678,14 @@ export class ReplayView extends ItemView {
 			const activeView = this.app.workspace.getActiveViewOfType(ReplayView);
 			if (activeView !== this) return;
 
+			// Skip if focus is inside an input, textarea, or contentEditable element
+			const target = e.target as HTMLElement;
+			if (target.tagName === 'INPUT'
+				|| target.tagName === 'TEXTAREA'
+				|| target.isContentEditable) {
+				return;
+			}
+
 			switch (e.key) {
 				case 'ArrowLeft':
 					e.preventDefault();
@@ -674,6 +697,7 @@ export class ReplayView extends ItemView {
 					break;
 			}
 		});
+
 	}
 
 	private showFilterMenu(e: MouseEvent): void {
@@ -815,6 +839,19 @@ export class ReplayView extends ItemView {
 		if (this.progressFill && total > 0) {
 			const pct = ((this.activeTurnIndex + 1) / total) * 100;
 			this.progressFill.style.width = `${pct}%`;
+		}
+
+		// Update ARIA progressbar values
+		if (this.progressBar) {
+			this.progressBar.setAttribute('aria-valuemax', String(total));
+			this.progressBar.setAttribute('aria-valuenow', String(this.activeTurnIndex + 1));
+			if (this.sessionTotalMs > 0) {
+				this.progressBar.setAttribute('aria-valuetext',
+					`Turn ${this.activeTurnIndex + 1} of ${total} · ${this.formatTime(this.displayedTimeMs)} / ${this.formatTime(this.sessionTotalMs)}`);
+			} else {
+				this.progressBar.setAttribute('aria-valuetext',
+					`Turn ${this.activeTurnIndex + 1} of ${total}`);
+			}
 		}
 
 		this.updateTurnDots();

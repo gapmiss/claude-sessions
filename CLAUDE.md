@@ -6,18 +6,18 @@ Inspired by [claude-replay](https://github.com/es617/claude-replay), this plugin
 
 ## Status
 
-**v0.1.0 — Desktop-only. Session replay with summary panel, deep linking, and rich tool rendering.**
+**v0.1.0 — Desktop-only. Claude Code session replay with summary panel, deep linking, and rich tool rendering.**
 
 Working features:
+- **Claude Code only** — focused exclusively on Claude Code JSONL session format (Codex/Cursor parsers removed)
 - Claude Code JSONL parser with record merging, deduplication, tool result attachment, and token usage extraction
 - Per-record timestamps preserved on content blocks for segment-level timing
 - Thinking blocks parsed from plaintext (v2.1.50); encrypted/signature-only blocks (v2.1.79+) silently skipped
 - Hook event parsing from `hook_progress` records, attached to tool use blocks by `toolUseID`
 - `/exit` command consolidation — three records collapsed into single "*Session ended*" message
 - Local command tags (`<local-command-stdout>`, `<local-command-caveat>`) stripped from user content
-- Codex CLI parser (event-based format)
-- Cursor parser (stub — detection only)
-- Auto-format detection from first lines of file
+- **Sub-agent sessions** parsed and rendered inline with collapsible output, markdown rendering, and copy button
+- **Orphaned tool call status**: last-turn tool calls without results show "in progress" (likely still running); mid-session orphans show "interrupted"
 - **Session summary panel** (collapsible) at top of timeline:
   - Inline token count and turn count in collapsed header
   - Session ID with copy buttons (ID only + full JSONL path)
@@ -31,25 +31,28 @@ Working features:
 - Segment-level navigation: arrow keys step through segments (text, thinking, tool run) within turns
 - Segment-level playback: reveals segments with real timestamp-based delays (clamped 600ms–10s)
 - Active segment highlighted with accent left border + spinner on tool/thinking blocks
-- Progress bar dots = one per segment, positioned by real timestamp
+- Progress bar dots = one per segment, positioned by real timestamp; dots reused in place on re-render (no flicker)
 - Progress bar counter = real elapsed time, updates live on scroll
 - Scroll-based opacity via IntersectionObserver (turns fade in as they enter viewport)
 - Click-to-seek on progress bar targets specific segment (turn + block)
 - Keyboard shortcuts: Arrow keys (segment nav), Space (play/pause), `[`/`]` (speed)
 - **Content filter menu** (⋯ button): hierarchical toggles for User (text, images) and Assistant (text, thinking, tool calls, tool results)
-- Tool calls as compact bars: status dot (blue/red), bold name, arg preview, hook icon (fish) with tooltip, expand chevron
+- Tool calls as compact bars: status dot (blue/red/orange), bold name, arg preview, hook icon (fish) with tooltip, expand chevron
 - **Bash tool input** rendered as `` ```bash `` code block with description next to INPUT label
 - **Bash diff detection**: results from commands containing `diff` render as `` ```diff `` code block when output matches unified diff format
 - **Edit tool** renders as diff view (red/green lines); success messages hidden (errors only)
 - **Write tool** renders file content as syntax-highlighted code block; success messages hidden (errors only)
 - **Read tool results** use language-specific highlighting based on file extension via `langFromPath()`
-- Tool grouping: 5+ consecutive calls collapse into `▸ N tool calls Name, Name`
-- Thinking blocks as ghost-style collapsible cards: brain icon, 55% opacity (85% on hover/open)
+- Tool grouping: consecutive calls above configurable threshold (default 4) collapse into `▸ N tool calls Name, Name`
+- Thinking blocks as ghost-style collapsible cards: brain icon, 55% opacity (85% on hover/open/focus)
 - Copy-to-clipboard buttons on user/assistant text blocks (hover to reveal)
 - Image blocks with thumbnail preview, click-to-zoom modal with Download and Copy buttons
 - "Show more" with fade gradient for long text blocks (10+ lines)
 - Collapsible turn headers with `#N` label and timestamp
 - Role sections with colored left borders (accent for USER, cyan for CLAUDE)
+- **Live watch** with file watcher — auto-reloads session on file change
+  - **UI state preservation** across re-renders: expanded tool blocks, "show more" sections, scroll position, turn collapse, and summary panel state all persist
+  - **Auto-scroll setting** — toggle whether live updates scroll to bottom or preserve position
 - **Cached session index** — persists metadata to `session-index.json`; only new/modified files re-read on browse
 - **Async line-by-line metadata extraction** — skips large record types (file-history-snapshot, queue-operation, progress) by prefix check; reads up to 100 lines
 - **Empty session filtering** — sessions with zero user/assistant records are hidden from the browser
@@ -57,9 +60,13 @@ Working features:
 - File picker modal with drag-and-drop, path input, and session directory path resolution fallback
 - Markdown export with frontmatter and Obsidian callouts
 - HTML export as self-contained replay file with embedded player
-- Settings tab: session directories (with Add button), export preferences, display toggles
+- Settings tab: session directories, export preferences, display toggles (thinking, tool calls, tool results, hook icons), tool group threshold, auto-scroll on update
 - ESLint with `eslint-plugin-obsidianmd` recommended rules
-- Accessible: ARIA labels, focus-visible indicators, 44px touch targets
+- **Keyboard accessible**: all collapsible headers (turns, summary, tools, tool groups, thinking, sub-agent prompts) have `tabindex`, `role="button"`, `aria-expanded`, and Enter/Space handlers via `makeClickable()` helper; image thumbnails keyboard-activatable; show-more buttons track `aria-expanded`; document-level arrow key handler guards against input/textarea/contentEditable; `restoreUIState()` syncs ARIA attributes after live reload re-renders
+- **Progress bar**: `role="progressbar"` with live `aria-valuetext` (e.g. "Turn 5 of 42 · 3:21 / 15:00"); read-only (not keyboard-interactive) since scroll-driven position conflicts with arrow key navigation
+- **Focus-visible indicators**: `:focus-visible` outlines on all interactive headers (inset), image thumbnails (outset), drop zone, and file picker browse button; text copy buttons visible on `:focus-within`; thinking blocks opacity bump on `:focus-within`
+- **File picker accessibility**: browse link is a `<button>` with CSS reset for inline appearance; drop zone has `tabindex`, `role="button"`, and Enter/Space handler
+- 44px minimum touch targets on all interactive elements
 
 ## Key Implementation Details
 
@@ -81,6 +88,7 @@ The Claude Code JSONL format has these record types:
 7. **Hook events** are collected from `hook_progress` records, mapped by `toolUseID`, and attached to corresponding `ToolUseBlock.hooks[]` after turns are built.
 8. **Token usage** is extracted from `message.usage` on assistant records, deduplicated by message ID (keeping the max of each field across streaming duplicates), then summed into `SessionStats`.
 9. **Exit consolidation** — records containing `<command-name>/exit</command-name>` produce a single "*Session ended*" text block. Following `<local-command-stdout>` and `<local-command-caveat>` records are skipped.
+10. **Orphan vs pending** — tool_use blocks without a matching tool_result are marked `isPending` if on the last assistant turn (likely still running), or `isOrphaned` if mid-session (genuinely interrupted).
 
 ### Session Statistics (`types.ts: SessionStats`)
 
@@ -101,6 +109,7 @@ Computed during parsing and stored on `Session.stats`:
 - **Segment timing data**: `segmentMs[]` (flat array of segment timestamps as ms offsets from session start), `segmentStartIdx[]` (first flat index per turn).
 - **Progress bar**: dots positioned per-segment by real timestamp. `segmentFromPct()` maps click position to `{turnIdx, blockIdx}` for seek.
 - `getState()`/`setState()` persist turn position for workspace restore
+- **UI state preservation**: `captureUIState()` / `restoreUIState()` save and restore collapsed turns, summary panel, expanded tool blocks (by turn+block index), expanded "show more" sections (by turn+wrap index), scroll position, and ARIA `aria-expanded` attributes across full re-renders
 - **Content filters**: `FilterState` tracks 8 toggles in two groups — User (text, images) and Assistant (text, thinking, tool calls, tool results). Parent toggles hide entire role sections; children toggle individual block types.
 
 ### Replay Renderer (`views/replay-renderer.ts`)
@@ -116,10 +125,10 @@ Computed during parsing and stored on `Session.stats`:
   - `Read` → language-specific highlighting based on file extension, line numbers stripped
   - `Bash` with diff command → `` ```diff `` code block (detected via `isBashDiffResult()`)
   - Other → plain code block
-- **Hook indicators**: fish icon on tool call headers when `block.hooks` is present, tooltip shows hook names
+- **Hook indicators**: fish icon on tool call headers when `block.hooks` is present and `settings.showHookIcons` is enabled, tooltip shows hook names
 - **Text blocks** wrapped in `.agent-sessions-text-block` with hover-reveal copy button
 - **Image blocks**: thumbnail with click handler → `ImagePreviewModal` (full-size view + Download + Copy buttons)
-- Tool grouping: ≤4 render individually, 5+ collapse into group header
+- Tool grouping: configurable via `settings.toolGroupThreshold` (default 4); calls above threshold collapse into group header
 - Long text (>10 lines) wrapped in collapsible with fade gradient
 - `getBlockWrappers(turnIndex)` returns all wrapper elements within a turn
 
@@ -146,9 +155,7 @@ src/
   parsers/
     base-parser.ts                 # Abstract base with shared utilities
     claude-parser.ts               # Claude Code JSONL parser (merges records, extracts stats + hooks)
-    codex-parser.ts                # Codex CLI parser
-    cursor-parser.ts               # Cursor transcript parser (stub)
-    detect.ts                      # Format auto-detection
+    detect.ts                      # Parser detection (Claude-only)
   views/
     replay-view.ts                 # ItemView — scrollable timeline with IntersectionObserver
     replay-renderer.ts             # DOM rendering (summary, timeline, tool bars, diff view, collapsibles)
@@ -207,14 +214,16 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 - Obsidian protocol handler params arrive as `Record<string, string>` from the query string; paths with special characters need `encodeURIComponent`/`decodeURIComponent`.
 - Claude Code sessions often start with multiple 6KB+ `file-history-snapshot` records — reading only the first 2KB misses all metadata. Use line-by-line reading with prefix-skip for large record types instead.
 - Session index cache uses `mtime` as staleness key — fast stat() check avoids re-reading unchanged files. Store in `.obsidian/plugins/agent-sessions/session-index.json` via direct `fs` (desktop-only).
+- Live reload re-renders the entire DOM — UI state (expanded tools, show-more, scroll position) must be captured before and restored after. Keyed by turn+block index, which is stable as long as turns aren't reordered (safe for append-only JSONL).
+- Progress bar dots must be reused in place (not destroyed/recreated) to avoid flicker during live reload. Diff the count: reposition existing, append new, remove excess.
 
 ## Roadmap
 
 ### Near-term
-- [ ] Cursor parser — full implementation once transcript format is documented
+- [ ] Incremental parsing — track byte/line offset, only parse new lines on reload
+- [ ] Incremental DOM rendering — append new turns instead of full re-render
 - [ ] Progress bar/notice for large file imports (10MB+)
 - [ ] Search/filter sessions by project, date range, or model
-- [ ] Persist last-viewed turn per session across restarts (setState/getState)
 - [ ] Skip filtered blocks during segment-level navigation (arrow keys currently land on hidden blocks)
 
 ### Medium-term

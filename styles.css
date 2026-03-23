@@ -311,7 +311,9 @@
 	z-index: 1;
 }
 
-.agent-sessions-text-block:hover .agent-sessions-text-copy {
+.agent-sessions-text-block:hover .agent-sessions-text-copy,
+.agent-sessions-text-block:focus-within .agent-sessions-text-copy,
+.agent-sessions-text-copy:focus-visible {
 	opacity: 1;
 }
 
@@ -839,7 +841,8 @@
 }
 
 .agent-sessions-thinking-block:hover,
-.agent-sessions-thinking-block.open {
+.agent-sessions-thinking-block.open,
+.agent-sessions-thinking-block:focus-within {
 	opacity: 0.85;
 }
 
@@ -1176,6 +1179,11 @@
 	cursor: pointer;
 	text-decoration: underline;
 	text-underline-offset: 2px;
+	background: none;
+	border: none;
+	padding: 0;
+	font: inherit;
+	display: inline;
 }
 
 .agent-sessions-drop-zone-browse:hover {
@@ -1327,6 +1335,39 @@
 .agent-sessions-replay-container button:focus-visible,
 .agent-sessions-replay-container input:focus-visible,
 .agent-sessions-replay-container summary:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+/* Focus indicators for custom clickable headers */
+.agent-sessions-turn-header:focus-visible,
+.agent-sessions-summary-header:focus-visible,
+.agent-sessions-tool-header:focus-visible,
+.agent-sessions-tool-group-header:focus-visible,
+.agent-sessions-thinking-header:focus-visible,
+.agent-sessions-subagent-prompt-header:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: -2px;
+}
+
+.agent-sessions-image-thumbnail:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+/* Scrollable content regions */
+.agent-sessions-tool-input:focus-visible,
+.agent-sessions-tool-result:focus-visible,
+.agent-sessions-diff-view:focus-visible,
+.agent-sessions-thinking-body:focus-visible,
+.agent-sessions-compaction-summary:focus-visible,
+.agent-sessions-ansi-block:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: -2px;
+}
+
+/* Drop zone focus indicator */
+.agent-sessions-drop-zone:focus-visible {
 	outline: 2px solid var(--interactive-accent);
 	outline-offset: 2px;
 }
