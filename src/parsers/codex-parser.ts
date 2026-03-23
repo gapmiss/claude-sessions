@@ -87,7 +87,7 @@ export class CodexParser extends BaseParser {
 				userTurns: turns.filter(t => t.role === 'user').length,
 				assistantTurns: turns.filter(t => t.role === 'assistant').length,
 				inputTokens: 0, outputTokens: 0,
-				cacheReadTokens: 0, cacheCreationTokens: 0,
+				cacheReadTokens: 0, cacheCreationTokens: 0, totalTokens: 0,
 				toolUseCounts: {}, durationMs: 0,
 			},
 			turns,

@@ -1,8 +1,8 @@
 import { App, Modal, MarkdownRenderer, Component, setIcon } from 'obsidian';
 import { diffLines } from 'diff';
 import {
-	Turn, ContentBlock, ToolUseBlock, ToolResultBlock, AnsiBlock, PluginSettings, Session,
-	SubAgentSession,
+	Turn, ContentBlock, ToolUseBlock, ToolResultBlock, AnsiBlock, CompactionBlock,
+	PluginSettings, Session, SubAgentSession,
 } from '../types';
 
 const COLLAPSE_THRESHOLD = 10; // lines before "Show more"
@@ -71,6 +71,7 @@ export class ReplayRenderer {
 	private settings: PluginSettings;
 	private turnEls: HTMLElement[] = [];
 	private sessionStartMs = 0;
+	private sessionModel?: string;
 
 	constructor(container: HTMLElement, app: App, component: Component, settings: PluginSettings) {
 		this.container = container;
@@ -96,6 +97,7 @@ export class ReplayRenderer {
 		this.container.empty();
 		this.turnEls = [];
 		this.sessionStartMs = sessionStartMs;
+		this.sessionModel = session?.metadata.model;
 
 		if (session) {
 			this.renderSummary(session, this.container);
@@ -125,12 +127,10 @@ export class ReplayRenderer {
 		header.createSpan({ cls: 'agent-sessions-summary-title', text: 'Session summary' });
 
 		// Inline stats in header
-		const headerTotalTokens = stats.inputTokens + stats.outputTokens
-			+ stats.cacheReadTokens + stats.cacheCreationTokens;
-		if (headerTotalTokens > 0) {
+		if (stats.totalTokens > 0) {
 			header.createSpan({
 				cls: 'agent-sessions-summary-inline',
-				text: `${this.formatTokens(headerTotalTokens)} tokens`,
+				text: `${this.formatTokens(stats.totalTokens)} tokens`,
 			});
 		}
 		if (metadata.totalTurns > 0) {
@@ -301,6 +301,17 @@ export class ReplayRenderer {
 			}
 		}
 
+		if (turn.model && turn.model !== this.sessionModel) {
+			header.createSpan({ cls: 'agent-sessions-turn-model', text: turn.model });
+		}
+		if (turn.stopReason === 'max_tokens') {
+			header.createSpan({
+				cls: 'agent-sessions-turn-stop-reason',
+				attr: { 'aria-label': 'Response truncated (max tokens)', 'data-tooltip-position': 'top' },
+				text: 'max tokens',
+			});
+		}
+
 		header.addEventListener('click', () => {
 			turnEl.toggleClass('collapsed', !turnEl.hasClass('collapsed'));
 		});
@@ -397,6 +408,9 @@ export class ReplayRenderer {
 					this.renderThinkingBlock(block.thinking, container);
 				}
 				break;
+			case 'compaction':
+				this.renderCompactionBlock(block as CompactionBlock, container);
+				break;
 		}
 	}
 
@@ -449,11 +463,20 @@ export class ReplayRenderer {
 		// Header bar
 		const header = toolEl.createDiv({ cls: 'agent-sessions-tool-header' });
 		const isError = result?.isError ?? false;
-		header.createSpan({
-			cls: `agent-sessions-tool-indicator ${isError ? 'agent-sessions-tool-error' : ''}`,
-		});
+		const indicatorCls = block.isOrphaned
+			? 'agent-sessions-tool-indicator agent-sessions-tool-orphaned'
+			: `agent-sessions-tool-indicator ${isError ? 'agent-sessions-tool-error' : ''}`;
+		header.createSpan({ cls: indicatorCls });
 		header.createSpan({ cls: 'agent-sessions-tool-name', text: block.name });
 		header.createSpan({ cls: 'agent-sessions-tool-preview', text: this.toolPreview(block) });
+		if (block.isOrphaned) {
+			header.createSpan({ cls: 'agent-sessions-tool-duration agent-sessions-tool-orphaned-label', text: 'interrupted' });
+		} else if (block.timestamp && result?.timestamp) {
+			const elapsed = new Date(result.timestamp).getTime() - new Date(block.timestamp).getTime();
+			if (elapsed > 0 && !isNaN(elapsed)) {
+				header.createSpan({ cls: 'agent-sessions-tool-duration', text: this.formatToolDuration(elapsed) });
+			}
+		}
 		if (block.hooks && block.hooks.length > 0) {
 			const hookNames = [...new Set(block.hooks.map(h => h.hookName))].join(', ');
 			const hookIcon = header.createSpan({
@@ -468,7 +491,7 @@ export class ReplayRenderer {
 		const body = toolEl.createDiv({ cls: 'agent-sessions-tool-body' });
 
 		// Input section
-		if (block.name === 'Agent' && block.subAgentSession) {
+		if ((block.name === 'Agent' || block.name === 'Task') && block.subAgentSession) {
 			this.renderSubAgentSession(block.subAgentSession, body);
 		} else if (block.name === 'Edit' && block.input['old_string'] != null) {
 			this.renderDiffView(block, result, body);
@@ -489,7 +512,7 @@ export class ReplayRenderer {
 		if (result && this.settings.showToolResults
 			&& !(block.name === 'Edit' && block.input['old_string'] != null)
 			&& !(block.name === 'Write' && block.input['content'] != null)
-			&& !(block.name === 'Agent' && block.subAgentSession)) {
+			&& !((block.name === 'Agent' || block.name === 'Task') && block.subAgentSession)) {
 			const resultEl = body.createDiv({
 				cls: `agent-sessions-tool-result ${isError ? 'agent-sessions-tool-result-error' : ''}`,
 			});
@@ -499,13 +522,18 @@ export class ReplayRenderer {
 				: result.content;
 
 			if (block.name === 'Read' && !isError) {
-				// Render as syntax-highlighted code block via MarkdownRenderer
 				const filePath = String(block.input['file_path'] || '');
 				const lang = langFromPath(filePath);
 				const cleaned = stripLineNumbers(resultText);
-				const md = fence(cleaned, lang);
-				const mdContainer = resultEl.createDiv({ cls: 'agent-sessions-read-result' });
-				MarkdownRenderer.render(this.app, md, mdContainer, '', this.component);
+				const isMarkdownFile = /\.mdx?$/i.test(filePath);
+
+				if (isMarkdownFile) {
+					this.renderReadMarkdownToggle(cleaned, lang, resultEl);
+				} else {
+					const md = fence(cleaned, lang);
+					const mdContainer = resultEl.createDiv({ cls: 'agent-sessions-read-result' });
+					MarkdownRenderer.render(this.app, md, mdContainer, '', this.component);
+				}
 			} else if (block.name === 'Bash' && !isError && this.isBashDiffResult(block, resultText)) {
 				const resultMd = fence(resultText, 'diff');
 				const resultMdContainer = resultEl.createDiv({ cls: 'agent-sessions-tool-result-code' });
@@ -514,6 +542,25 @@ export class ReplayRenderer {
 				const resultMd = fence(resultText);
 				const resultMdContainer = resultEl.createDiv({ cls: 'agent-sessions-tool-result-code' });
 				MarkdownRenderer.render(this.app, resultMd, resultMdContainer, '', this.component);
+			}
+
+			// Show enriched data (Bash exit code + stderr)
+			if (block.name === 'Bash' && result.enrichedResult) {
+				const exitCode = result.enrichedResult['exitCode'];
+				const stderr = result.enrichedResult['stderr'] as string | undefined;
+				if (exitCode != null && exitCode !== 0) {
+					resultEl.createDiv({ cls: 'agent-sessions-tool-exit-code', text: `Exit code: ${exitCode}` });
+				}
+				if (stderr?.trim()) {
+					const stderrLabel = resultEl.createDiv({ cls: 'agent-sessions-tool-section-label' });
+					stderrLabel.createSpan({ text: 'STDERR' });
+					const stderrText = stderr.length > 2000
+						? stderr.substring(0, 2000) + '\n... (truncated)'
+						: stderr;
+					const stderrMd = fence(stderrText);
+					const stderrContainer = resultEl.createDiv({ cls: 'agent-sessions-tool-result-code agent-sessions-tool-result-error' });
+					MarkdownRenderer.render(this.app, stderrMd, stderrContainer, '', this.component);
+				}
 			}
 		}
 
@@ -534,6 +581,52 @@ export class ReplayRenderer {
 		const md = fence(command, 'bash');
 		const mdContainer = inputEl.createDiv({ cls: 'agent-sessions-tool-input-code' });
 		MarkdownRenderer.render(this.app, md, mdContainer, '', this.component);
+	}
+
+	/** Render a Read result for .md/.mdx files with a code/preview toggle. */
+	private renderReadMarkdownToggle(content: string, lang: string, container: HTMLElement): void {
+		const wrapper = container.createDiv({ cls: 'agent-sessions-read-result agent-sessions-read-md-toggle' });
+
+		// Toggle button row
+		const toggleRow = wrapper.createDiv({ cls: 'agent-sessions-read-md-toggle-row' });
+		const codeBtn = toggleRow.createEl('button', {
+			cls: 'agent-sessions-read-md-btn active',
+			text: 'Code',
+			attr: { 'aria-label': 'Show raw code', 'aria-pressed': 'true' },
+		});
+		const previewBtn = toggleRow.createEl('button', {
+			cls: 'agent-sessions-read-md-btn',
+			text: 'Preview',
+			attr: { 'aria-label': 'Show rendered markdown', 'aria-pressed': 'false' },
+		});
+
+		// Code view (default)
+		const codeView = wrapper.createDiv({ cls: 'agent-sessions-read-md-code' });
+		const codeMd = fence(content, lang);
+		MarkdownRenderer.render(this.app, codeMd, codeView, '', this.component);
+
+		// Preview view (hidden initially)
+		const previewView = wrapper.createDiv({ cls: 'agent-sessions-read-md-preview agent-sessions-read-md-hidden' });
+		let previewRendered = false;
+
+		const setActive = (mode: 'code' | 'preview') => {
+			const isCode = mode === 'code';
+			codeBtn.toggleClass('active', isCode);
+			previewBtn.toggleClass('active', !isCode);
+			codeBtn.setAttribute('aria-pressed', String(isCode));
+			previewBtn.setAttribute('aria-pressed', String(!isCode));
+			codeView.toggleClass('agent-sessions-read-md-hidden', !isCode);
+			previewView.toggleClass('agent-sessions-read-md-hidden', isCode);
+
+			// Lazy-render preview on first switch
+			if (!isCode && !previewRendered) {
+				previewRendered = true;
+				MarkdownRenderer.render(this.app, content, previewView, '', this.component);
+			}
+		};
+
+		codeBtn.addEventListener('click', () => setActive('code'));
+		previewBtn.addEventListener('click', () => setActive('preview'));
 	}
 
 	private renderSubAgentSession(session: SubAgentSession, container: HTMLElement): void {
@@ -888,6 +981,27 @@ export class ReplayRenderer {
 				return s.length > 60 ? s.substring(0, 60) + '...' : s;
 			}
 		}
+	}
+
+	private renderCompactionBlock(block: CompactionBlock, container: HTMLElement): void {
+		const el = container.createDiv({ cls: 'agent-sessions-compaction-block' });
+		const divider = el.createDiv({ cls: 'agent-sessions-compaction-divider' });
+		const icon = divider.createSpan({ cls: 'agent-sessions-compaction-icon' });
+		setIcon(icon, 'scissors');
+		divider.createSpan({ text: 'Context compacted' });
+		if (block.summary) {
+			const summaryEl = el.createDiv({ cls: 'agent-sessions-compaction-summary' });
+			MarkdownRenderer.render(this.app, block.summary, summaryEl, '', this.component);
+		}
+	}
+
+	private formatToolDuration(ms: number): string {
+		if (ms < 1000) return `${ms}ms`;
+		const sec = ms / 1000;
+		if (sec < 60) return `${sec.toFixed(1)}s`;
+		const min = Math.floor(sec / 60);
+		const remSec = Math.round(sec % 60);
+		return `${min}m ${remSec}s`;
 	}
 
 	private formatInput(input: Record<string, unknown>): string {

@@ -1,8 +1,8 @@
 import { BaseParser } from './base-parser';
 import {
 	Session, Turn, ContentBlock, TextBlock, ThinkingBlock,
-	ToolUseBlock, ToolResultBlock, ImageBlock, AnsiBlock, HookEvent, SessionStats,
-	SubAgentSession,
+	ToolUseBlock, ToolResultBlock, ImageBlock, AnsiBlock, CompactionBlock,
+	HookEvent, SessionStats, SubAgentSession,
 } from '../types';
 import { extractProjectName, dirname } from '../utils/path-utils';
 
@@ -21,6 +21,11 @@ interface ClaudeRecord {
 	isMeta?: boolean;
 	toolUseID?: string;
 	parentToolUseID?: string;
+	isCompactSummary?: boolean;
+	summary?: string;
+	operation?: string;
+	sourceToolUseID?: string;
+	toolUseResult?: Record<string, unknown>;
 	data?: {
 		type?: string;
 		hookEvent?: string;
@@ -50,6 +55,7 @@ interface ClaudeRecord {
 		role?: string;
 		content?: string | ClaudeContentBlock[];
 		model?: string;
+		stop_reason?: string;
 		usage?: {
 			input_tokens?: number;
 			output_tokens?: number;
@@ -127,6 +133,9 @@ export class ClaudeParser extends BaseParser {
 		// Token usage per message ID (keep max of each field across streaming duplicates)
 		const usageByMsg = new Map<string, { inp: number; out: number; cr: number; cc: number }>();
 
+		// Enriched tool results by sourceToolUseID
+		const enrichedResults = new Map<string, Record<string, unknown>>();
+
 		// First pass: parse all records and extract metadata
 		for (const line of lines) {
 			const record = this.tryParseJson(line) as ClaudeRecord | null;
@@ -167,10 +176,23 @@ export class ClaudeParser extends BaseParser {
 				}
 			}
 
-			if (SKIP_TYPES.has(record.type)) continue;
+			// Capture enriched toolUseResult from user entries
+			if (record.type === 'user' && record.toolUseResult && record.sourceToolUseID) {
+				enrichedResults.set(record.sourceToolUseID, record.toolUseResult);
+			}
+
+			if (record.type === 'queue-operation' && record.operation === 'enqueue' && record.content) {
+				// Enqueue records carry user messages — let them through
+			} else if (SKIP_TYPES.has(record.type)) continue;
 			if (record.isSidechain) continue;
 			if (record.isMeta) continue;
 			if (record.type === 'assistant' && record.message?.model === '<synthetic>') continue;
+
+			// Let summary records through for compaction boundary rendering
+			if (record.type === 'summary') {
+				records.push(record);
+				continue;
+			}
 
 			if (record.sessionId && !sessionId) sessionId = record.sessionId;
 			if (record.cwd && !cwd) cwd = record.cwd;
@@ -218,11 +240,32 @@ export class ClaudeParser extends BaseParser {
 		if (agentProgressMap.size > 0) {
 			for (const turn of turns) {
 				for (const block of turn.contentBlocks) {
-					if (block.type === 'tool_use' && block.name === 'Agent'
+					if (block.type === 'tool_use'
+						&& (block.name === 'Agent' || block.name === 'Task')
 						&& agentProgressMap.has(block.id)) {
 						const agentRecords = agentProgressMap.get(block.id)!;
 						block.subAgentSession = this.buildSubAgentSession(agentRecords, block);
 					}
+				}
+			}
+		}
+
+		// Attach enriched results and mark orphaned tool_use blocks
+		const resultIds = new Set<string>();
+		for (const turn of turns) {
+			for (const block of turn.contentBlocks) {
+				if (block.type === 'tool_result') {
+					resultIds.add(block.toolUseId);
+					if (enrichedResults.has(block.toolUseId)) {
+						block.enrichedResult = enrichedResults.get(block.toolUseId);
+					}
+				}
+			}
+		}
+		for (const turn of turns) {
+			for (const block of turn.contentBlocks) {
+				if (block.type === 'tool_use' && !resultIds.has(block.id)) {
+					block.isOrphaned = true;
 				}
 			}
 		}
@@ -273,6 +316,7 @@ export class ClaudeParser extends BaseParser {
 			outputTokens: totalOutputTokens,
 			cacheReadTokens: totalCacheReadTokens,
 			cacheCreationTokens: totalCacheCreationTokens,
+			totalTokens: totalInputTokens + totalOutputTokens + totalCacheReadTokens + totalCacheCreationTokens,
 			toolUseCounts,
 			durationMs,
 		};
@@ -316,6 +360,42 @@ export class ClaudeParser extends BaseParser {
 		};
 
 		for (const record of ordered) {
+			// Queue-operation enqueue → user turn with the queued message
+			if (record.type === 'queue-operation' && record.operation === 'enqueue' && record.content) {
+				flushAssistant();
+				const ts = this.formatTimestamp(record.timestamp);
+				turns.push({
+					index: turns.length,
+					role: 'user',
+					timestamp: ts,
+					endTimestamp: ts,
+					contentBlocks: [{
+						type: 'text',
+						text: record.content,
+						timestamp: record.timestamp,
+					} as TextBlock],
+				});
+				continue;
+			}
+
+			// Summary records → compaction boundary
+			if (record.type === 'summary') {
+				flushAssistant();
+				const ts = this.formatTimestamp(record.timestamp);
+				turns.push({
+					index: turns.length,
+					role: 'assistant',
+					timestamp: ts,
+					endTimestamp: ts,
+					contentBlocks: [{
+						type: 'compaction',
+						summary: record.summary,
+						timestamp: record.timestamp,
+					} as CompactionBlock],
+				});
+				continue;
+			}
+
 			// System records with local_command subtype (slash commands like /rename)
 			if (record.type === 'system' && record.subtype === 'local_command' && record.content) {
 				const blocks = this.extractSystemContent(record);
@@ -349,10 +429,49 @@ export class ClaudeParser extends BaseParser {
 				if (record.timestamp) {
 					currentAssistantTurn.endTimestamp = this.formatTimestamp(record.timestamp);
 				}
+				if (record.message?.model && record.message.model !== '<synthetic>'
+					&& !currentAssistantTurn.model) {
+					currentAssistantTurn.model = record.message.model;
+				}
+				if (record.message?.stop_reason) {
+					currentAssistantTurn.stopReason = record.message.stop_reason;
+				}
 				for (const b of blocks) {
 					currentAssistantTurn.contentBlocks.push(b);
 				}
 			} else if (record.type === 'user') {
+				// isCompactSummary user entries → compaction boundary
+				if (record.isCompactSummary) {
+					flushAssistant();
+					const ts = this.formatTimestamp(record.timestamp);
+					turns.push({
+						index: turns.length,
+						role: 'assistant',
+						timestamp: ts,
+						endTimestamp: ts,
+						contentBlocks: [{
+							type: 'compaction',
+							timestamp: record.timestamp,
+						} as CompactionBlock],
+					});
+					continue;
+				}
+
+				// Interruption messages attach to assistant turn, not separate user turn
+				if (this.isInterruptionMessage(record)) {
+					if (currentAssistantTurn) {
+						currentAssistantTurn.contentBlocks.push({
+							type: 'text',
+							text: '*Request interrupted by user*',
+							timestamp: record.timestamp,
+						} as TextBlock);
+						if (record.timestamp) {
+							currentAssistantTurn.endTimestamp = this.formatTimestamp(record.timestamp);
+						}
+					}
+					continue;
+				}
+
 				const toolResults = this.extractToolResultBlocks(record, toolUseNames);
 
 				if (toolResults.length > 0 && currentAssistantTurn) {
@@ -391,6 +510,22 @@ export class ClaudeParser extends BaseParser {
 
 		flushAssistant();
 		return turns;
+	}
+
+	/** Detect interruption messages in user records. */
+	private isInterruptionMessage(record: ClaudeRecord): boolean {
+		const content = record.message?.content;
+		if (typeof content === 'string') {
+			return content.startsWith('[Request interrupted by user');
+		}
+		if (Array.isArray(content)) {
+			for (const block of content as ClaudeContentBlock[]) {
+				if (block.type === 'text' && block.text?.startsWith('[Request interrupted by user')) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -531,8 +666,9 @@ export class ClaudeParser extends BaseParser {
 		const content = record.content ?? '';
 		const timestamp = record.timestamp;
 
-		// Skip stdout/caveat follow-up records (they follow the command record)
-		if (/^<local-command-stdout>/.test(content) || /^<local-command-caveat>/.test(content)) {
+		// Skip stdout/caveat/stderr follow-up records (they follow the command record)
+		if (/^<local-command-stdout>/.test(content) || /^<local-command-caveat>/.test(content)
+			|| /^<local-command-stderr>/.test(content)) {
 			return [];
 		}
 
@@ -562,11 +698,22 @@ export class ClaudeParser extends BaseParser {
 				this.pendingCommand = null;
 				return [{ type: 'text', text: '*Session ended*', timestamp } as TextBlock];
 			}
-			// Detect slash commands that produce ANSI output
+			// Detect slash commands
 			const cmdMatch = content.match(/^<command-name>(\/\w+)<\/command-name>/);
-			if (cmdMatch && ClaudeParser.ANSI_COMMANDS.has(cmdMatch[1])) {
-				this.pendingCommand = cmdMatch[1];
-				return [{ type: 'text', text: cmdMatch[1], timestamp } as TextBlock];
+			if (cmdMatch) {
+				const cmd = cmdMatch[1];
+				// Commands that produce ANSI output
+				if (ClaudeParser.ANSI_COMMANDS.has(cmd)) {
+					this.pendingCommand = cmd;
+					return [{ type: 'text', text: cmd, timestamp } as TextBlock];
+				}
+				// All other slash commands: extract args and message for readable display
+				const argsMatch = content.match(/<command-args>([\s\S]*?)<\/command-args>/);
+				const msgMatch = content.match(/<command-message>([\s\S]*?)<\/command-message>/);
+				const parts = [cmd];
+				if (argsMatch?.[1]?.trim()) parts.push(argsMatch[1].trim());
+				if (msgMatch?.[1]?.trim()) parts.push(msgMatch[1].trim());
+				return [{ type: 'text', text: parts.join(' '), timestamp } as TextBlock];
 			}
 			// Capture ANSI output from local command stdout when a pending command is active
 			if (/^<local-command-stdout>/.test(content) && this.pendingCommand) {
@@ -579,12 +726,17 @@ export class ClaudeParser extends BaseParser {
 			if (/^<local-command-stdout>/.test(content)) {
 				return [];
 			}
-			// Skip local command caveats (usually also filtered by isMeta)
-			if (/^<local-command-caveat>/.test(content)) {
+			// Skip local command caveats and stderr (usually also filtered by isMeta)
+			if (/^<local-command-caveat>/.test(content) || /^<local-command-stderr>/.test(content)) {
 				return [];
 			}
-			// Strip image source reference lines (e.g. "[Image: source: /path/to/file.png]")
-			const cleaned = content.replace(/\[Image:\s*source:\s*.+?\]/gi, '').trim();
+			// Strip system-reminder, command-message, command-args tags and image references
+			let cleaned = content;
+			cleaned = cleaned.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '');
+			cleaned = cleaned.replace(/<command-message>[\s\S]*?<\/command-message>/g, '');
+			cleaned = cleaned.replace(/<command-args>[\s\S]*?<\/command-args>/g, '');
+			cleaned = cleaned.replace(/\[Image:\s*source:\s*.+?\]/gi, '');
+			cleaned = cleaned.trim();
 			if (!cleaned) {
 				return [];
 			}

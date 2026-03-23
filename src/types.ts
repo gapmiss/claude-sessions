@@ -1,6 +1,6 @@
 export type SessionFormat = 'claude' | 'cursor' | 'codex';
 export type TurnRole = 'user' | 'assistant';
-export type ContentBlockType = 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'image' | 'ansi';
+export type ContentBlockType = 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'image' | 'ansi' | 'compaction';
 
 export interface SessionMetadata {
 	id: string;
@@ -21,6 +21,7 @@ export interface SessionStats {
 	outputTokens: number;
 	cacheReadTokens: number;
 	cacheCreationTokens: number;
+	totalTokens: number;
 	toolUseCounts: Record<string, number>;
 	durationMs: number;
 }
@@ -38,6 +39,8 @@ export interface Turn {
 	timestamp?: string;
 	endTimestamp?: string;
 	contentBlocks: ContentBlock[];
+	model?: string;
+	stopReason?: string;
 }
 
 export interface TextBlock {
@@ -66,6 +69,7 @@ export interface ToolUseBlock {
 	timestamp?: string;
 	hooks?: HookEvent[];
 	subAgentSession?: SubAgentSession;
+	isOrphaned?: boolean;
 }
 
 export interface SubAgentSession {
@@ -83,6 +87,7 @@ export interface ToolResultBlock {
 	content: string;
 	isError: boolean;
 	timestamp?: string;
+	enrichedResult?: Record<string, unknown>;
 }
 
 export interface ImageBlock {
@@ -99,7 +104,13 @@ export interface AnsiBlock {
 	timestamp?: string;
 }
 
-export type ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock | ImageBlock | AnsiBlock;
+export interface CompactionBlock {
+	type: 'compaction';
+	summary?: string;
+	timestamp?: string;
+}
+
+export type ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock | ImageBlock | AnsiBlock | CompactionBlock;
 
 export interface PluginSettings {
 	sessionDirs: string[];

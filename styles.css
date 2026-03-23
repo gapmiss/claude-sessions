@@ -485,6 +485,96 @@
 	height: 14px;
 }
 
+.agent-sessions-tool-duration {
+	font-size: 10px;
+	color: var(--text-faint);
+	flex-shrink: 0;
+}
+
+.agent-sessions-tool-orphaned {
+	background: var(--color-orange);
+}
+
+.agent-sessions-tool-orphaned-label {
+	color: var(--color-orange);
+	font-style: italic;
+}
+
+.agent-sessions-tool-exit-code {
+	font-size: 11px;
+	color: var(--color-red);
+	padding: 4px 10px;
+	font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════
+   Turn header extras (model badge, stop reason)
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-turn-model {
+	font-size: 10px;
+	padding: 1px 6px;
+	border-radius: var(--radius-s);
+	background: var(--background-modifier-border);
+	color: var(--text-muted);
+	margin-left: 6px;
+}
+
+/* ═══════════════════════════════════════════
+   Compaction boundary marker
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-compaction-block {
+	margin: 16px 0;
+}
+
+.agent-sessions-compaction-divider {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 8px 0;
+	color: var(--text-faint);
+	font-size: 11px;
+	font-style: italic;
+}
+
+.agent-sessions-compaction-divider::before,
+.agent-sessions-compaction-divider::after {
+	content: '';
+	flex: 1;
+	height: 1px;
+	background: var(--background-modifier-border);
+}
+
+.agent-sessions-compaction-icon {
+	display: flex;
+	align-items: center;
+	color: var(--text-faint);
+}
+
+.agent-sessions-compaction-icon .svg-icon {
+	width: 12px;
+	height: 12px;
+}
+
+.agent-sessions-compaction-summary {
+	font-size: 11px;
+	color: var(--text-faint);
+	padding: 4px 24px;
+	max-height: 200px;
+	overflow-y: auto;
+}
+
+.agent-sessions-turn-stop-reason {
+	font-size: 10px;
+	padding: 1px 6px;
+	border-radius: var(--radius-s);
+	background: rgba(248, 81, 73, 0.15);
+	color: var(--color-red);
+	margin-left: 4px;
+}
+
 .agent-sessions-tool-chevron {
 	color: var(--text-muted);
 	font-size: 10px;
@@ -652,6 +742,31 @@
 
 .agent-sessions-diff-result-error {
 	color: var(--color-red);
+}
+
+.agent-sessions-read-md-hidden {
+	display: none;
+}
+
+/* Reset inherited monospace/green from tool result container so preview renders like normal markdown */
+.agent-sessions-read-md-preview {
+	font-family: var(--font-text);
+	color: var(--text-normal);
+}
+
+.agent-sessions-read-md-preview p,
+.agent-sessions-read-md-preview h1,
+.agent-sessions-read-md-preview h2,
+.agent-sessions-read-md-preview h3,
+.agent-sessions-read-md-preview h4,
+.agent-sessions-read-md-preview h5,
+.agent-sessions-read-md-preview h6,
+.agent-sessions-read-md-preview hr,
+.agent-sessions-read-md-preview ul,
+.agent-sessions-read-md-preview ol,
+.agent-sessions-read-md-preview blockquote {
+	margin-top: 4px;
+	margin-bottom: 4px;
 }
 
 /* ═══════════════════════════════════════════

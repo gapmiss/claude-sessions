@@ -121,6 +121,9 @@ function renderBlock(block: ContentBlock, settings: PluginSettings): string | nu
 			// Strip ANSI escape codes for markdown export
 			return '```\n' + block.text.replace(/\x1b\[[\d;]*m/g, '') + '\n```';
 
+		case 'compaction':
+			return '---\n*Context compacted*' + (block.summary ? `\n${block.summary}` : '') + '\n---';
+
 		default:
 			return null;
 	}
