@@ -119,6 +119,8 @@ export interface PluginSettings {
 	showThinkingBlocks: boolean;
 	showToolCalls: boolean;
 	showToolResults: boolean;
+	showHookIcons: boolean;
+	autoScrollOnUpdate: boolean;
 	defaultExportFormat: 'markdown' | 'html';
 }
 
@@ -128,6 +130,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	showThinkingBlocks: true,
 	showToolCalls: true,
 	showToolResults: true,
+	showHookIcons: true,
+	autoScrollOnUpdate: true,
 	defaultExportFormat: 'markdown',
 };
 

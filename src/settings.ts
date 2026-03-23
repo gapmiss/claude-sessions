@@ -117,8 +117,29 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
+			.setName('Show hook icons')
+			.setDesc('Display hook indicator icons on tool calls that triggered hooks.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showHookIcons)
+				.onChange(async (value) => {
+					this.plugin.settings.showHookIcons = value;
+					await this.plugin.saveSettings();
+					this.plugin.updateReplayViews();
+				}));
+
+		new Setting(containerEl)
 			.setHeading()
-			.setName('Display');
+			.setName('Live watch');
+
+		new Setting(containerEl)
+			.setName('Auto-scroll on update')
+			.setDesc('Scroll to bottom when new content arrives during live watch.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.autoScrollOnUpdate)
+				.onChange(async (value) => {
+					this.plugin.settings.autoScrollOnUpdate = value;
+					await this.plugin.saveSettings();
+				}));
 	}
 
 	private renderDirsList(container: HTMLElement): void {

@@ -479,7 +479,7 @@ export class ReplayRenderer {
 				header.createSpan({ cls: 'agent-sessions-tool-duration', text: this.formatToolDuration(elapsed) });
 			}
 		}
-		if (block.hooks && block.hooks.length > 0) {
+		if (this.settings.showHookIcons && block.hooks && block.hooks.length > 0) {
 			const hookNames = [...new Set(block.hooks.map(h => h.hookName))].join(', ');
 			const hookIcon = header.createSpan({
 				cls: 'agent-sessions-hook-icon',

@@ -135,10 +135,15 @@ export class ReplayView extends ItemView {
 	}
 
 	loadSession(session: Session, opts?: { scrollToEnd?: boolean }): void {
+		const prevTurnCount = this.session?.turns.length ?? 0;
+		const savedIndex = this.activeTurnIndex;
 		this.session = session;
-		this.activeTurnIndex = opts?.scrollToEnd && session.turns.length > 0
-			? session.turns.length - 1
-			: 0;
+
+		if (opts?.scrollToEnd && session.turns.length > 0) {
+			this.activeTurnIndex = session.turns.length - 1;
+		} else {
+			this.activeTurnIndex = Math.min(savedIndex, session.turns.length - 1);
+		}
 
 		if (this.renderer) {
 			this.renderer.updateSettings(this.settings);
@@ -193,7 +198,7 @@ export class ReplayView extends ItemView {
 				new Notice('Could not detect session format on reload.');
 				return;
 			}
-			this.loadSession(parser.parse(content, filePath), { scrollToEnd: true });
+			this.loadSession(parser.parse(content, filePath), { scrollToEnd: this.settings.autoScrollOnUpdate });
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			new Notice(`Failed to reload session: ${msg}`);
