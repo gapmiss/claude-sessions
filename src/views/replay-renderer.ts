@@ -571,12 +571,7 @@ export class ReplayRenderer {
 
 	private renderBashInput(block: ToolUseBlock, container: HTMLElement): void {
 		const inputEl = container.createDiv({ cls: 'agent-sessions-tool-input' });
-		const labelRow = inputEl.createDiv({ cls: 'agent-sessions-tool-section-label' });
-		labelRow.createSpan({ text: 'INPUT' });
-		const description = String(block.input['description'] || '');
-		if (description) {
-			labelRow.createSpan({ cls: 'agent-sessions-tool-section-desc', text: description });
-		}
+		inputEl.createDiv({ cls: 'agent-sessions-tool-section-label', text: 'INPUT' });
 		const command = String(block.input['command'] || '');
 		const md = fence(command, 'bash');
 		const mdContainer = inputEl.createDiv({ cls: 'agent-sessions-tool-input-code' });
