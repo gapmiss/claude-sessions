@@ -70,6 +70,7 @@ export interface ToolUseBlock {
 	hooks?: HookEvent[];
 	subAgentSession?: SubAgentSession;
 	isOrphaned?: boolean;
+	isPending?: boolean;
 }
 
 export interface SubAgentSession {

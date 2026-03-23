@@ -463,13 +463,15 @@ export class ReplayRenderer {
 		// Header bar
 		const header = toolEl.createDiv({ cls: 'agent-sessions-tool-header' });
 		const isError = result?.isError ?? false;
-		const indicatorCls = block.isOrphaned
+		const indicatorCls = (block.isOrphaned || block.isPending)
 			? 'agent-sessions-tool-indicator agent-sessions-tool-orphaned'
 			: `agent-sessions-tool-indicator ${isError ? 'agent-sessions-tool-error' : ''}`;
 		header.createSpan({ cls: indicatorCls });
 		header.createSpan({ cls: 'agent-sessions-tool-name', text: block.name });
 		header.createSpan({ cls: 'agent-sessions-tool-preview', text: this.toolPreview(block) });
-		if (block.isOrphaned) {
+		if (block.isPending) {
+			header.createSpan({ cls: 'agent-sessions-tool-duration agent-sessions-tool-orphaned-label', text: 'in progress' });
+		} else if (block.isOrphaned) {
 			header.createSpan({ cls: 'agent-sessions-tool-duration agent-sessions-tool-orphaned-label', text: 'interrupted' });
 		} else if (block.timestamp && result?.timestamp) {
 			const elapsed = new Date(result.timestamp).getTime() - new Date(block.timestamp).getTime();

@@ -262,10 +262,19 @@ export class ClaudeParser extends BaseParser {
 				}
 			}
 		}
+		// Find the last assistant turn to distinguish pending vs interrupted
+		let lastAssistantTurn: Turn | undefined;
+		for (let i = turns.length - 1; i >= 0; i--) {
+			if (turns[i].role === 'assistant') { lastAssistantTurn = turns[i]; break; }
+		}
 		for (const turn of turns) {
 			for (const block of turn.contentBlocks) {
 				if (block.type === 'tool_use' && !resultIds.has(block.id)) {
-					block.isOrphaned = true;
+					if (turn === lastAssistantTurn) {
+						block.isPending = true;
+					} else {
+						block.isOrphaned = true;
+					}
 				}
 			}
 		}
