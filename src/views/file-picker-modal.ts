@@ -3,6 +3,7 @@ import type AgentSessionsPlugin from '../main';
 import { expandHome } from '../utils/path-utils';
 import { readFileContent } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
+import { resolveSubAgentSessions } from '../parsers/claude-parser';
 
 export class FilePickerModal extends Modal {
 	private plugin: AgentSessionsPlugin;
@@ -146,6 +147,7 @@ export class FilePickerModal extends Modal {
 			// Attempt to find the full path by searching session directories
 			const fullPath = await this.resolveSessionPath(file.name) ?? file.name;
 			const session = parser.parse(content, fullPath);
+			await resolveSubAgentSessions(session, readFileContent);
 			new Notice(`Loaded session with ${session.turns.length} turns.`);
 			this.close();
 			await this.plugin.openSession(session);
@@ -198,6 +200,7 @@ export class FilePickerModal extends Modal {
 			}
 
 			const session = parser.parse(content, expanded);
+			await resolveSubAgentSessions(session, readFileContent);
 			new Notice(`Loaded session with ${session.turns.length} turns.`);
 			this.close();
 			await this.plugin.openSession(session);

@@ -16,7 +16,10 @@ Working features:
 - Hook event parsing from `hook_progress` records, attached to tool use blocks by `toolUseID`
 - `/exit` command consolidation — three records collapsed into single "*Session ended*" message
 - Local command tags (`<local-command-stdout>`, `<local-command-caveat>`) stripped from user content
-- **Sub-agent sessions** parsed and rendered inline with collapsible output, markdown rendering, and copy button
+- **Sub-agent sessions** parsed and rendered inline with collapsible PROMPT, flattened tool groups (threshold 0), and collapsible OUTPUT with markdown rendering and copy button
+  - **Foreground agents** stream `agent_progress` records with `parentToolUseID`; parsed via `buildSubAgentSession()`
+  - **Background agents** (`run_in_background: true`) arrive via `<task-notification>` XML in `queue-operation`/`user` records; marked `isBackground: true`
+  - Both types resolved from `<sessionBase>/subagents/agent-<agentId>.jsonl` via `resolveSubAgentSessions()` to recover full chain-of-thought text
 - **Orphaned tool call status**: last-turn tool calls without results show "in progress" (likely still running); mid-session orphans show "interrupted"
 - **Session summary panel** (collapsible) at top of timeline:
   - Inline token count and turn count in collapsed header
@@ -75,8 +78,9 @@ Working features:
 The Claude Code JSONL format has these record types:
 - `user` — either actual user text (`message.content` is a string) or tool results (`message.content` is an array of `{type: "tool_result", tool_use_id, content}` blocks)
 - `assistant` — each content block (thinking, text, tool_use) is a **separate record** with its own uuid. A single logical assistant turn spans multiple consecutive records.
-- `progress` — hook events (`data.type === "hook_progress"`) are captured; all other progress records are skipped
-- `file-history-snapshot`, `queue-operation` — skipped (non-content)
+- `progress` — hook events (`data.type === "hook_progress"`) and agent progress (`data.type === "agent_progress"`) are captured; all other progress records are skipped
+- `queue-operation` — `<task-notification>` XML is captured for background agent results; other queue-operation records are skipped
+- `file-history-snapshot` — skipped (non-content)
 
 **Critical parsing logic:**
 1. **Consecutive assistant records are merged into a single Turn.** The parser accumulates assistant blocks until a user record with actual text content arrives, then flushes.
@@ -89,6 +93,8 @@ The Claude Code JSONL format has these record types:
 8. **Token usage** is extracted from `message.usage` on assistant records, deduplicated by message ID (keeping the max of each field across streaming duplicates), then summed into `SessionStats`.
 9. **Exit consolidation** — records containing `<command-name>/exit</command-name>` produce a single "*Session ended*" text block. Following `<local-command-stdout>` and `<local-command-caveat>` records are skipped.
 10. **Orphan vs pending** — tool_use blocks without a matching tool_result are marked `isPending` if on the last assistant turn (likely still running), or `isOrphaned` if mid-session (genuinely interrupted).
+11. **Task notification capture** — `<task-notification>` XML from `queue-operation` and `user` records is parsed before those records are skipped. Extracts `tool-use-id`, `task-id`, `result`, `summary` and creates `SubAgentSession` stubs with `isBackground: true` and empty turns.
+12. **Sub-agent JSONL resolution** — `resolveSubAgentSessions()` reads `<sessionBase>/subagents/agent-<agentId>.jsonl` for all sub-agents (foreground and background). Uses `allowSidechain: true` since subagent JSONL records are marked `isSidechain`. Replaces stub turns with fully parsed content.
 
 ### Session Statistics (`types.ts: SessionStats`)
 
@@ -128,7 +134,8 @@ Computed during parsing and stored on `Session.stats`:
 - **Hook indicators**: fish icon on tool call headers when `block.hooks` is present and `settings.showHookIcons` is enabled, tooltip shows hook names
 - **Text blocks** wrapped in `.agent-sessions-text-block` with hover-reveal copy button
 - **Image blocks**: thumbnail with click handler → `ImagePreviewModal` (full-size view + Download + Copy buttons)
-- Tool grouping: configurable via `settings.toolGroupThreshold` (default 4); calls above threshold collapse into group header
+- **Sub-agent rendering**: `renderSubAgentSession()` flattens all assistant blocks across turns with `groupThreshold: 0` (every tool run collapses), preserving text blocks between tool groups for chain-of-thought context
+- Tool grouping: configurable via `settings.toolGroupThreshold` (default 4); calls above threshold collapse into group header; `renderAssistantBlocks()` and `renderToolGroup()` accept optional `groupThreshold` override
 - Long text (>10 lines) wrapped in collapsible with fade gradient
 - `getBlockWrappers(turnIndex)` returns all wrapper elements within a turn
 
@@ -216,6 +223,9 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 - Session index cache uses `mtime` as staleness key — fast stat() check avoids re-reading unchanged files. Store in `.obsidian/plugins/agent-sessions/session-index.json` via direct `fs` (desktop-only).
 - Live reload re-renders the entire DOM — UI state (expanded tools, show-more, scroll position) must be captured before and restored after. Keyed by turn+block index, which is stable as long as turns aren't reordered (safe for append-only JSONL).
 - Progress bar dots must be reused in place (not destroyed/recreated) to avoid flicker during live reload. Diff the count: reposition existing, append new, remove excess.
+- `agent_progress` records stream only `tool_use` and `tool_result` blocks — assistant text blocks are omitted. Must read the subagent's own JSONL file (`subagents/agent-<id>.jsonl`) to recover chain-of-thought text for both foreground and background agents.
+- Subagent JSONL files mark every record as `isSidechain: true` — parser needs `allowSidechain: true` constructor option to avoid filtering them out.
+- Background agents don't produce `agent_progress` records at all. Their completion arrives as `<task-notification>` XML in `queue-operation` or `user` records, which must be captured before those record types are skipped.
 
 ## Roadmap
 

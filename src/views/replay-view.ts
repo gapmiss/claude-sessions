@@ -3,6 +3,7 @@ import { Session, PluginSettings } from '../types';
 import { ReplayRenderer } from './replay-renderer';
 import { readFileContent } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
+import { resolveSubAgentSessions } from '../parsers/claude-parser';
 
 export const VIEW_TYPE_REPLAY = 'agent-sessions-replay';
 
@@ -123,7 +124,9 @@ export class ReplayView extends ItemView {
 				const content = await readFileContent(state.sessionPath);
 				const parser = detectParser(content);
 				if (parser) {
-					this.loadSession(parser.parse(content, state.sessionPath));
+					const session = parser.parse(content, state.sessionPath);
+					await resolveSubAgentSessions(session, readFileContent);
+					this.loadSession(session);
 				}
 			} catch {
 				// File may have been moved/deleted since last workspace save
@@ -198,7 +201,9 @@ export class ReplayView extends ItemView {
 				new Notice('Could not detect session format on reload.');
 				return;
 			}
-			this.loadSession(parser.parse(content, filePath), { scrollToEnd: this.settings.autoScrollOnUpdate });
+			const session = parser.parse(content, filePath);
+			await resolveSubAgentSessions(session, readFileContent);
+			this.loadSession(session, { scrollToEnd: this.settings.autoScrollOnUpdate });
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			new Notice(`Failed to reload session: ${msg}`);

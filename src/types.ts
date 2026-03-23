@@ -79,6 +79,7 @@ export interface SubAgentSession {
 	subagentType?: string;
 	prompt: string;
 	turns: Turn[];
+	isBackground?: boolean;
 }
 
 export interface ToolResultBlock {

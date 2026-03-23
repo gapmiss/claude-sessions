@@ -384,7 +384,7 @@ export class ReplayRenderer {
 		return turnEl;
 	}
 
-	private renderAssistantBlocks(blocks: ContentBlock[], container: HTMLElement, startBlockIdx = 0): void {
+	private renderAssistantBlocks(blocks: ContentBlock[], container: HTMLElement, startBlockIdx = 0, groupThreshold?: number): void {
 		// Group consecutive tool_use and tool_result blocks into runs
 		const segments: Array<{ type: 'single'; block: ContentBlock } | { type: 'tools'; blocks: ContentBlock[] }> = [];
 		let toolRun: ContentBlock[] = [];
@@ -415,7 +415,7 @@ export class ReplayRenderer {
 			if (seg.type === 'single') {
 				this.renderSingleBlock(seg.block, wrapper);
 			} else {
-				this.renderToolGroup(seg.blocks, wrapper);
+				this.renderToolGroup(seg.blocks, wrapper, groupThreshold);
 			}
 		}
 	}
@@ -436,7 +436,7 @@ export class ReplayRenderer {
 		}
 	}
 
-	private renderToolGroup(blocks: ContentBlock[], container: HTMLElement): void {
+	private renderToolGroup(blocks: ContentBlock[], container: HTMLElement, groupThreshold?: number): void {
 		const toolUses = blocks.filter((b): b is ToolUseBlock => b.type === 'tool_use');
 		const toolResults = blocks.filter((b): b is ToolResultBlock => b.type === 'tool_result');
 
@@ -448,7 +448,8 @@ export class ReplayRenderer {
 
 		if (!this.settings.showToolCalls) return;
 
-		if (toolUses.length <= this.settings.toolGroupThreshold) {
+		const threshold = groupThreshold ?? this.settings.toolGroupThreshold;
+		if (toolUses.length <= threshold) {
 			// Render individually
 			for (const tu of toolUses) {
 				this.renderToolCall(tu, resultMap.get(tu.id), container);
@@ -622,7 +623,7 @@ export class ReplayRenderer {
 		const previewBtn = toggleRow.createEl('button', {
 			cls: 'agent-sessions-read-md-btn',
 			text: 'Preview',
-			attr: { 'aria-label': 'Show rendered markdown', 'aria-pressed': 'false' },
+			attr: { 'aria-label': 'Show rendered Markdown', 'aria-pressed': 'false' },
 		});
 
 		// Code view (default)
@@ -671,21 +672,18 @@ export class ReplayRenderer {
 			promptHeader.setAttribute('aria-expanded', String(willOpen));
 		});
 
-		// Render sub-agent turns
+		// Flatten all assistant blocks across turns and force tool grouping
+		// with threshold 0 so every tool run collapses, keeping text interspersed.
+		const allBlocks: ContentBlock[] = [];
 		for (const turn of session.turns) {
+			if (turn.role === 'user') continue;
+			for (const block of turn.contentBlocks) {
+				allBlocks.push(block);
+			}
+		}
+		if (allBlocks.length > 0) {
 			const turnEl = timeline.createDiv({ cls: 'agent-sessions-subagent-turn' });
-
-			if (turn.role === 'user') {
-				// Sub-agent user turns are tool results — skip rendering them
-				// (they're already attached to the preceding assistant turn)
-				continue;
-			}
-
-			// Assistant blocks
-			const blocks = turn.contentBlocks;
-			if (blocks.length > 0) {
-				this.renderAssistantBlocks(blocks, turnEl);
-			}
+			this.renderAssistantBlocks(allBlocks, turnEl, 0, 0);
 		}
 
 		// Render agent output inside the timeline (under the orange border)

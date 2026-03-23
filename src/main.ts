@@ -8,6 +8,7 @@ import { exportToMarkdown } from './exporters/markdown-exporter';
 import { exportToHtml } from './exporters/html-exporter';
 import { listDirectory, listSubdirectories, readFileContent } from './utils/streaming-reader';
 import { detectParser } from './parsers/detect';
+import { resolveSubAgentSessions } from './parsers/claude-parser';
 import { expandHome } from './utils/path-utils';
 import { SessionIndex } from './utils/session-index';
 
@@ -124,6 +125,7 @@ export default class AgentSessionsPlugin extends Plugin {
 				return;
 			}
 			const session = parser.parse(content, filePath);
+			await resolveSubAgentSessions(session, readFileContent);
 			await this.openSession(session);
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);

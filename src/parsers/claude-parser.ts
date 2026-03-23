@@ -99,6 +99,13 @@ const SKIP_TYPES = new Set([
 
 export class ClaudeParser extends BaseParser {
 	readonly format = 'claude' as const;
+	/** When true, isSidechain records are not skipped (for subagent files). */
+	private readonly allowSidechain: boolean;
+
+	constructor(opts?: { allowSidechain?: boolean }) {
+		super();
+		this.allowSidechain = opts?.allowSidechain ?? false;
+	}
 
 	canParse(firstLines: string[]): boolean {
 		for (const line of firstLines) {
@@ -135,6 +142,9 @@ export class ClaudeParser extends BaseParser {
 
 		// Enriched tool results by sourceToolUseID
 		const enrichedResults = new Map<string, Record<string, unknown>>();
+
+		// Collect task-notification results for background agents (keyed by tool-use-id)
+		const taskNotifications = new Map<string, { taskId: string; toolUseId: string; result: string; summary: string }>();
 
 		// First pass: parse all records and extract metadata
 		for (const line of lines) {
@@ -181,10 +191,22 @@ export class ClaudeParser extends BaseParser {
 				enrichedResults.set(record.sourceToolUseID, record.toolUseResult);
 			}
 
+			// Capture task-notification results from queue-operation and user records
+			// before they are skipped — these carry background agent completion data
+			if (record.type === 'queue-operation' && record.content?.startsWith('<task-notification>')) {
+				const tn = ClaudeParser.parseTaskNotification(record.content);
+				if (tn) taskNotifications.set(tn.toolUseId, tn);
+			}
+			if (record.type === 'user' && typeof record.message?.content === 'string'
+				&& record.message.content.startsWith('<task-notification>')) {
+				const tn = ClaudeParser.parseTaskNotification(record.message.content);
+				if (tn) taskNotifications.set(tn.toolUseId, tn);
+			}
+
 			if (record.type === 'queue-operation' && record.operation === 'enqueue' && record.content) {
 				// Enqueue records carry user messages — let them through
 			} else if (SKIP_TYPES.has(record.type)) continue;
-			if (record.isSidechain) continue;
+			if (record.isSidechain && !this.allowSidechain) continue;
 			if (record.isMeta) continue;
 			if (record.type === 'assistant' && record.message?.model === '<synthetic>') continue;
 
@@ -245,6 +267,35 @@ export class ClaudeParser extends BaseParser {
 						&& agentProgressMap.has(block.id)) {
 						const agentRecords = agentProgressMap.get(block.id)!;
 						block.subAgentSession = this.buildSubAgentSession(agentRecords, block);
+					}
+				}
+			}
+		}
+
+		// Attach task-notification results to background Agent/Task blocks
+		// Background agents (run_in_background: true) don't produce agent_progress records;
+		// their output arrives via <task-notification> in queue-operation/user records.
+		if (taskNotifications.size > 0) {
+			for (const turn of turns) {
+				for (const block of turn.contentBlocks) {
+					if (block.type === 'tool_use'
+						&& (block.name === 'Agent' || block.name === 'Task')
+						&& !block.subAgentSession
+						&& taskNotifications.has(block.id)) {
+						const tn = taskNotifications.get(block.id)!;
+						block.subAgentSession = {
+							agentId: tn.taskId,
+							description: String(block.input['description'] || ''),
+							subagentType: String(block.input['subagent_type'] || ''),
+							prompt: String(block.input['prompt'] || ''),
+							turns: [],
+							isBackground: true,
+						};
+					}
+					// Replace the "Async agent launched successfully" tool_result
+					// with the actual notification result
+					if (block.type === 'tool_result' && taskNotifications.has(block.toolUseId)) {
+						block.content = taskNotifications.get(block.toolUseId)!.result;
 					}
 				}
 			}
@@ -615,6 +666,18 @@ export class ClaudeParser extends BaseParser {
 		};
 	}
 
+	/** Parse <task-notification> XML from queue-operation or user records. */
+	private static parseTaskNotification(
+		content: string,
+	): { taskId: string; toolUseId: string; result: string; summary: string } | null {
+		const toolUseId = content.match(/<tool-use-id>([\s\S]*?)<\/tool-use-id>/)?.[1]?.trim();
+		if (!toolUseId) return null;
+		const taskId = content.match(/<task-id>([\s\S]*?)<\/task-id>/)?.[1]?.trim() ?? '';
+		const summary = content.match(/<summary>([\s\S]*?)<\/summary>/)?.[1]?.trim() ?? '';
+		const result = content.match(/<result>([\s\S]*?)<\/result>/)?.[1]?.trim() ?? '';
+		return { taskId, toolUseId, result, summary };
+	}
+
 	private parseAssistantBlocks(
 		record: ClaudeRecord,
 		toolUseNames: Map<string, string>
@@ -823,6 +886,40 @@ export class ClaudeParser extends BaseParser {
 
 			default:
 				return null;
+		}
+	}
+}
+
+/**
+ * Resolve sub-agent sessions by reading their JSONL files.
+ * Both background and foreground agents have full JSONL files at
+ * <sessionBase>/subagents/agent-<agentId>.jsonl. Background agents need this
+ * because they don't stream agent_progress records. Foreground agents benefit
+ * because agent_progress records omit assistant text blocks — only tool_use
+ * and tool_result are streamed. Reading the JSONL file recovers the full
+ * chain-of-thought text.
+ */
+export async function resolveSubAgentSessions(
+	session: Session,
+	readFile: (path: string) => Promise<string>,
+): Promise<void> {
+	const sessionBase = session.rawPath.replace(/\.jsonl$/, '');
+	const parser = new ClaudeParser({ allowSidechain: true });
+
+	for (const turn of session.turns) {
+		for (const block of turn.contentBlocks) {
+			if (block.type === 'tool_use'
+				&& block.subAgentSession
+				&& block.subAgentSession.agentId) {
+				const subagentPath = `${sessionBase}/subagents/agent-${block.subAgentSession.agentId}.jsonl`;
+				try {
+					const content = await readFile(subagentPath);
+					const subSession = parser.parse(content, subagentPath);
+					block.subAgentSession.turns = subSession.turns;
+				} catch {
+					// Subagent file may not exist yet if agent is still running
+				}
+			}
 		}
 	}
 }
