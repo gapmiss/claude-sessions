@@ -51,12 +51,6 @@
 
 .agent-sessions-turn {
 	margin-bottom: 24px;
-	opacity: 0.3;
-	transition: opacity 0.4s ease;
-}
-
-.agent-sessions-turn.visible {
-	opacity: 1;
 }
 
 /* ═══════════════════════════════════════════

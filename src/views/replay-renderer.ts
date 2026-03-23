@@ -661,8 +661,26 @@ export class ReplayRenderer {
 			const outputLabel = outputEl.createDiv({ cls: 'agent-sessions-tool-section-label' });
 			outputLabel.createSpan({ text: 'OUTPUT' });
 			this.addCopyButton(outputLabel, result.content, 'Copy output');
-			const outputBody = outputEl.createDiv({ cls: 'agent-sessions-subagent-output-body' });
-			MarkdownRenderer.render(this.app, result.content, outputBody, '', this.component);
+			const lines = result.content.split('\n').length;
+			if (lines > COLLAPSE_THRESHOLD) {
+				const wrapEl = outputEl.createDiv({ cls: 'agent-sessions-collapsible-wrap is-collapsed' });
+				const contentEl = wrapEl.createDiv({ cls: 'agent-sessions-collapsible-content' });
+				const bodyEl = contentEl.createDiv({ cls: 'agent-sessions-subagent-output-body' });
+				MarkdownRenderer.render(this.app, result.content, bodyEl, '', this.component);
+				wrapEl.createDiv({ cls: 'agent-sessions-collapsible-fade' });
+				const toggleBtn = wrapEl.createEl('button', {
+					cls: 'agent-sessions-collapsible-toggle',
+					text: `Show more (${lines} lines)`,
+				});
+				toggleBtn.addEventListener('click', () => {
+					const collapsed = wrapEl.hasClass('is-collapsed');
+					wrapEl.toggleClass('is-collapsed', !collapsed);
+					toggleBtn.setText(collapsed ? 'Show less' : `Show more (${lines} lines)`);
+				});
+			} else {
+				const bodyEl = outputEl.createDiv({ cls: 'agent-sessions-subagent-output-body' });
+				MarkdownRenderer.render(this.app, result.content, bodyEl, '', this.component);
+			}
 		}
 	}
 
