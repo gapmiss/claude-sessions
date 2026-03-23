@@ -392,8 +392,14 @@ export class ReplayView extends ItemView {
 		return `${m}:${String(s).padStart(2, '0')}`;
 	}
 
-	/** Capture expand/collapse state of turns, tool blocks, and summary panel. */
-	private captureCollapseState(): { collapsedTurns: Set<number>; summaryOpen: boolean } {
+	/** Capture full UI state: collapse, expanded tools/text, scroll position. */
+	private captureUIState(): {
+		collapsedTurns: Set<number>;
+		summaryOpen: boolean;
+		openTools: Set<string>;
+		expandedText: Set<string>;
+		scrollTop: number;
+	} {
 		const collapsedTurns = new Set<number>();
 		const turnEls = this.renderer?.getTurnElements() || [];
 		for (let i = 0; i < turnEls.length; i++) {
@@ -403,11 +409,36 @@ export class ReplayView extends ItemView {
 		}
 		const summaryEl = this.timelineEl?.querySelector('.agent-sessions-summary');
 		const summaryOpen = summaryEl?.hasClass('open') ?? false;
-		return { collapsedTurns, summaryOpen };
+
+		// Expanded tool blocks: keyed by "turnIndex-blockIndex"
+		const openTools = new Set<string>();
+		for (let t = 0; t < turnEls.length; t++) {
+			const toolBlocks = turnEls[t].querySelectorAll('.agent-sessions-tool-block');
+			for (let b = 0; b < toolBlocks.length; b++) {
+				if (toolBlocks[b].hasClass('open')) {
+					openTools.add(`${t}-${b}`);
+				}
+			}
+		}
+
+		// Expanded "show more" blocks: keyed by "turnIndex-wrapIndex"
+		const expandedText = new Set<string>();
+		for (let t = 0; t < turnEls.length; t++) {
+			const wraps = turnEls[t].querySelectorAll('.agent-sessions-collapsible-wrap');
+			for (let w = 0; w < wraps.length; w++) {
+				if (!wraps[w].hasClass('is-collapsed')) {
+					expandedText.add(`${t}-${w}`);
+				}
+			}
+		}
+
+		const scrollTop = this.timelineEl?.scrollTop ?? 0;
+
+		return { collapsedTurns, summaryOpen, openTools, expandedText, scrollTop };
 	}
 
-	/** Restore expand/collapse state after re-render. */
-	private restoreCollapseState(state: { collapsedTurns: Set<number>; summaryOpen: boolean }): void {
+	/** Restore full UI state after re-render. */
+	private restoreUIState(state: ReturnType<typeof ReplayView.prototype.captureUIState>): void {
 		const turnEls = this.renderer?.getTurnElements() || [];
 		for (const idx of state.collapsedTurns) {
 			if (idx < turnEls.length) {
@@ -422,14 +453,43 @@ export class ReplayView extends ItemView {
 			const chevron = summaryEl?.querySelector('.agent-sessions-summary-chevron');
 			if (chevron) chevron.textContent = '\u25BC';
 		}
+
+		// Restore expanded tool blocks
+		for (const key of state.openTools) {
+			const [t, b] = key.split('-').map(Number);
+			if (t < turnEls.length) {
+				const toolBlocks = turnEls[t].querySelectorAll('.agent-sessions-tool-block');
+				if (b < toolBlocks.length) {
+					toolBlocks[b].addClass('open');
+				}
+			}
+		}
+
+		// Restore expanded "show more" blocks
+		for (const key of state.expandedText) {
+			const [t, w] = key.split('-').map(Number);
+			if (t < turnEls.length) {
+				const wraps = turnEls[t].querySelectorAll('.agent-sessions-collapsible-wrap');
+				if (w < wraps.length) {
+					wraps[w].removeClass('is-collapsed');
+					const btn = wraps[w].querySelector('.agent-sessions-collapsible-toggle');
+					if (btn) btn.textContent = 'Show less';
+				}
+			}
+		}
+
+		// Restore scroll position
+		if (this.timelineEl) {
+			this.timelineEl.scrollTop = state.scrollTop;
+		}
 	}
 
 	// Rendering
 	private renderFullTimeline(): void {
 		if (!this.session || !this.renderer || !this.timelineEl) return;
 
-		// Capture collapse state before destroying the DOM
-		const collapseState = this.captureCollapseState();
+		// Capture full UI state before destroying the DOM
+		const uiState = this.captureUIState();
 		this.destroyObserver();
 
 		if (this.session.turns.length === 0) {
@@ -442,7 +502,7 @@ export class ReplayView extends ItemView {
 		}
 
 		this.renderer.renderTimeline(this.session.turns, this.sessionStartMs, this.session);
-		this.restoreCollapseState(collapseState);
+		this.restoreUIState(uiState);
 		this.setupScrollObserver();
 	}
 
@@ -506,17 +566,30 @@ export class ReplayView extends ItemView {
 	// Turn separator dots on progress bar — placed at boundaries between turns
 	private renderTurnDots(): void {
 		if (!this.session || !this.progressBar) return;
-		this.progressBar.querySelectorAll('.agent-sessions-turn-dot').forEach(d => d.remove());
 
 		const total = this.session.turns.length;
-		if (total <= 1) return;
+		const existingDots = this.progressBar.querySelectorAll('.agent-sessions-turn-dot');
 
-		// N turns → N-1 separator dots at 1/N, 2/N, ..., (N-1)/N
-		for (let i = 1; i < total; i++) {
-			const dot = this.progressBar.createDiv({ cls: 'agent-sessions-turn-dot' });
-			const pct = (i / total) * 100;
+		if (total <= 1) {
+			existingDots.forEach(d => d.remove());
+			return;
+		}
+
+		const needed = total - 1;
+
+		// Reposition existing dots and add new ones as needed
+		for (let i = 0; i < needed; i++) {
+			const dot = i < existingDots.length
+				? existingDots[i] as HTMLElement
+				: this.progressBar.createDiv({ cls: 'agent-sessions-turn-dot' });
+			const pct = ((i + 1) / total) * 100;
 			dot.style.left = `${pct}%`;
-			dot.dataset.turnIndex = String(i);
+			dot.dataset.turnIndex = String(i + 1);
+		}
+
+		// Remove excess dots if turn count shrank
+		for (let i = needed; i < existingDots.length; i++) {
+			existingDots[i].remove();
 		}
 	}
 
