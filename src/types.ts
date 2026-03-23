@@ -1,4 +1,4 @@
-export type SessionFormat = 'claude' | 'cursor' | 'codex';
+export type SessionFormat = 'claude';
 export type TurnRole = 'user' | 'assistant';
 export type ContentBlockType = 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'image' | 'ansi' | 'compaction';
 

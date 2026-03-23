@@ -1,12 +1,8 @@
 import { BaseParser } from './base-parser';
 import { ClaudeParser } from './claude-parser';
-import { CursorParser } from './cursor-parser';
-import { CodexParser } from './codex-parser';
 
 const parsers: BaseParser[] = [
 	new ClaudeParser(),
-	new CursorParser(),
-	new CodexParser(),
 ];
 
 export function detectParser(content: string): BaseParser | null {

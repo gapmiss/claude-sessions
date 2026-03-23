@@ -173,10 +173,7 @@ export class SessionBrowserModal extends SuggestModal<SessionListEntry> {
 	}
 }
 
-function guessFormat(filePath: string): 'claude' | 'cursor' | 'codex' {
-	if (filePath.includes('.claude') || filePath.endsWith('.jsonl')) return 'claude';
-	if (filePath.includes('cursor')) return 'cursor';
-	if (filePath.includes('codex')) return 'codex';
+function guessFormat(filePath: string): 'claude' {
 	return 'claude';
 }
 
