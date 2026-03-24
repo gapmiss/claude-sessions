@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production && cp main.js styles.css manifest.json ~/Vaults/Master/.obsidian/plugins/agent-sessions/",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "keywords": [
@@ -25,7 +27,8 @@
     "jiti": "2.6.1",
     "tslib": "2.4.0",
     "typescript": "5.8.2",
-    "typescript-eslint": "8.35.1"
+    "typescript-eslint": "8.35.1",
+    "vitest": "^4.1.1"
   },
   "dependencies": {
     "diff": "^8.0.3",

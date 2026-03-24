@@ -209,6 +209,13 @@ src/
     streaming-reader.ts            # File reading (Node.js streams on desktop)
 styles.css                         # Scoped styles using Obsidian CSS variables
 eslint.config.mjs                  # ESLint flat config with eslint-plugin-obsidianmd
+vitest.config.ts                   # Test config with obsidian module mock
+tests/
+  fixtures.ts                      # Inline JSONL fixture builders for all record types
+  claude-parser.test.ts            # Parser integration tests (45 tests)
+  claude-content.test.ts           # Content block parsing unit tests (23 tests)
+  claude-subagent.test.ts          # Task notification parsing tests (4 tests)
+  __mocks__/obsidian.ts            # Minimal obsidian module mock for vitest
 ```
 
 ## Commands
@@ -229,6 +236,8 @@ eslint.config.mjs                  # ESLint flat config with eslint-plugin-obsid
 npm install
 npm run dev      # watch mode
 npm run build    # production build (typecheck + bundle + copy to vault)
+npm test         # run parser tests (vitest)
+npm run test:watch  # watch mode tests
 npx eslint .     # lint with eslint-plugin-obsidianmd rules
 ```
 
