@@ -51,6 +51,8 @@ interface ClaudeRecord {
 			};
 		};
 	};
+	error?: string;
+	isApiErrorMessage?: boolean;
 	message?: {
 		role?: string;
 		content?: string | ClaudeContentBlock[];
@@ -208,7 +210,8 @@ export class ClaudeParser extends BaseParser {
 			} else if (SKIP_TYPES.has(record.type)) continue;
 			if (record.isSidechain && !this.allowSidechain) continue;
 			if (record.isMeta) continue;
-			if (record.type === 'assistant' && record.message?.model === '<synthetic>') continue;
+			if (record.type === 'assistant' && record.message?.model === '<synthetic>'
+				&& !record.isApiErrorMessage) continue;
 
 			// Let summary records through for compaction boundary rendering
 			if (record.type === 'summary') {
@@ -497,6 +500,10 @@ export class ClaudeParser extends BaseParser {
 				}
 				if (record.message?.stop_reason) {
 					currentAssistantTurn.stopReason = record.message.stop_reason;
+				}
+				if (record.isApiErrorMessage && record.error) {
+					currentAssistantTurn.isApiError = true;
+					currentAssistantTurn.errorType = record.error;
 				}
 				for (const b of blocks) {
 					currentAssistantTurn.contentBlocks.push(b);

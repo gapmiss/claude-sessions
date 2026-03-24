@@ -329,6 +329,16 @@ export class ReplayRenderer {
 				text: 'max tokens',
 			});
 		}
+		if (turn.isApiError) {
+			const errorLabel = turn.errorType === 'rate_limit' ? 'rate limit'
+				: turn.errorType ?? 'error';
+			header.createSpan({
+				cls: 'agent-sessions-turn-api-error',
+				attr: { 'aria-label': `API error: ${errorLabel}`, 'data-tooltip-position': 'top' },
+				text: errorLabel,
+			});
+			turnEl.addClass('agent-sessions-turn-error');
+		}
 
 		makeClickable(header, { label: `Toggle turn ${turn.index + 1}`, expanded: true });
 		header.addEventListener('click', () => {

@@ -41,6 +41,8 @@ export interface Turn {
 	contentBlocks: ContentBlock[];
 	model?: string;
 	stopReason?: string;
+	isApiError?: boolean;
+	errorType?: string;
 }
 
 export interface TextBlock {

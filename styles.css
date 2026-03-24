@@ -571,6 +571,19 @@
 	margin-left: 4px;
 }
 
+.agent-sessions-turn-api-error {
+	font-size: 10px;
+	padding: 1px 6px;
+	border-radius: var(--radius-s);
+	background: rgba(210, 153, 34, 0.15);
+	color: var(--color-yellow);
+	margin-left: 4px;
+}
+
+.agent-sessions-turn-error .agent-sessions-role-assistant {
+	border-left-color: var(--color-yellow);
+}
+
 .agent-sessions-tool-chevron {
 	color: var(--text-muted);
 	font-size: 10px;
