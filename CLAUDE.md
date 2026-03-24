@@ -59,6 +59,14 @@ Working features:
 - **Cached session index** — persists metadata to `session-index.json`; only new/modified files re-read on browse
 - **Async line-by-line metadata extraction** — skips large record types (file-history-snapshot, queue-operation, progress) by prefix check; reads up to 100 lines
 - **Empty session filtering** — sessions with zero user/assistant records are hidden from the browser
+- **Cross-session search** — keyword search across all JSONL session files with progressive results
+  - On-demand line-by-line grep using Node.js `readline` (no persistent index)
+  - Custom `Modal` with debounced input, role filter (all/user/assistant), and progressive results
+  - Results grouped by session with `<mark>`-highlighted match snippets (75-char context)
+  - Approximate turn index tracking via role transitions; clicking a result opens session at matched turn
+  - `AbortController` cancels previous search on query change or modal close
+  - Arrow key navigation between results, "+N more" expander per session
+  - Processes newest sessions first (sorted by mtime)
 - Session browser (SuggestModal) — scans dirs before opening for synchronous getItems()
 - File picker modal with drag-and-drop, path input, and session directory path resolution fallback
 - Markdown export with frontmatter and Obsidian callouts
@@ -168,7 +176,7 @@ Computed during parsing and stored on `Session.stats`:
 ### Protocol Handler (`main.ts`)
 
 - Registered via `registerObsidianProtocolHandler('agent-sessions', ...)`
-- URI format: `obsidian://agent-sessions?session=/full/path/to/session.jsonl`
+- URI format: `obsidian://agent-sessions?session=/full/path/to/session.jsonl&turn=7`
 - Calls `openSessionByPath()` which reads the file, detects format, parses, and opens in a new tab
 - Supports `~` home directory expansion via `expandHome()`
 
@@ -198,6 +206,7 @@ src/
     render-helpers.ts              # Shared utilities: RenderContext, makeClickable, fence, langFromPath, etc.
     summary-renderer.ts            # Collapsible summary panel with metadata grid, token stats, tool breakdown
     tool-renderer.ts               # All tool-specific rendering: Bash, Edit, Write, Read, sub-agents, tool groups
+    search-modal.ts                # Cross-session search modal with progressive results
     session-browser-modal.ts       # SuggestModal + scanSessionDirs() with cached index
     file-picker-modal.ts           # Import from arbitrary path (drag-and-drop, path input)
   exporters/
@@ -206,6 +215,7 @@ src/
   utils/
     path-utils.ts                  # Home dir expansion, path helpers
     session-index.ts               # Cached session metadata index (JSON on disk)
+    session-search.ts              # Cross-session search engine (line-by-line JSONL grep)
     streaming-reader.ts            # File reading (Node.js streams on desktop)
 styles.css                         # Scoped styles using Obsidian CSS variables
 eslint.config.mjs                  # ESLint flat config with eslint-plugin-obsidianmd
@@ -215,6 +225,7 @@ tests/
   claude-parser.test.ts            # Parser integration tests (45 tests)
   claude-content.test.ts           # Content block parsing unit tests (23 tests)
   claude-subagent.test.ts          # Task notification parsing tests (4 tests)
+  session-search.test.ts           # Search content extraction unit tests (17 tests)
   __mocks__/obsidian.ts            # Minimal obsidian module mock for vitest
 ```
 
@@ -223,6 +234,7 @@ tests/
 | ID | Name |
 |---|---|
 | `browse-sessions` | Browse sessions |
+| `search-sessions` | Search sessions |
 | `import-file` | Import session file |
 | `export-markdown` | Export session to Markdown |
 | `export-html` | Export session to HTML |
@@ -279,7 +291,8 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 - [ ] Incremental parsing — track byte/line offset, only parse new lines on reload
 - [ ] Incremental DOM rendering — append new turns instead of full re-render
 - [ ] Progress bar/notice for large file imports (10MB+)
-- [ ] Search/filter sessions by project, date range, or model
+- [x] ~~Search/filter sessions by project, date range, or model~~ — cross-session keyword search implemented
+- [ ] Semantic search — embeddings-based search for concept-level queries
 - [ ] Skip filtered blocks during segment-level navigation (arrow keys currently land on hidden blocks)
 
 ### Medium-term
@@ -293,3 +306,22 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 - [ ] Plugin API for custom parsers (third-party agent formats)
 - [ ] Obsidian Publish-compatible export theme
 - [ ] Mobile support (vault-based session browsing)
+
+## Session State
+<!-- auto-updated by /wrap -->
+- **Last session**: 2026-03-23 23:45
+- **Goal**: Implement cross-session search feature
+- **Summary**: Built full cross-session keyword search — search engine (`session-search.ts`), custom modal (`search-modal.ts`), command registration, protocol handler `&turn=` param, styles, and 17 unit tests. All 89 tests pass.
+- **Decisions**:
+  - No persistent index — live readline grep is fast enough; avoids staleness/rebuild complexity
+  - Substring search (not regex) as default — users search for exact things (function names, errors)
+  - Custom Modal over SuggestModal — getItems() is synchronous, can't do progressive async results
+  - Approximate turn index via role transitions — may be off by 1-2 but acceptable
+  - Semantic search deferred to roadmap as follow-up
+- **Next steps**:
+  - Manual testing in Obsidian (search command, click results, protocol handler with &turn=)
+  - Consider adding project filter dropdown to search modal
+  - Explore semantic search as medium-term enhancement
+- **Blockers**: None
+- **Branch**: main
+- **Uncommitted**: Clean after this commit

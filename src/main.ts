@@ -3,6 +3,7 @@ import { SettingsTab } from './settings';
 import { PluginSettings, DEFAULT_SETTINGS, Session } from './types';
 import { ReplayView, VIEW_TYPE_REPLAY } from './views/replay-view';
 import { SessionBrowserModal, scanSessionDirs } from './views/session-browser-modal';
+import { SessionSearchModal } from './views/search-modal';
 import { FilePickerModal } from './views/file-picker-modal';
 import { exportToMarkdown } from './exporters/markdown-exporter';
 import { exportToHtml } from './exporters/html-exporter';
@@ -44,6 +45,20 @@ export default class AgentSessionsPlugin extends Plugin {
 					new Notice(`Found ${result.total} sessions (${result.updated} updated).`);
 				}
 				new SessionBrowserModal(this.app, this, result.entries).open();
+			},
+		});
+
+		this.addCommand({
+			id: 'search-sessions',
+			name: 'Search sessions',
+			callback: async () => {
+				new Notice('Scanning session directories...');
+				const result = await scanSessionDirs(this);
+				if (result.entries.length === 0) {
+					new Notice('No sessions found. Check your session directories in settings.');
+					return;
+				}
+				new SessionSearchModal(this.app, this, result.entries).open();
 			},
 		});
 
@@ -103,18 +118,20 @@ export default class AgentSessionsPlugin extends Plugin {
 			},
 		});
 
-		// Protocol handler: obsidian://agent-sessions?session=/path/to/session.jsonl
+		// Protocol handler: obsidian://agent-sessions?session=/path/to/session.jsonl&turn=7
 		this.registerObsidianProtocolHandler('agent-sessions', async (params) => {
-			const sessionPath = (params as Record<string, string>)['session'];
+			const p = params as Record<string, string>;
+			const sessionPath = p['session'];
 			if (!sessionPath) {
 				new Notice('Missing session parameter.');
 				return;
 			}
-			await this.openSessionByPath(sessionPath);
+			const turnIndex = p['turn'] ? parseInt(p['turn'], 10) : undefined;
+			await this.openSessionByPath(sessionPath, turnIndex);
 		});
 	}
 
-	async openSessionByPath(sessionPath: string): Promise<void> {
+	async openSessionByPath(sessionPath: string, turnIndex?: number): Promise<void> {
 		try {
 			const filePath = expandHome(sessionPath);
 			new Notice('Loading session...');
@@ -126,7 +143,7 @@ export default class AgentSessionsPlugin extends Plugin {
 			}
 			const session = parser.parse(content, filePath);
 			await resolveSubAgentSessions(session, readFileContent);
-			await this.openSession(session);
+			await this.openSession(session, turnIndex);
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			new Notice(`Failed to load session: ${msg}`);
@@ -151,7 +168,7 @@ export default class AgentSessionsPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	async openSession(session: Session): Promise<void> {
+	async openSession(session: Session, turnIndex?: number): Promise<void> {
 		const leaf = this.app.workspace.getLeaf('tab');
 		await leaf.setViewState({
 			type: VIEW_TYPE_REPLAY,
@@ -161,6 +178,9 @@ export default class AgentSessionsPlugin extends Plugin {
 		const view = leaf.view;
 		if (view instanceof ReplayView) {
 			view.loadSession(session);
+			if (turnIndex !== undefined) {
+				requestAnimationFrame(() => view.scrollToTurn(turnIndex));
+			}
 		}
 	}
 
