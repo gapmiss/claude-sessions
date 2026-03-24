@@ -29,3 +29,6 @@ data.json
 .agents/settings.local.json
 
 .claude
+
+HANDOFF.md
+AUDIT-2026-03-23.md

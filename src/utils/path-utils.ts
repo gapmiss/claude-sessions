@@ -1,4 +1,4 @@
-import { Platform, normalizePath } from 'obsidian';
+import { Platform } from 'obsidian';
 
 export function expandHome(path: string): string {
 	if (!path.startsWith('~')) return path;
@@ -11,10 +11,6 @@ export function expandHome(path: string): string {
 		}
 	}
 	return path;
-}
-
-export function safeNormalize(path: string): string {
-	return normalizePath(path);
 }
 
 export function basename(path: string): string {

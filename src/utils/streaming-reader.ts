@@ -1,6 +1,6 @@
 import { Platform, Notice } from 'obsidian';
 
-export interface ReadProgress {
+interface ReadProgress {
 	bytesRead: number;
 	totalBytes: number;
 }

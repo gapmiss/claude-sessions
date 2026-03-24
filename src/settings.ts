@@ -2,9 +2,6 @@ import { App, PluginSettingTab, Setting } from 'obsidian';
 import type AgentSessionsPlugin from './main';
 import { PluginSettings, DEFAULT_SETTINGS } from './types';
 
-export type { PluginSettings };
-export { DEFAULT_SETTINGS };
-
 export class SettingsTab extends PluginSettingTab {
 	plugin: AgentSessionsPlugin;
 

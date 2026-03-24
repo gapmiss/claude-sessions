@@ -1,10 +1,30 @@
 import { BaseParser } from './base-parser';
 import {
-	Session, Turn, ContentBlock, TextBlock, ThinkingBlock,
+	Session, Turn, ContentBlock, TextBlock,
 	ToolUseBlock, ToolResultBlock, ImageBlock, AnsiBlock, CompactionBlock,
 	HookEvent, SessionStats, SubAgentSession,
 } from '../types';
 import { extractProjectName, dirname } from '../utils/path-utils';
+import {
+	RT_USER, RT_ASSISTANT, RT_PROGRESS, RT_QUEUE_OPERATION, RT_FILE_HISTORY, RT_SUMMARY, RT_SYSTEM,
+	SKIP_RECORD_TYPES,
+	BT_TEXT, BT_TOOL_USE, BT_TOOL_RESULT, BT_IMAGE,
+	PROGRESS_HOOK, PROGRESS_AGENT,
+	SUBAGENT_TOOL_NAMES, MODEL_SYNTHETIC, OP_ENQUEUE, SUBTYPE_LOCAL_COMMAND,
+	TAG_TASK_NOTIFICATION,
+	RE_COMMAND_NAME, RE_COMMAND_ARGS, RE_COMMAND_MESSAGE,
+	RE_EXIT_COMMAND, RE_SLASH_COMMAND,
+	RE_LOCAL_STDOUT, RE_LOCAL_CAVEAT, RE_LOCAL_STDERR,
+	RE_SYSTEM_REMINDER, RE_COMMAND_MESSAGE_STRIP, RE_COMMAND_ARGS_STRIP,
+	RE_IMAGE_REF, RE_LOCAL_STDOUT_TAGS,
+	TEXT_SESSION_ENDED, TEXT_INTERRUPTION,
+	ANSI_COMMANDS,
+} from '../constants';
+import { parseTaskNotification } from './claude-subagent';
+import {
+	parseContentBlock, extractToolResultBlocks, isInterruptionMessage,
+	basename,
+} from './claude-content';
 
 interface ClaudeRecord {
 	type: string;
@@ -93,11 +113,8 @@ interface ToolResultContent {
 	is_error?: boolean;
 }
 
-const SKIP_TYPES = new Set([
-	'file-history-snapshot',
-	'progress',
-	'queue-operation',
-]);
+
+const LOG_PREFIX = '[agent-sessions]';
 
 export class ClaudeParser extends BaseParser {
 	readonly format = 'claude' as const;
@@ -114,11 +131,11 @@ export class ClaudeParser extends BaseParser {
 			const record = this.tryParseJson(line);
 			if (!record) continue;
 			const type = record['type'] as string | undefined;
-			if (type === 'user' || type === 'assistant') {
+			if (type === RT_USER || type === RT_ASSISTANT) {
 				const msg = record['message'] as Record<string, unknown> | undefined;
 				if (msg && ('role' in msg)) return true;
 			}
-			if (type === 'file-history-snapshot' || record['sessionId']) return true;
+			if (type === RT_FILE_HISTORY || record['sessionId']) return true;
 		}
 		return false;
 	}
@@ -141,6 +158,7 @@ export class ClaudeParser extends BaseParser {
 
 		// Token usage per message ID (keep max of each field across streaming duplicates)
 		const usageByMsg = new Map<string, { inp: number; out: number; cr: number; cc: number }>();
+		let anonymousUsageCounter = 0;
 
 		// Enriched tool results by sourceToolUseID
 		const enrichedResults = new Map<string, Record<string, unknown>>();
@@ -154,7 +172,7 @@ export class ClaudeParser extends BaseParser {
 			if (!record) continue;
 
 			// Capture hook_progress before skipping progress records
-			if (record.type === 'progress' && record.data?.type === 'hook_progress'
+			if (record.type === RT_PROGRESS && record.data?.type === PROGRESS_HOOK
 				&& record.toolUseID && record.data.hookEvent && record.data.hookName) {
 				const hooks = hookMap.get(record.toolUseID) ?? [];
 				hooks.push({
@@ -166,7 +184,7 @@ export class ClaudeParser extends BaseParser {
 			}
 
 			// Capture agent_progress records for sub-agent rendering
-			if (record.type === 'progress' && record.data?.type === 'agent_progress'
+			if (record.type === RT_PROGRESS && record.data?.type === PROGRESS_AGENT
 				&& record.parentToolUseID) {
 				const group = agentProgressMap.get(record.parentToolUseID) ?? [];
 				group.push(record);
@@ -174,47 +192,47 @@ export class ClaudeParser extends BaseParser {
 			}
 
 			// Track max token usage per message ID (streaming produces duplicates)
-			if (record.type === 'assistant' && record.message?.usage) {
+			if (record.type === RT_ASSISTANT && record.message?.usage) {
 				const msgId = (record.message as Record<string, unknown>)['id'] as string | undefined;
-				if (msgId) {
-					const u = record.message.usage;
-					const prev = usageByMsg.get(msgId);
-					usageByMsg.set(msgId, {
-						inp: Math.max(prev?.inp ?? 0, u.input_tokens ?? 0),
-						out: Math.max(prev?.out ?? 0, u.output_tokens ?? 0),
-						cr: Math.max(prev?.cr ?? 0, u.cache_read_input_tokens ?? 0),
-						cc: Math.max(prev?.cc ?? 0, u.cache_creation_input_tokens ?? 0),
-					});
-				}
+				// Use uuid as fallback key when message.id is absent to avoid losing token data
+				const key = msgId ?? record.uuid ?? `__anon_${anonymousUsageCounter++}`;
+				const u = record.message.usage;
+				const prev = usageByMsg.get(key);
+				usageByMsg.set(key, {
+					inp: Math.max(prev?.inp ?? 0, u.input_tokens ?? 0),
+					out: Math.max(prev?.out ?? 0, u.output_tokens ?? 0),
+					cr: Math.max(prev?.cr ?? 0, u.cache_read_input_tokens ?? 0),
+					cc: Math.max(prev?.cc ?? 0, u.cache_creation_input_tokens ?? 0),
+				});
 			}
 
 			// Capture enriched toolUseResult from user entries
-			if (record.type === 'user' && record.toolUseResult && record.sourceToolUseID) {
+			if (record.type === RT_USER && record.toolUseResult && record.sourceToolUseID) {
 				enrichedResults.set(record.sourceToolUseID, record.toolUseResult);
 			}
 
 			// Capture task-notification results from queue-operation and user records
 			// before they are skipped — these carry background agent completion data
-			if (record.type === 'queue-operation' && record.content?.startsWith('<task-notification>')) {
-				const tn = ClaudeParser.parseTaskNotification(record.content);
+			if (record.type === RT_QUEUE_OPERATION && record.content?.startsWith(TAG_TASK_NOTIFICATION)) {
+				const tn = parseTaskNotification(record.content);
 				if (tn) taskNotifications.set(tn.toolUseId, tn);
 			}
-			if (record.type === 'user' && typeof record.message?.content === 'string'
-				&& record.message.content.startsWith('<task-notification>')) {
-				const tn = ClaudeParser.parseTaskNotification(record.message.content);
+			if (record.type === RT_USER && typeof record.message?.content === 'string'
+				&& record.message.content.startsWith(TAG_TASK_NOTIFICATION)) {
+				const tn = parseTaskNotification(record.message.content);
 				if (tn) taskNotifications.set(tn.toolUseId, tn);
 			}
 
-			if (record.type === 'queue-operation' && record.operation === 'enqueue' && record.content) {
+			if (record.type === RT_QUEUE_OPERATION && record.operation === OP_ENQUEUE && record.content) {
 				// Enqueue records carry user messages — let them through
-			} else if (SKIP_TYPES.has(record.type)) continue;
+			} else if (SKIP_RECORD_TYPES.has(record.type)) continue;
 			if (record.isSidechain && !this.allowSidechain) continue;
 			if (record.isMeta) continue;
-			if (record.type === 'assistant' && record.message?.model === '<synthetic>'
+			if (record.type === RT_ASSISTANT && record.message?.model === MODEL_SYNTHETIC
 				&& !record.isApiErrorMessage) continue;
 
 			// Let summary records through for compaction boundary rendering
-			if (record.type === 'summary') {
+			if (record.type === RT_SUMMARY) {
 				records.push(record);
 				continue;
 			}
@@ -247,14 +265,18 @@ export class ClaudeParser extends BaseParser {
 			}
 		}
 
+		// Track unknown record types that passed through filters but weren't handled
+		const unknownRecordTypes = new Map<string, number>();
+		const unknownBlockTypes = new Map<string, number>();
+
 		// Second pass: build turns from deduplicated records
-		const turns = this.buildTurns(ordered);
+		const turns = this.buildTurns(ordered, unknownRecordTypes, unknownBlockTypes);
 
 		// Attach hook events to their corresponding tool_use blocks
 		if (hookMap.size > 0) {
 			for (const turn of turns) {
 				for (const block of turn.contentBlocks) {
-					if (block.type === 'tool_use' && hookMap.has(block.id)) {
+					if (block.type === BT_TOOL_USE && hookMap.has(block.id)) {
 						block.hooks = hookMap.get(block.id);
 					}
 				}
@@ -265,8 +287,8 @@ export class ClaudeParser extends BaseParser {
 		if (agentProgressMap.size > 0) {
 			for (const turn of turns) {
 				for (const block of turn.contentBlocks) {
-					if (block.type === 'tool_use'
-						&& (block.name === 'Agent' || block.name === 'Task')
+					if (block.type === BT_TOOL_USE
+						&& SUBAGENT_TOOL_NAMES.has(block.name)
 						&& agentProgressMap.has(block.id)) {
 						const agentRecords = agentProgressMap.get(block.id)!;
 						block.subAgentSession = this.buildSubAgentSession(agentRecords, block);
@@ -281,8 +303,8 @@ export class ClaudeParser extends BaseParser {
 		if (taskNotifications.size > 0) {
 			for (const turn of turns) {
 				for (const block of turn.contentBlocks) {
-					if (block.type === 'tool_use'
-						&& (block.name === 'Agent' || block.name === 'Task')
+					if (block.type === BT_TOOL_USE
+						&& SUBAGENT_TOOL_NAMES.has(block.name)
 						&& !block.subAgentSession
 						&& taskNotifications.has(block.id)) {
 						const tn = taskNotifications.get(block.id)!;
@@ -297,7 +319,7 @@ export class ClaudeParser extends BaseParser {
 					}
 					// Replace the "Async agent launched successfully" tool_result
 					// with the actual notification result
-					if (block.type === 'tool_result' && taskNotifications.has(block.toolUseId)) {
+					if (block.type === BT_TOOL_RESULT && taskNotifications.has(block.toolUseId)) {
 						block.content = taskNotifications.get(block.toolUseId)!.result;
 					}
 				}
@@ -308,7 +330,7 @@ export class ClaudeParser extends BaseParser {
 		const resultIds = new Set<string>();
 		for (const turn of turns) {
 			for (const block of turn.contentBlocks) {
-				if (block.type === 'tool_result') {
+				if (block.type === BT_TOOL_RESULT) {
 					resultIds.add(block.toolUseId);
 					if (enrichedResults.has(block.toolUseId)) {
 						block.enrichedResult = enrichedResults.get(block.toolUseId);
@@ -323,7 +345,7 @@ export class ClaudeParser extends BaseParser {
 		}
 		for (const turn of turns) {
 			for (const block of turn.contentBlocks) {
-				if (block.type === 'tool_use' && !resultIds.has(block.id)) {
+				if (block.type === BT_TOOL_USE && !resultIds.has(block.id)) {
 					if (turn === lastAssistantTurn) {
 						block.isPending = true;
 					} else {
@@ -343,7 +365,7 @@ export class ClaudeParser extends BaseParser {
 			if (turn.role === 'user') userTurns++;
 			else assistantTurns++;
 			for (const block of turn.contentBlocks) {
-				if (block.type === 'tool_use') {
+				if (block.type === BT_TOOL_USE) {
 					toolUseCounts[block.name] = (toolUseCounts[block.name] ?? 0) + 1;
 				}
 			}
@@ -356,7 +378,8 @@ export class ClaudeParser extends BaseParser {
 			const lastTurn = turns[turns.length - 1];
 			const last = lastTurn.endTimestamp ?? lastTurn.timestamp;
 			if (first && last) {
-				durationMs = new Date(last).getTime() - new Date(first).getTime();
+				const d = new Date(last).getTime() - new Date(first).getTime();
+				if (!isNaN(d) && d >= 0) durationMs = d;
 			}
 		}
 
@@ -384,6 +407,16 @@ export class ClaudeParser extends BaseParser {
 			durationMs,
 		};
 
+		// Log diagnostics for unknown record/block types (signals format changes)
+		if (unknownRecordTypes.size > 0) {
+			const entries = [...unknownRecordTypes.entries()].map(([t, n]) => `${t}(${n})`).join(', ');
+			console.warn(`${LOG_PREFIX} Skipped unknown record types: ${entries}`);
+		}
+		if (unknownBlockTypes.size > 0) {
+			const entries = [...unknownBlockTypes.entries()].map(([t, n]) => `${t}(${n})`).join(', ');
+			console.warn(`${LOG_PREFIX} Skipped unknown content block types: ${entries}`);
+		}
+
 		return {
 			metadata: {
 				id: sessionId || basename(filePath),
@@ -409,7 +442,22 @@ export class ClaudeParser extends BaseParser {
 	 * User records containing only tool_result blocks should have those results
 	 * attached to the preceding assistant turn (not become separate user turns).
 	 */
-	private buildTurns(ordered: ClaudeRecord[]): Turn[] {
+	/**
+	 * Build Turn[] from ordered, deduplicated records.
+	 *
+	 * STRUCTURAL ASSUMPTIONS (update if Claude Code changes its JSONL format):
+	 * 1. Consecutive assistant records merge into one Turn. If a non-assistant
+	 *    record (e.g. progress) interleaves, the turn is split.
+	 * 2. User records with only tool_result blocks attach to the preceding
+	 *    assistant turn. If results arrive before their tool_use, attachment fails.
+	 * 3. XML tags (<task-notification>, <command-name>, etc.) are parsed via regex.
+	 *    Schema changes to the XML structure will break extraction silently.
+	 */
+	private buildTurns(
+		ordered: ClaudeRecord[],
+		unknownRecordTypes?: Map<string, number>,
+		unknownBlockTypes?: Map<string, number>,
+	): Turn[] {
 		const turns: Turn[] = [];
 		const toolUseNames = new Map<string, string>();
 		let currentAssistantTurn: Turn | null = null;
@@ -424,9 +472,9 @@ export class ClaudeParser extends BaseParser {
 
 		for (const record of ordered) {
 			// Queue-operation enqueue → user turn with the queued message
-			if (record.type === 'queue-operation' && record.operation === 'enqueue' && record.content) {
+			if (record.type === RT_QUEUE_OPERATION && record.operation === OP_ENQUEUE && record.content) {
 				// Skip system-injected task notifications
-				if (record.content.startsWith('<task-notification>')) continue;
+				if (record.content.startsWith(TAG_TASK_NOTIFICATION)) continue;
 				flushAssistant();
 				const ts = this.formatTimestamp(record.timestamp);
 				turns.push({
@@ -444,7 +492,7 @@ export class ClaudeParser extends BaseParser {
 			}
 
 			// Summary records → compaction boundary
-			if (record.type === 'summary') {
+			if (record.type === RT_SUMMARY) {
 				flushAssistant();
 				const ts = this.formatTimestamp(record.timestamp);
 				turns.push({
@@ -462,7 +510,7 @@ export class ClaudeParser extends BaseParser {
 			}
 
 			// System records with local_command subtype (slash commands like /rename)
-			if (record.type === 'system' && record.subtype === 'local_command' && record.content) {
+			if (record.type === RT_SYSTEM && record.subtype === SUBTYPE_LOCAL_COMMAND && record.content) {
 				const blocks = this.extractSystemContent(record);
 				if (blocks.length > 0) {
 					flushAssistant();
@@ -478,8 +526,8 @@ export class ClaudeParser extends BaseParser {
 				continue;
 			}
 
-			if (record.type === 'assistant') {
-				const blocks = this.parseAssistantBlocks(record, toolUseNames);
+			if (record.type === RT_ASSISTANT) {
+				const blocks = this.parseAssistantBlocks(record, toolUseNames, unknownBlockTypes);
 				if (blocks.length === 0) continue;
 
 				if (!currentAssistantTurn) {
@@ -494,7 +542,7 @@ export class ClaudeParser extends BaseParser {
 				if (record.timestamp) {
 					currentAssistantTurn.endTimestamp = this.formatTimestamp(record.timestamp);
 				}
-				if (record.message?.model && record.message.model !== '<synthetic>'
+				if (record.message?.model && record.message.model !== MODEL_SYNTHETIC
 					&& !currentAssistantTurn.model) {
 					currentAssistantTurn.model = record.message.model;
 				}
@@ -508,7 +556,7 @@ export class ClaudeParser extends BaseParser {
 				for (const b of blocks) {
 					currentAssistantTurn.contentBlocks.push(b);
 				}
-			} else if (record.type === 'user') {
+			} else if (record.type === RT_USER) {
 				// isCompactSummary user entries → compaction boundary
 				if (record.isCompactSummary) {
 					flushAssistant();
@@ -528,16 +576,16 @@ export class ClaudeParser extends BaseParser {
 
 				// Skip task notification messages (system-injected, not user-typed)
 				if (typeof record.message?.content === 'string'
-					&& record.message.content.startsWith('<task-notification>')) {
+					&& record.message.content.startsWith(TAG_TASK_NOTIFICATION)) {
 					continue;
 				}
 
 				// Interruption messages attach to assistant turn, not separate user turn
-				if (this.isInterruptionMessage(record)) {
+				if (isInterruptionMessage(record.message)) {
 					if (currentAssistantTurn) {
 						currentAssistantTurn.contentBlocks.push({
 							type: 'text',
-							text: '*Request interrupted by user*',
+							text: TEXT_INTERRUPTION,
 							timestamp: record.timestamp,
 						} as TextBlock);
 						if (record.timestamp) {
@@ -580,6 +628,8 @@ export class ClaudeParser extends BaseParser {
 						contentBlocks: userBlocks,
 					});
 				}
+			} else if (unknownRecordTypes) {
+				unknownRecordTypes.set(record.type, (unknownRecordTypes.get(record.type) ?? 0) + 1);
 			}
 		}
 
@@ -587,21 +637,6 @@ export class ClaudeParser extends BaseParser {
 		return turns;
 	}
 
-	/** Detect interruption messages in user records. */
-	private isInterruptionMessage(record: ClaudeRecord): boolean {
-		const content = record.message?.content;
-		if (typeof content === 'string') {
-			return content.startsWith('[Request interrupted by user');
-		}
-		if (Array.isArray(content)) {
-			for (const block of content as ClaudeContentBlock[]) {
-				if (block.type === 'text' && block.text?.startsWith('[Request interrupted by user')) {
-					return true;
-				}
-			}
-		}
-		return false;
-	}
 
 	/**
 	 * Parse sub-agent progress records into a SubAgentSession.
@@ -673,21 +708,10 @@ export class ClaudeParser extends BaseParser {
 		};
 	}
 
-	/** Parse <task-notification> XML from queue-operation or user records. */
-	private static parseTaskNotification(
-		content: string,
-	): { taskId: string; toolUseId: string; result: string; summary: string } | null {
-		const toolUseId = content.match(/<tool-use-id>([\s\S]*?)<\/tool-use-id>/)?.[1]?.trim();
-		if (!toolUseId) return null;
-		const taskId = content.match(/<task-id>([\s\S]*?)<\/task-id>/)?.[1]?.trim() ?? '';
-		const summary = content.match(/<summary>([\s\S]*?)<\/summary>/)?.[1]?.trim() ?? '';
-		const result = content.match(/<result>([\s\S]*?)<\/result>/)?.[1]?.trim() ?? '';
-		return { taskId, toolUseId, result, summary };
-	}
-
 	private parseAssistantBlocks(
 		record: ClaudeRecord,
-		toolUseNames: Map<string, string>
+		toolUseNames: Map<string, string>,
+		unknownBlockTypes?: Map<string, number>,
 	): ContentBlock[] {
 		const msg = record.message;
 		if (!msg) return [];
@@ -700,7 +724,7 @@ export class ClaudeParser extends BaseParser {
 			}
 		} else if (Array.isArray(msg.content)) {
 			for (const block of msg.content as ClaudeContentBlock[]) {
-				const parsed = this.parseContentBlock(block, toolUseNames, timestamp);
+				const parsed = parseContentBlock(block, toolUseNames, timestamp, unknownBlockTypes);
 				if (parsed) blocks.push(parsed);
 			}
 		}
@@ -711,42 +735,11 @@ export class ClaudeParser extends BaseParser {
 		record: ClaudeRecord,
 		toolUseNames: Map<string, string>
 	): ToolResultBlock[] {
-		const msg = record.message;
-		if (!msg) return [];
-
-		const timestamp = record.timestamp;
-		const results: ToolResultBlock[] = [];
-		if (Array.isArray(msg.content)) {
-			for (const block of msg.content as ClaudeContentBlock[]) {
-				if (block.type === 'tool_result' && block.tool_use_id) {
-					const resultContent = typeof block.content === 'string'
-						? block.content
-						: Array.isArray(block.content)
-							? (block.content as ToolResultContent[])
-								.map(c => c.text ?? c.content ?? '')
-								.filter(s => s)
-								.join('\n')
-							: '';
-
-					results.push({
-						type: 'tool_result',
-						toolUseId: block.tool_use_id,
-						toolName: toolUseNames.get(block.tool_use_id),
-						content: resultContent,
-						isError: block.is_error || false,
-						timestamp,
-					});
-				}
-			}
-		}
-		return results;
+		return extractToolResultBlocks(record.message, toolUseNames, record.timestamp);
 	}
 
 	/** Track commands whose stdout should be captured as ANSI blocks. */
 	private pendingCommand: string | null = null;
-
-	/** Commands whose <local-command-stdout> should be rendered as ANSI output. */
-	private static readonly ANSI_COMMANDS = new Set(['/context']);
 
 	/** Extract content from system records (slash commands like /rename, /compact). */
 	private extractSystemContent(record: ClaudeRecord): ContentBlock[] {
@@ -754,21 +747,21 @@ export class ClaudeParser extends BaseParser {
 		const timestamp = record.timestamp;
 
 		// Skip stdout/caveat/stderr follow-up records (they follow the command record)
-		if (/^<local-command-stdout>/.test(content) || /^<local-command-caveat>/.test(content)
-			|| /^<local-command-stderr>/.test(content)) {
+		if (RE_LOCAL_STDOUT.test(content) || RE_LOCAL_CAVEAT.test(content)
+			|| RE_LOCAL_STDERR.test(content)) {
 			return [];
 		}
 
 		// Extract command name from <command-name>/foo</command-name>
-		const cmdMatch = content.match(/<command-name>(\/\w+)<\/command-name>/);
+		const cmdMatch = content.match(RE_COMMAND_NAME);
 		if (!cmdMatch) return [];
 
 		const cmd = cmdMatch[1];
-		// /exit is handled separately (consolidated into "*Session ended*")
+		// /exit is handled separately (consolidated into session ended message)
 		if (cmd === '/exit') return [];
 
 		// Extract args if present
-		const argsMatch = content.match(/<command-args>([\s\S]*?)<\/command-args>/);
+		const argsMatch = content.match(RE_COMMAND_ARGS);
 		const text = argsMatch ? `${cmd} ${argsMatch[1]}` : cmd;
 
 		return [{ type: 'text', text, timestamp } as TextBlock];
@@ -781,52 +774,52 @@ export class ClaudeParser extends BaseParser {
 		if (typeof content === 'string') {
 			// Consolidate /exit command sequences into a single subtle message
 			// Anchored to ^ so tags embedded in user text (e.g. pasted JSON) don't match
-			if (/^<command-name>\/exit<\/command-name>/.test(content)) {
+			if (RE_EXIT_COMMAND.test(content)) {
 				this.pendingCommand = null;
-				return [{ type: 'text', text: '*Session ended*', timestamp } as TextBlock];
+				return [{ type: 'text', text: TEXT_SESSION_ENDED, timestamp } as TextBlock];
 			}
 			// Detect slash commands
-			const cmdMatch = content.match(/^<command-name>(\/\w+)<\/command-name>/);
+			const cmdMatch = content.match(RE_SLASH_COMMAND);
 			if (cmdMatch) {
 				const cmd = cmdMatch[1];
 				// Commands that produce ANSI output
-				if (ClaudeParser.ANSI_COMMANDS.has(cmd)) {
+				if (ANSI_COMMANDS.has(cmd)) {
 					this.pendingCommand = cmd;
 					return [{ type: 'text', text: cmd, timestamp } as TextBlock];
 				}
 				// All other slash commands: extract args and message for readable display
-				const argsMatch = content.match(/<command-args>([\s\S]*?)<\/command-args>/);
-				const msgMatch = content.match(/<command-message>([\s\S]*?)<\/command-message>/);
+				const argsMatch = content.match(RE_COMMAND_ARGS);
+				const msgMatch = content.match(RE_COMMAND_MESSAGE);
 				const parts = [cmd];
 				if (argsMatch?.[1]?.trim()) parts.push(argsMatch[1].trim());
 				if (msgMatch?.[1]?.trim()) parts.push(msgMatch[1].trim());
 				return [{ type: 'text', text: parts.join(' '), timestamp } as TextBlock];
 			}
 			// Capture ANSI output from local command stdout when a pending command is active
-			if (/^<local-command-stdout>/.test(content) && this.pendingCommand) {
+			if (RE_LOCAL_STDOUT.test(content) && this.pendingCommand) {
 				const label = this.pendingCommand;
 				this.pendingCommand = null;
-				const stdout = content.replace(/<\/?local-command-stdout>/g, '');
+				const stdout = content.replace(RE_LOCAL_STDOUT_TAGS, '');
 				return [{ type: 'ansi', label, text: stdout, timestamp } as AnsiBlock];
 			}
 			// Skip local command output that follows /exit (e.g. "Goodbye!")
-			if (/^<local-command-stdout>/.test(content)) {
+			if (RE_LOCAL_STDOUT.test(content)) {
 				return [];
 			}
 			// Skip local command caveats and stderr (usually also filtered by isMeta)
-			if (/^<local-command-caveat>/.test(content) || /^<local-command-stderr>/.test(content)) {
+			if (RE_LOCAL_CAVEAT.test(content) || RE_LOCAL_STDERR.test(content)) {
 				return [];
 			}
 			// Skip task notification messages (system-injected, not user-typed)
-			if (/^<task-notification>/.test(content)) {
+			if (content.startsWith(TAG_TASK_NOTIFICATION)) {
 				return [];
 			}
 			// Strip system/internal tags and image references
 			let cleaned = content;
-			cleaned = cleaned.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '');
-			cleaned = cleaned.replace(/<command-message>[\s\S]*?<\/command-message>/g, '');
-			cleaned = cleaned.replace(/<command-args>[\s\S]*?<\/command-args>/g, '');
-			cleaned = cleaned.replace(/\[Image:\s*source:\s*.+?\]/gi, '');
+			cleaned = cleaned.replace(RE_SYSTEM_REMINDER, '');
+			cleaned = cleaned.replace(RE_COMMAND_MESSAGE_STRIP, '');
+			cleaned = cleaned.replace(RE_COMMAND_ARGS_STRIP, '');
+			cleaned = cleaned.replace(RE_IMAGE_REF, '');
 			cleaned = cleaned.trim();
 			if (!cleaned) {
 				return [];
@@ -836,9 +829,9 @@ export class ClaudeParser extends BaseParser {
 		if (Array.isArray(content)) {
 			const blocks: ContentBlock[] = [];
 			for (const block of content as ClaudeContentBlock[]) {
-				if (block.type === 'text' && block.text?.trim()) {
+				if (block.type === BT_TEXT && block.text?.trim()) {
 					blocks.push({ type: 'text', text: block.text, timestamp } as TextBlock);
-				} else if (block.type === 'image' && block.source?.data) {
+				} else if (block.type === BT_IMAGE && block.source?.data) {
 					blocks.push({
 						type: 'image',
 						mediaType: block.source.media_type ?? 'image/png',
@@ -859,80 +852,4 @@ export class ClaudeParser extends BaseParser {
 		return null;
 	}
 
-	private parseContentBlock(
-		block: ClaudeContentBlock,
-		toolUseNames: Map<string, string>,
-		timestamp?: string
-	): ContentBlock | null {
-		switch (block.type) {
-			case 'text':
-				if (block.text && block.text.trim()) {
-					return { type: 'text', text: block.text, timestamp } as TextBlock;
-				}
-				return null;
-
-			case 'thinking':
-				if (block.thinking && block.thinking.trim()) {
-					return { type: 'thinking', thinking: block.thinking, timestamp } as ThinkingBlock;
-				}
-				// Encrypted thinking (signature-only) — skip, nothing useful to display
-				return null;
-
-			case 'tool_use':
-				if (block.id && block.name) {
-					toolUseNames.set(block.id, block.name);
-					return {
-						type: 'tool_use',
-						id: block.id,
-						name: block.name,
-						input: block.input || {},
-						timestamp,
-					} as ToolUseBlock;
-				}
-				return null;
-
-			default:
-				return null;
-		}
-	}
-}
-
-/**
- * Resolve sub-agent sessions by reading their JSONL files.
- * Both background and foreground agents have full JSONL files at
- * <sessionBase>/subagents/agent-<agentId>.jsonl. Background agents need this
- * because they don't stream agent_progress records. Foreground agents benefit
- * because agent_progress records omit assistant text blocks — only tool_use
- * and tool_result are streamed. Reading the JSONL file recovers the full
- * chain-of-thought text.
- */
-export async function resolveSubAgentSessions(
-	session: Session,
-	readFile: (path: string) => Promise<string>,
-): Promise<void> {
-	const sessionBase = session.rawPath.replace(/\.jsonl$/, '');
-	const parser = new ClaudeParser({ allowSidechain: true });
-
-	for (const turn of session.turns) {
-		for (const block of turn.contentBlocks) {
-			if (block.type === 'tool_use'
-				&& block.subAgentSession
-				&& block.subAgentSession.agentId) {
-				const subagentPath = `${sessionBase}/subagents/agent-${block.subAgentSession.agentId}.jsonl`;
-				try {
-					const content = await readFile(subagentPath);
-					const subSession = parser.parse(content, subagentPath);
-					block.subAgentSession.turns = subSession.turns;
-				} catch {
-					// Subagent file may not exist yet if agent is still running
-				}
-			}
-		}
-	}
-}
-
-function basename(path: string): string {
-	const parts = path.replace(/\\/g, '/').split('/');
-	const last = parts[parts.length - 1] || '';
-	return last.replace(/\.jsonl$/, '');
 }

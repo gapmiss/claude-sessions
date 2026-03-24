@@ -125,7 +125,9 @@ code { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; }
 <script>
 (function() {
   var raw = document.getElementById('session-data').textContent;
-  var data = JSON.parse(decodeURIComponent(escape(atob(raw))));
+  var data;
+  try { data = JSON.parse(decodeURIComponent(escape(atob(raw)))); }
+  catch(e) { document.getElementById('content').textContent = 'Failed to load session data.'; return; }
   var turns = data.turns;
   var meta = data.metadata;
   var settings = data.settings;

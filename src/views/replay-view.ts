@@ -3,7 +3,7 @@ import { Session, PluginSettings } from '../types';
 import { ReplayRenderer } from './replay-renderer';
 import { readFileContent } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
-import { resolveSubAgentSessions } from '../parsers/claude-parser';
+import { resolveSubAgentSessions } from '../parsers/claude-subagent';
 
 export const VIEW_TYPE_REPLAY = 'agent-sessions-replay';
 
@@ -138,7 +138,6 @@ export class ReplayView extends ItemView {
 	}
 
 	loadSession(session: Session, opts?: { scrollToEnd?: boolean }): void {
-		const prevTurnCount = this.session?.turns.length ?? 0;
 		const savedIndex = this.activeTurnIndex;
 		this.session = session;
 

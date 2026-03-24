@@ -1,6 +1,5 @@
 export type SessionFormat = 'claude';
 export type TurnRole = 'user' | 'assistant';
-export type ContentBlockType = 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'image' | 'ansi' | 'compaction';
 
 export interface SessionMetadata {
 	id: string;

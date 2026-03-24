@@ -73,7 +73,26 @@ Working features:
 
 ## Key Implementation Details
 
-### Claude JSONL Parser (`parsers/claude-parser.ts`)
+### Claude JSONL Parser (decomposed across 4 files)
+
+**`constants.ts`** — All JSONL protocol strings centralized for single-point-of-update:
+- Record types: `RT_USER`, `RT_ASSISTANT`, `SKIP_RECORD_TYPES`
+- Block types: `BT_TEXT`, `BT_THINKING`, `BT_TOOL_USE`, `BT_TOOL_RESULT`, `BT_IMAGE`
+- XML tags: `TAG_TASK_NOTIFICATION`, `RE_EXIT_COMMAND`, `RE_SLASH_COMMAND`, etc.
+- Display strings: `TEXT_SESSION_ENDED`, `TEXT_INTERRUPTION`, `MODEL_SYNTHETIC`
+- Tool names: `SUBAGENT_TOOL_NAMES`, `ANSI_COMMANDS`
+
+**`parsers/claude-content.ts`** (~127 lines) — Stateless content extraction:
+- `parseContentBlock()` — routes by block type, returns typed ContentBlock or null
+- `extractToolResultBlocks()` — extracts tool results from user record message arrays
+- `isInterruptionMessage()` — detects user interruption messages
+- `basename()` — path utility with null guard
+
+**`parsers/claude-subagent.ts`** (~48 lines) — Sub-agent resolution:
+- `parseTaskNotification()` — extracts fields from `<task-notification>` XML
+- `resolveSubAgentSessions()` — reads subagent JSONL files, parses with `allowSidechain: true`
+
+**`parsers/claude-parser.ts`** (~844 lines) — Core parser orchestrator:
 
 The Claude Code JSONL format has these record types:
 - `user` — either actual user text (`message.content` is a string) or tool results (`message.content` is an array of `{type: "tool_result", tool_use_id, content}` blocks)
@@ -118,26 +137,33 @@ Computed during parsing and stored on `Session.stats`:
 - **UI state preservation**: `captureUIState()` / `restoreUIState()` save and restore collapsed turns, summary panel, expanded tool blocks (by turn+block index), expanded "show more" sections (by turn+wrap index), scroll position, and ARIA `aria-expanded` attributes across full re-renders
 - **Content filters**: `FilterState` tracks 8 toggles in two groups — User (text, images) and Assistant (text, thinking, tool calls, tool results). Parent toggles hide entire role sections; children toggle individual block types.
 
-### Replay Renderer (`views/replay-renderer.ts`)
+### Replay Renderer (decomposed across 4 files)
 
+**`views/render-helpers.ts`** — Shared utilities used by all renderer modules:
+- `RenderContext` interface (`{ app, component, settings }`) threaded through all render functions
+- `makeClickable()` — adds `tabindex`, `role="button"`, `aria-expanded`, Enter/Space handlers to collapsible headers
+- `fence()`, `langFromPath()`, `stripLineNumbers()`, `formatElapsed()`, `addCopyButton()`
+- `COLLAPSE_THRESHOLD` (10 lines), `EXT_TO_LANG` map
+
+**`views/replay-renderer.ts`** (~444 lines) — Core timeline orchestrator:
 - `renderTimeline(turns, sessionStartMs, session?)` — renders summary panel (if session provided) + all turns, returns array of turn elements
-- `renderSummary(session, container)` — collapsible panel with metadata grid, token stats, tool breakdown, copyable IDs and URIs
-- **Tool-specific input rendering**:
-  - `Bash` → `renderBashInput()`: `` ```bash `` code block with description label
-  - `Edit` → `renderDiffView()`: red/green diff lines; only shows result on error
-  - `Write` → `renderWriteView()`: syntax-highlighted code block via `langFromPath()`; only shows result on error
-  - Other tools → JSON code block
-- **Tool-specific result rendering**:
-  - `Read` → language-specific highlighting based on file extension, line numbers stripped
-  - `Bash` with diff command → `` ```diff `` code block (detected via `isBashDiffResult()`)
-  - Other → plain code block
-- **Hook indicators**: fish icon on tool call headers when `block.hooks` is present and `settings.showHookIcons` is enabled, tooltip shows hook names
-- **Text blocks** wrapped in `.agent-sessions-text-block` with hover-reveal copy button
-- **Image blocks**: thumbnail with click handler → `ImagePreviewModal` (full-size view + Download + Copy buttons)
-- **Sub-agent rendering**: `renderSubAgentSession()` flattens all assistant blocks across turns with `groupThreshold: 0` (every tool run collapses), preserving text blocks between tool groups for chain-of-thought context
-- Tool grouping: configurable via `settings.toolGroupThreshold` (default 4); calls above threshold collapse into group header; `renderAssistantBlocks()` and `renderToolGroup()` accept optional `groupThreshold` override
-- Long text (>10 lines) wrapped in collapsible with fade gradient
+- `renderTurn()`, `renderAssistantBlocks()`, `renderSingleBlock()` — turn structure and block routing
+- `renderTextContent()`, `renderThinkingBlock()`, `renderCompactionBlock()`, `renderAnsiBlock()` + `buildAnsiDom()` — programmatic DOM construction (no innerHTML)
+- `ImagePreviewModal` — full-size view with Download and Copy buttons; MIME type whitelist (`SAFE_IMAGE_TYPES`)
 - `getBlockWrappers(turnIndex)` returns all wrapper elements within a turn
+- Constructor creates `ToolRendererDelegate` with `bind(this)` for callbacks into tool renderer
+
+**`views/summary-renderer.ts`** (~141 lines) — `renderSummary(session, container, ctx)`:
+- Collapsible panel with metadata grid, token stats, tool breakdown, copyable IDs and URIs
+- Private helpers: `addGridItem()`, `formatTokens()`, `formatDuration()`
+
+**`views/tool-renderer.ts`** (~495 lines) — All tool-specific rendering:
+- `renderToolCall()`, `renderToolGroup()`, `toolPreview()` — public API
+- `ToolRendererDelegate` interface — callbacks (`renderAssistantBlocks`, `renderTextContent`) to avoid circular deps with main renderer
+- **Tool-specific input**: `renderBashInput()` (```bash), `renderDiffView()` (Edit diffs), `renderWriteView()` (syntax-highlighted)
+- **Tool-specific results**: `Read` (language-specific highlighting), `Bash` diff detection (`isBashDiffResult()`)
+- **Sub-agent rendering**: `renderSubAgentSession()` with collapsible PROMPT, flattened tool groups, and OUTPUT
+- **Hook indicators**: fish icon with tooltip when `block.hooks` present
 
 ### Protocol Handler (`main.ts`)
 
@@ -159,13 +185,19 @@ src/
   main.ts                          # Plugin entry, commands, protocol handler, view registration
   settings.ts                      # Settings tab
   types.ts                         # Shared interfaces (Session, SessionStats, Turn, ContentBlock, HookEvent, etc.)
+  constants.ts                     # JSONL protocol strings, record/block types, XML tags, display strings
   parsers/
     base-parser.ts                 # Abstract base with shared utilities
     claude-parser.ts               # Claude Code JSONL parser (merges records, extracts stats + hooks)
+    claude-content.ts              # Content block parsing, tool result extraction, interruption detection
+    claude-subagent.ts             # Task notification parsing, sub-agent JSONL resolution
     detect.ts                      # Parser detection (Claude-only)
   views/
     replay-view.ts                 # ItemView — scrollable timeline with IntersectionObserver
-    replay-renderer.ts             # DOM rendering (summary, timeline, tool bars, diff view, collapsibles)
+    replay-renderer.ts             # Core timeline, turns, text, thinking, ANSI, images (~444 lines)
+    render-helpers.ts              # Shared utilities: RenderContext, makeClickable, fence, langFromPath, etc.
+    summary-renderer.ts            # Collapsible summary panel with metadata grid, token stats, tool breakdown
+    tool-renderer.ts               # All tool-specific rendering: Bash, Edit, Write, Read, sub-agents, tool groups
     session-browser-modal.ts       # SuggestModal + scanSessionDirs() with cached index
     file-picker-modal.ts           # Import from arbitrary path (drag-and-drop, path input)
   exporters/
@@ -226,6 +258,11 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 - `agent_progress` records stream only `tool_use` and `tool_result` blocks — assistant text blocks are omitted. Must read the subagent's own JSONL file (`subagents/agent-<id>.jsonl`) to recover chain-of-thought text for both foreground and background agents.
 - Subagent JSONL files mark every record as `isSidechain: true` — parser needs `allowSidechain: true` constructor option to avoid filtering them out.
 - Background agents don't produce `agent_progress` records at all. Their completion arrives as `<task-notification>` XML in `queue-operation` or `user` records, which must be captured before those record types are skipped.
+- All JSONL magic strings live in `constants.ts` — when Claude Code changes its schema, update one file. Parser logs `[agent-sessions] Unknown record type` / `Unknown block type` warnings with counts for format change detection.
+- Token dedup uses fallback chain `msgId ?? record.uuid ?? '__anon_${counter++}'` to avoid silent data loss when `message.id` is missing.
+- ANSI rendering uses programmatic DOM construction (`buildAnsiDom()`) — no `innerHTML` anywhere in the renderer pipeline.
+- Image clipboard copy validates MIME type against `SAFE_IMAGE_TYPES` whitelist.
+- File picker normalizes drag-and-drop filenames with `path.basename()` to prevent path traversal.
 
 ## Roadmap
 

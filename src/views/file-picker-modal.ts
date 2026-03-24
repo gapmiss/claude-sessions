@@ -3,7 +3,7 @@ import type AgentSessionsPlugin from '../main';
 import { expandHome } from '../utils/path-utils';
 import { readFileContent } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
-import { resolveSubAgentSessions } from '../parsers/claude-parser';
+import { resolveSubAgentSessions } from '../parsers/claude-subagent';
 
 export class FilePickerModal extends Modal {
 	private plugin: AgentSessionsPlugin;
@@ -162,18 +162,20 @@ export class FilePickerModal extends Modal {
 		if (!Platform.isDesktop) return null;
 		const fs = require('fs') as typeof import('fs');
 		const path = require('path') as typeof import('path');
+		// Strip directory components to prevent path traversal
+		const safeName = path.basename(fileName);
 		for (const dir of this.plugin.settings.sessionDirs) {
 			const expanded = expandHome(dir);
 			try {
 				const subdirs = fs.readdirSync(expanded, { withFileTypes: true });
 				for (const entry of subdirs) {
 					if (entry.isDirectory()) {
-						const candidate = path.join(expanded, entry.name, fileName);
+						const candidate = path.join(expanded, entry.name, safeName);
 						if (fs.existsSync(candidate)) return candidate;
 					}
 				}
 				// Also check root of session dir
-				const rootCandidate = path.join(expanded, fileName);
+				const rootCandidate = path.join(expanded, safeName);
 				if (fs.existsSync(rootCandidate)) return rootCandidate;
 			} catch { /* skip inaccessible dirs */ }
 		}

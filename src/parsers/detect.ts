@@ -15,6 +15,3 @@ export function detectParser(content: string): BaseParser | null {
 	return null;
 }
 
-export function getParserByName(name: string): BaseParser | null {
-	return parsers.find(p => p.format === name) ?? null;
-}

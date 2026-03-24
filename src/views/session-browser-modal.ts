@@ -4,7 +4,7 @@ import { SessionListEntry } from '../types';
 import { expandHome, extractProjectName, basename, shortenPath, projectFromCwd } from '../utils/path-utils';
 import { listDirectory, listSubdirectories, readFileContent, extractQuickMetadataAsync } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
-import { resolveSubAgentSessions } from '../parsers/claude-parser';
+import { resolveSubAgentSessions } from '../parsers/claude-subagent';
 
 /**
  * Scan configured session directories and return entries.
