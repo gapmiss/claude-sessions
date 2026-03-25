@@ -113,7 +113,14 @@ export interface CompactionBlock {
 	timestamp?: string;
 }
 
-export type ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock | ImageBlock | AnsiBlock | CompactionBlock;
+export interface SlashCommandBlock {
+	type: 'slash_command';
+	commandName: string;
+	text: string;
+	timestamp?: string;
+}
+
+export type ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock | ImageBlock | AnsiBlock | CompactionBlock | SlashCommandBlock;
 
 export interface PluginSettings {
 	sessionDirs: string[];

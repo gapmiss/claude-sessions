@@ -789,6 +789,10 @@ export class ReplayView extends ItemView {
 				const wrapper = (el as HTMLElement).closest('.agent-sessions-block-wrapper') as HTMLElement | null;
 				wrapper?.toggleClass('agent-sessions-filtered', !f.userText);
 			});
+			this.timelineEl.querySelectorAll('.agent-sessions-slash-command-block').forEach(el => {
+				const wrapper = (el as HTMLElement).closest('.agent-sessions-block-wrapper') as HTMLElement | null;
+				wrapper?.toggleClass('agent-sessions-filtered', !f.userText);
+			});
 			this.timelineEl.querySelectorAll('.agent-sessions-image-thumbnail').forEach(el => {
 				const wrapper = (el as HTMLElement).closest('.agent-sessions-block-wrapper') as HTMLElement | null;
 				wrapper?.toggleClass('agent-sessions-filtered', !f.userImages);

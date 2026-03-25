@@ -990,6 +990,76 @@
 }
 
 /* ═══════════════════════════════════════════
+   Slash command output (skill expansion)
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-slash-command-block {
+	margin: 6px 0;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	overflow: hidden;
+}
+
+.agent-sessions-slash-command-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 10px;
+	cursor: pointer;
+	user-select: none;
+	transition: background 0.15s;
+	min-height: 44px;
+}
+
+.agent-sessions-slash-command-header:hover {
+	background: var(--background-modifier-hover);
+}
+
+.agent-sessions-slash-command-icon {
+	color: var(--text-faint);
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+.agent-sessions-slash-command-icon svg {
+	width: 14px;
+	height: 14px;
+}
+
+.agent-sessions-slash-command-name {
+	color: var(--text-muted);
+	font-weight: 600;
+	font-size: var(--font-ui-small);
+}
+
+.agent-sessions-slash-command-chevron {
+	font-size: 10px;
+	color: var(--text-faint);
+	margin-left: auto;
+	transition: transform 0.2s;
+}
+
+.agent-sessions-slash-command-block.open .agent-sessions-slash-command-chevron {
+	transform: rotate(90deg);
+}
+
+.agent-sessions-slash-command-body {
+	display: none;
+	border-top: 1px solid var(--background-modifier-border);
+	padding: 8px 10px;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	word-break: break-word;
+	max-height: 400px;
+	overflow-y: auto;
+}
+
+.agent-sessions-slash-command-block.open .agent-sessions-slash-command-body {
+	display: block;
+}
+
+/* ═══════════════════════════════════════════
    Controls bar (fixed bottom)
    ═══════════════════════════════════════════ */
 
@@ -1418,7 +1488,8 @@
 .agent-sessions-tool-header:focus-visible,
 .agent-sessions-tool-group-header:focus-visible,
 .agent-sessions-thinking-header:focus-visible,
-.agent-sessions-subagent-prompt-header:focus-visible {
+.agent-sessions-subagent-prompt-header:focus-visible,
+.agent-sessions-slash-command-header:focus-visible {
 	outline: 2px solid var(--interactive-accent);
 	outline-offset: -2px;
 }
@@ -1433,6 +1504,7 @@
 .agent-sessions-tool-result:focus-visible,
 .agent-sessions-diff-view:focus-visible,
 .agent-sessions-thinking-body:focus-visible,
+.agent-sessions-slash-command-body:focus-visible,
 .agent-sessions-compaction-summary:focus-visible,
 .agent-sessions-ansi-block:focus-visible {
 	outline: 2px solid var(--interactive-accent);

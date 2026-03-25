@@ -1,11 +1,11 @@
 import { App, Modal, MarkdownRenderer, Component, setIcon } from 'obsidian';
 import type {
-	Turn, ContentBlock, AnsiBlock, CompactionBlock,
+	Turn, ContentBlock, AnsiBlock, CompactionBlock, SlashCommandBlock,
 	PluginSettings, Session,
 } from '../types';
 import {
 	type RenderContext, COLLAPSE_THRESHOLD,
-	makeClickable, shortModelName,
+	makeClickable, shortModelName, addCopyButton,
 } from './render-helpers';
 import { renderSummary } from './summary-renderer';
 import { renderToolGroup, type ToolRendererDelegate } from './tool-renderer';
@@ -164,6 +164,8 @@ export class ReplayRenderer {
 				});
 				if (block.type === 'text') {
 					this.renderTextContent(block.text, wrapper, 'agent-sessions-user-text');
+				} else if (block.type === 'slash_command') {
+					this.renderSlashCommandBlock(block as SlashCommandBlock, wrapper);
 				} else if (block.type === 'ansi') {
 					this.renderAnsiBlock(block as AnsiBlock, wrapper);
 				} else if (block.type === 'image') {
@@ -302,6 +304,27 @@ export class ReplayRenderer {
 		}
 
 		makeClickable(header, { label: 'Toggle thinking block', expanded: false });
+		header.addEventListener('click', () => {
+			const willOpen = !el.hasClass('open');
+			el.toggleClass('open', willOpen);
+			header.setAttribute('aria-expanded', String(willOpen));
+		});
+	}
+
+	private renderSlashCommandBlock(block: SlashCommandBlock, container: HTMLElement): void {
+		const el = container.createDiv({ cls: 'agent-sessions-slash-command-block' });
+
+		const header = el.createDiv({ cls: 'agent-sessions-slash-command-header' });
+		const icon = header.createSpan({ cls: 'agent-sessions-slash-command-icon' });
+		setIcon(icon, 'file-text');
+		header.createSpan({ cls: 'agent-sessions-slash-command-name', text: 'Slash output' });
+		addCopyButton(header, block.text, 'Copy slash command output');
+		header.createSpan({ cls: 'agent-sessions-slash-command-chevron', text: '\u25B6' });
+
+		const body = el.createDiv({ cls: 'agent-sessions-slash-command-body' });
+		MarkdownRenderer.render(this.ctx.app, block.text, body, '', this.ctx.component);
+
+		makeClickable(header, { label: 'Toggle slash command output', expanded: false });
 		header.addEventListener('click', () => {
 			const willOpen = !el.hasClass('open');
 			el.toggleClass('open', willOpen);

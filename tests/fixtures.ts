@@ -161,11 +161,46 @@ export function sidechainAssistant(text: string, opts?: {
 	};
 }
 
-/** isMeta record (should always be skipped). */
+/** isMeta assistant record (should always be skipped). */
 export function metaAssistant(text: string): Record<string, unknown> {
 	return {
 		...assistantText(text),
 		isMeta: true,
+	};
+}
+
+/** User record invoking a slash command (e.g. /wrap or /context). */
+export function userSlashCommand(command: string, opts?: {
+	uuid?: string;
+	timestamp?: string;
+	commandMessage?: string;
+}): Record<string, unknown> {
+	const msg = opts?.commandMessage ?? command.replace(/^\//, '');
+	return {
+		type: 'user',
+		uuid: opts?.uuid ?? crypto.randomUUID(),
+		timestamp: opts?.timestamp ?? '2026-01-01T00:01:00.000Z',
+		message: {
+			role: 'user',
+			content: `<command-message>${msg}</command-message>\n<command-name>${command}</command-name>`,
+		},
+	};
+}
+
+/** isMeta user record with skill expansion text (follows a slash command). */
+export function metaSkillExpansion(text: string, opts?: {
+	uuid?: string;
+	timestamp?: string;
+}): Record<string, unknown> {
+	return {
+		type: 'user',
+		uuid: opts?.uuid ?? crypto.randomUUID(),
+		timestamp: opts?.timestamp ?? '2026-01-01T00:01:00.000Z',
+		isMeta: true,
+		message: {
+			role: 'user',
+			content: [{ type: 'text', text }],
+		},
 	};
 }
 

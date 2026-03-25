@@ -49,11 +49,11 @@ export const TAG_LOCAL_CAVEAT_OPEN = '<local-command-caveat>';
 export const TAG_LOCAL_STDERR_OPEN = '<local-command-stderr>';
 
 // ── XML tag regexes (reusable, compiled once) ────────────────
-export const RE_COMMAND_NAME = /<command-name>(\/\w+)<\/command-name>/;
+export const RE_COMMAND_NAME = /<command-name>(\/[\w:./-]+)<\/command-name>/;
 export const RE_COMMAND_ARGS = /<command-args>([\s\S]*?)<\/command-args>/;
 export const RE_COMMAND_MESSAGE = /<command-message>([\s\S]*?)<\/command-message>/;
-export const RE_EXIT_COMMAND = /^<command-name>\/exit<\/command-name>/;
-export const RE_SLASH_COMMAND = /^<command-name>(\/\w+)<\/command-name>/;
+export const RE_EXIT_COMMAND = /^(?:<command-message>[\s\S]*?<\/command-message>\s*)?<command-name>\/exit<\/command-name>/;
+export const RE_SLASH_COMMAND = /^(?:<command-message>[\s\S]*?<\/command-message>\s*)?<command-name>(\/[\w:./-]+)<\/command-name>/;
 export const RE_LOCAL_STDOUT = /^<local-command-stdout>/;
 export const RE_LOCAL_CAVEAT = /^<local-command-caveat>/;
 export const RE_LOCAL_STDERR = /^<local-command-stderr>/;

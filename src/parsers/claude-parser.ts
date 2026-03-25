@@ -1,7 +1,7 @@
 import { BaseParser } from './base-parser';
 import {
 	Session, Turn, ContentBlock, TextBlock,
-	ToolUseBlock, ToolResultBlock, ImageBlock, AnsiBlock, CompactionBlock,
+	ToolUseBlock, ToolResultBlock, ImageBlock, AnsiBlock, CompactionBlock, SlashCommandBlock,
 	HookEvent, SessionStats, SubAgentSession,
 } from '../types';
 import { extractProjectName, dirname } from '../utils/path-utils';
@@ -11,7 +11,7 @@ import {
 	BT_TEXT, BT_TOOL_USE, BT_TOOL_RESULT, BT_IMAGE,
 	PROGRESS_HOOK, PROGRESS_AGENT,
 	SUBAGENT_TOOL_NAMES, MODEL_SYNTHETIC, OP_ENQUEUE, SUBTYPE_LOCAL_COMMAND,
-	TAG_TASK_NOTIFICATION,
+	TAG_TASK_NOTIFICATION, TAG_COMMAND_MESSAGE_OPEN,
 	RE_COMMAND_NAME, RE_COMMAND_ARGS,
 	RE_EXIT_COMMAND, RE_SLASH_COMMAND,
 	RE_LOCAL_STDOUT, RE_LOCAL_CAVEAT, RE_LOCAL_STDERR,
@@ -235,7 +235,8 @@ export class ClaudeParser extends BaseParser {
 				// Enqueue records carry user messages — let them through
 			} else if (SKIP_RECORD_TYPES.has(record.type)) continue;
 			if (record.isSidechain && !this.allowSidechain) continue;
-			if (record.isMeta) continue;
+			// Keep isMeta user records — they may contain skill expansion prompts
+		if (record.isMeta && record.type !== RT_USER) continue;
 			if (record.type === RT_ASSISTANT && record.message?.model === MODEL_SYNTHETIC
 				&& !record.isApiErrorMessage) continue;
 
@@ -565,6 +566,30 @@ export class ClaudeParser extends BaseParser {
 					currentAssistantTurn.contentBlocks.push(b);
 				}
 			} else if (record.type === RT_USER) {
+				// Handle skill expansion (isMeta follow-up to a slash command)
+				if (record.isMeta && this._pendingSlashCommand) {
+					const expText = this.extractSkillExpansionText(record);
+					if (expText) {
+						const lastTurn = turns[turns.length - 1];
+						if (lastTurn?.role === 'user') {
+							lastTurn.contentBlocks.push({
+								type: 'slash_command',
+								commandName: this._pendingSlashCommand,
+								text: expText,
+								timestamp: record.timestamp,
+							} as SlashCommandBlock);
+						}
+						this._pendingSlashCommand = null;
+						continue;
+					}
+				}
+				// Skip other isMeta user records (local command caveats, etc.)
+				if (record.isMeta) continue;
+
+				// Clear stale pending slash command — the expansion record (if any)
+				// always immediately follows the command record
+				this._pendingSlashCommand = null;
+
 				// isCompactSummary user entries → compaction boundary
 				if (record.isCompactSummary) {
 					flushAssistant();
@@ -760,6 +785,8 @@ export class ClaudeParser extends BaseParser {
 	private pendingCommand: string | null = null;
 	/** When true, next user blocks should merge into the preceding slash command turn. */
 	private _pendingCommandResult = false;
+	/** Track slash command name so the following isMeta skill expansion can be captured. */
+	private _pendingSlashCommand: string | null = null;
 
 	/** Extract content from system records (slash commands like /rename, /compact). */
 	private extractSystemContent(record: ClaudeRecord): ContentBlock[] {
@@ -803,14 +830,22 @@ export class ClaudeParser extends BaseParser {
 			if (cmdMatch) {
 				const cmd = cmdMatch[1];
 				this.pendingCommand = cmd;
+				// Only expect a skill expansion (isMeta follow-up) for skill commands,
+				// identified by the presence of <command-message> tag. Built-in commands
+				// like /compact, /context don't produce isMeta expansion records.
+				if (content.includes(TAG_COMMAND_MESSAGE_OPEN)) {
+					this._pendingSlashCommand = cmd;
+				}
+				// User-friendly display name: /wrap:wrap → /wrap
+				const displayCmd = cmd.includes(':') ? cmd.split(':')[0] : cmd;
 				// Commands that produce ANSI output
-				if (ANSI_COMMANDS.has(cmd)) {
-					return [{ type: 'text', text: cmd, timestamp } as TextBlock];
+				if (ANSI_COMMANDS.has(cmd) || ANSI_COMMANDS.has(displayCmd)) {
+					return [{ type: 'text', text: displayCmd, timestamp } as TextBlock];
 				}
 				// All other slash commands: extract args for readable display
 				// Skip <command-message> — it just repeats the command name
 				const argsMatch = content.match(RE_COMMAND_ARGS);
-				const parts = [cmd];
+				const parts = [displayCmd];
 				if (argsMatch?.[1]?.trim()) parts.push(argsMatch[1].trim());
 				return [{ type: 'text', text: parts.join(' '), timestamp } as TextBlock];
 			}
@@ -870,6 +905,27 @@ export class ClaudeParser extends BaseParser {
 			return blocks;
 		}
 		return [];
+	}
+
+	/** Extract text content from an isMeta user record (skill expansion prompt). */
+	private extractSkillExpansionText(record: ClaudeRecord): string | null {
+		const content = record.message?.content;
+		if (Array.isArray(content)) {
+			const texts: string[] = [];
+			for (const block of content as ClaudeContentBlock[]) {
+				if (block.type === BT_TEXT && block.text?.trim()) {
+					// Strip system-reminder tags injected by Claude Code
+					const cleaned = block.text.replace(RE_SYSTEM_REMINDER, '').trim();
+					if (cleaned) texts.push(cleaned);
+				}
+			}
+			return texts.length > 0 ? texts.join('\n\n') : null;
+		}
+		if (typeof content === 'string') {
+			const cleaned = content.replace(RE_SYSTEM_REMINDER, '').trim();
+			return cleaned || null;
+		}
+		return null;
 	}
 
 	private findLastAssistantTurn(turns: Turn[]): Turn | null {

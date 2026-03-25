@@ -4,7 +4,7 @@ import {
 	jsonl, assistantText, assistantThinking, assistantEncryptedThinking,
 	assistantToolUse, userText, userToolResult, hookProgress,
 	fileHistorySnapshot, sidechainAssistant, metaAssistant,
-	syntheticAssistant, userInterruption,
+	syntheticAssistant, userInterruption, userSlashCommand, metaSkillExpansion,
 } from './fixtures';
 
 function parse(content: string, filePath = '/test/session.jsonl') {
@@ -217,7 +217,7 @@ describe('record filtering', () => {
 		expect(session.turns).toHaveLength(1);
 	});
 
-	it('skips isMeta records', () => {
+	it('skips isMeta assistant records', () => {
 		const session = parse(jsonl(
 			metaAssistant('meta content'),
 			assistantText('real content'),
@@ -599,6 +599,83 @@ describe('content block types', () => {
 				old_string: 'a',
 				new_string: 'b',
 			});
+		}
+	});
+});
+
+// ─── Slash Command / Skill Expansion ────────────────────────────
+
+describe('slash command parsing', () => {
+	it('detects skill command with <command-message> prefix and colon in name', () => {
+		const session = parse(jsonl(
+			userSlashCommand('/wrap:wrap'),
+			assistantText('response'),
+		));
+
+		expect(session.turns).toHaveLength(2);
+		const userBlock = session.turns[0].contentBlocks[0];
+		expect(userBlock.type).toBe('text');
+		if (userBlock.type === 'text') {
+			// Display name strips colon suffix: /wrap:wrap → /wrap
+			expect(userBlock.text).toBe('/wrap');
+		}
+	});
+
+	it('captures isMeta skill expansion as slash_command block', () => {
+		const session = parse(jsonl(
+			userSlashCommand('/wrap:wrap'),
+			metaSkillExpansion('Capture session state and write to CLAUDE.md.\n\n## Instructions\n\n1. Read CLAUDE.md'),
+			assistantText('Done.'),
+		));
+
+		expect(session.turns).toHaveLength(2); // user + assistant
+		const userTurn = session.turns[0];
+		expect(userTurn.contentBlocks).toHaveLength(2); // text + slash_command
+		expect(userTurn.contentBlocks[0].type).toBe('text');
+		expect(userTurn.contentBlocks[1].type).toBe('slash_command');
+		if (userTurn.contentBlocks[1].type === 'slash_command') {
+			expect(userTurn.contentBlocks[1].commandName).toBe('/wrap:wrap');
+			expect(userTurn.contentBlocks[1].text).toContain('Capture session state');
+		}
+	});
+
+	it('strips system-reminder tags from skill expansion text', () => {
+		const session = parse(jsonl(
+			userSlashCommand('/test:run'),
+			metaSkillExpansion('Run the tests.\n<system-reminder>internal data</system-reminder>\nDone.'),
+			assistantText('OK'),
+		));
+
+		const slashBlock = session.turns[0].contentBlocks[1];
+		if (slashBlock.type === 'slash_command') {
+			expect(slashBlock.text).not.toContain('system-reminder');
+			expect(slashBlock.text).toContain('Run the tests.');
+		}
+	});
+
+	it('skips isMeta user records without a pending slash command', () => {
+		const session = parse(jsonl(
+			userText('hello'),
+			metaSkillExpansion('orphaned expansion'),
+			assistantText('world'),
+		));
+
+		// The orphaned isMeta user record should be skipped
+		expect(session.turns).toHaveLength(2); // user + assistant
+		expect(session.turns[0].contentBlocks).toHaveLength(1);
+		expect(session.turns[0].contentBlocks[0].type).toBe('text');
+	});
+
+	it('handles built-in slash commands without colon', () => {
+		const session = parse(jsonl(
+			userText('<command-name>/compact</command-name>'),
+			assistantText('compacted'),
+		));
+
+		expect(session.turns).toHaveLength(2);
+		const userBlock = session.turns[0].contentBlocks[0];
+		if (userBlock.type === 'text') {
+			expect(userBlock.text).toBe('/compact');
 		}
 	});
 });

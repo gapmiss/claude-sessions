@@ -16,6 +16,10 @@ Working features:
 - Hook event parsing from `hook_progress` records, attached to tool use blocks by `toolUseID`
 - `/exit` command consolidation — three records collapsed into single "*Session ended*" message
 - Local command tags (`<local-command-stdout>`, `<local-command-caveat>`) stripped from user content
+- **Slash command / skill output** — skill commands (e.g. `/wrap:wrap`) render the user-facing name (`/wrap`) and a collapsible "Slash output" card with the full skill expansion prompt rendered as markdown
+  - Skill commands identified by `<command-message>` tag presence; built-in commands (`/compact`, `/context`) unaffected
+  - `isMeta` user records following a slash command are captured as `SlashCommandBlock`; other `isMeta` records still skipped
+  - `<system-reminder>` tags stripped from expansion text
 - **Sub-agent sessions** parsed and rendered inline with collapsible PROMPT, flattened tool groups (threshold 0), and collapsible OUTPUT with markdown rendering and copy button
   - **Foreground agents** stream `agent_progress` records with `parentToolUseID`; parsed via `buildSubAgentSession()`
   - **Background agents** (`run_in_background: true`) arrive via `<task-notification>` XML in `queue-operation`/`user` records; marked `isBackground: true`
@@ -113,7 +117,7 @@ The Claude Code JSONL format has these record types:
 1. **Consecutive assistant records are merged into a single Turn.** The parser accumulates assistant blocks until a user record with actual text content arrives, then flushes.
 2. **Tool results from user records are attached to the preceding assistant turn**, not created as separate user turns. A user record with only `tool_result` blocks and no text content produces no user turn.
 3. **Deduplication by uuid** — streaming produces multiple records with the same uuid; we keep the last (most complete) version.
-4. **`isSidechain` and `isMeta` records are skipped.**
+4. **`isSidechain` records are skipped. `isMeta` non-user records are skipped.** `isMeta` user records pass through to enable skill expansion capture (see step 13).
 5. **Per-record timestamps are propagated to content blocks** — `record.timestamp` is set on each `TextBlock`, `ThinkingBlock`, `ToolUseBlock`, and `ToolResultBlock` for segment-level timing.
 6. **Encrypted thinking blocks (signature-only) are skipped** — Claude Code v2.1.79+ encrypts thinking content. Only plaintext thinking blocks are rendered.
 7. **Hook events** are collected from `hook_progress` records, mapped by `toolUseID`, and attached to corresponding `ToolUseBlock.hooks[]` after turns are built.
@@ -122,6 +126,7 @@ The Claude Code JSONL format has these record types:
 10. **Orphan vs pending** — tool_use blocks without a matching tool_result are marked `isPending` if on the last assistant turn (likely still running), or `isOrphaned` if mid-session (genuinely interrupted).
 11. **Task notification capture** — `<task-notification>` XML from `queue-operation` and `user` records is parsed before those records are skipped. Extracts `tool-use-id`, `task-id`, `result`, `summary` and creates `SubAgentSession` stubs with `isBackground: true` and empty turns.
 12. **Sub-agent JSONL resolution** — `resolveSubAgentSessions()` reads `<sessionBase>/subagents/agent-<agentId>.jsonl` for all sub-agents (foreground and background). Uses `allowSidechain: true` since subagent JSONL records are marked `isSidechain`. Replaces stub turns with fully parsed content.
+13. **Skill expansion capture** — Slash commands with `<command-message>` tags (skill/custom commands) set `_pendingSlashCommand`. The immediately following `isMeta` user record is captured as a `SlashCommandBlock` and merged into the command's user turn. Built-in commands (no `<command-message>`) don't set this state. Stale state is cleared when any non-isMeta user record is processed.
 
 ### Session Statistics (`types.ts: SessionStats`)
 
@@ -156,7 +161,7 @@ Computed during parsing and stored on `Session.stats`:
 **`views/replay-renderer.ts`** (~444 lines) — Core timeline orchestrator:
 - `renderTimeline(turns, sessionStartMs, session?)` — renders summary panel (if session provided) + all turns, returns array of turn elements
 - `renderTurn()`, `renderAssistantBlocks()`, `renderSingleBlock()` — turn structure and block routing
-- `renderTextContent()`, `renderThinkingBlock()`, `renderCompactionBlock()`, `renderAnsiBlock()` + `buildAnsiDom()` — programmatic DOM construction (no innerHTML)
+- `renderTextContent()`, `renderThinkingBlock()`, `renderSlashCommandBlock()`, `renderCompactionBlock()`, `renderAnsiBlock()` + `buildAnsiDom()` — programmatic DOM construction (no innerHTML)
 - `ImagePreviewModal` — full-size view with Download and Copy buttons; MIME type whitelist (`SAFE_IMAGE_TYPES`)
 - `getBlockWrappers(turnIndex)` returns all wrapper elements within a turn
 - Constructor creates `ToolRendererDelegate` with `bind(this)` for callbacks into tool renderer
@@ -284,6 +289,8 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 - ANSI rendering uses programmatic DOM construction (`buildAnsiDom()`) — no `innerHTML` anywhere in the renderer pipeline.
 - Image clipboard copy validates MIME type against `SAFE_IMAGE_TYPES` whitelist.
 - File picker normalizes drag-and-drop filenames with `path.basename()` to prevent path traversal.
+- Skill/custom slash commands use `<command-message>plugin:cmd</command-message>\n<command-name>/plugin:cmd</command-name>` format. Built-in commands omit `<command-message>`. The colon-separated name `/wrap:wrap` is displayed as `/wrap` (user-facing name). `RE_SLASH_COMMAND` allows `[\w:./-]+` in the capture group.
+- `isMeta` user records with array content following a skill command carry the expanded prompt text. The parser must let `isMeta` user records through the first-pass filter to capture them in the turn-building pass.
 
 ## Roadmap
 
@@ -308,20 +315,22 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 - [ ] Mobile support (vault-based session browsing)
 
 ## Session State
+<!-- DO NOT edit this section manually. It is managed exclusively by /wrap SKILL. -->
 <!-- auto-updated by /wrap -->
-- **Last session**: 2026-03-23 23:45
-- **Goal**: Implement cross-session search feature
-- **Summary**: Built full cross-session keyword search — search engine (`session-search.ts`), custom modal (`search-modal.ts`), command registration, protocol handler `&turn=` param, styles, and 17 unit tests. All 89 tests pass.
+- **Last session**: 2026-03-24 22:20
+- **Goal**: Fix ANSI rendering in Bash tool results, add visual task list rendering
+- **Summary**: Fixed Bash tool results showing raw ANSI bracket sequences by routing ANSI-containing output through `buildAnsiDom()`. Expanded the ANSI parser to handle standard 4-bit colors (30-37, 90-97), backgrounds (40-47, 100-107), dim, and underline. Added cumulative task list rendering for TaskCreate/TaskUpdate/TaskList tools with lucide status icons. Fixed `enrichedResult` capture for tools lacking `sourceToolUseID`. All 89 tests pass.
 - **Decisions**:
-  - No persistent index — live readline grep is fast enough; avoids staleness/rebuild complexity
-  - Substring search (not regex) as default — users search for exact things (function names, errors)
-  - Custom Modal over SuggestModal — getItems() is synchronous, can't do progressive async results
-  - Approximate turn index via role transitions — may be off by 1-2 but acceptable
-  - Semantic search deferred to roadmap as follow-up
+  - Detect ANSI codes in Bash results via `hasAnsiCodes()` regex, render through `buildAnsiDom()` instead of MarkdownRenderer — avoids ESC stripping that left bracket sequences visible
+  - Standard 4-bit ANSI colors use hardcoded hex palette (not CSS variables) — matches terminal emulator behavior
+  - Force dark text on `.ansi-bg` spans — bright backgrounds (cyan, green) need contrast regardless of theme
+  - Cumulative task state via `Map<string, TaskState>` on `ToolRendererDelegate` — each task tool result shows full list at that point, not just the individual change
+  - `enrichedResult` capture falls back to extracting `tool_use_id` from content array when `sourceToolUseID` is missing — task tools use `sourceToolAssistantUUID` instead
+  - `TaskList` results replace (clear + rebuild) accumulated state — authoritative snapshot
 - **Next steps**:
-  - Manual testing in Obsidian (search command, click results, protocol handler with &turn=)
-  - Consider adding project filter dropdown to search modal
-  - Explore semantic search as medium-term enhancement
+  - Consider skip-filtered-blocks during segment navigation (arrow keys land on hidden blocks)
+  - Incremental parsing/rendering for large sessions (roadmap items)
+  - Explore cost estimation from token usage metadata
 - **Blockers**: None
 - **Branch**: main
-- **Uncommitted**: Clean after this commit
+- **Uncommitted**: Minor .gitignore and CLAUDE.md metadata changes only
