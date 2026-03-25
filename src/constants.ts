@@ -76,3 +76,6 @@ export const PREFIX_INTERRUPTION = '[Request interrupted by user';
 
 // ── Commands with ANSI output ────────────────────────────────
 export const ANSI_COMMANDS = new Set(['/context']);
+
+// ── Task management tool names ──────────────────────────────
+export const TASK_TOOL_NAMES = new Set(['TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet']);

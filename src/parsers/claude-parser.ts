@@ -207,8 +207,16 @@ export class ClaudeParser extends BaseParser {
 			}
 
 			// Capture enriched toolUseResult from user entries
-			if (record.type === RT_USER && record.toolUseResult && record.sourceToolUseID) {
-				enrichedResults.set(record.sourceToolUseID, record.toolUseResult);
+			if (record.type === RT_USER && record.toolUseResult) {
+				if (record.sourceToolUseID) {
+					enrichedResults.set(record.sourceToolUseID, record.toolUseResult);
+				} else if (Array.isArray(record.message?.content)) {
+					for (const item of record.message.content) {
+						if (item.type === BT_TOOL_RESULT && item.tool_use_id) {
+							enrichedResults.set(item.tool_use_id, record.toolUseResult);
+						}
+					}
+				}
 			}
 
 			// Capture task-notification results from queue-operation and user records

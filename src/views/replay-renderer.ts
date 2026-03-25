@@ -27,6 +27,8 @@ export class ReplayRenderer {
 		this.delegate = {
 			renderAssistantBlocks: this.renderAssistantBlocks.bind(this),
 			renderTextContent: this.renderTextContent.bind(this),
+			buildAnsiDom: this.buildAnsiDom.bind(this),
+			taskState: new Map(),
 		};
 	}
 
@@ -46,6 +48,7 @@ export class ReplayRenderer {
 		this.container.empty();
 		this.turnEls = [];
 		this.sessionStartDate = '';
+		this.delegate.taskState.clear();
 
 		if (session) {
 			renderSummary(session, this.container, this.ctx);
@@ -309,6 +312,12 @@ export class ReplayRenderer {
 	/**
 	 * Build ANSI-styled DOM nodes directly into a parent element.
 	 */
+	// Standard 4-bit ANSI color palette (indices 0-7 for codes 30-37/40-47, 8-15 for 90-97/100-107)
+	private static readonly ANSI_COLORS: string[] = [
+		'#555555', '#ff5555', '#55ff55', '#ffff55', '#5555ff', '#ff55ff', '#55ffff', '#aaaaaa', // standard (dimmed for dark bg)
+		'#888888', '#ff5555', '#55ff55', '#ffff55', '#5555ff', '#ff55ff', '#55ffff', '#ffffff', // bright
+	];
+
 	private buildAnsiDom(text: string, parent: HTMLElement): void {
 		const stack: { tag: string; el: HTMLElement }[] = [];
 		let current = parent;
@@ -349,23 +358,59 @@ export class ReplayRenderer {
 					const span = current.createSpan({ cls: 'ansi-bold' });
 					stack.push({ tag: 'bold', el: span });
 					current = span;
+				} else if (code === 2) {
+					const span = current.createSpan({ cls: 'ansi-dim' });
+					stack.push({ tag: 'dim', el: span });
+					current = span;
 				} else if (code === 3) {
 					const span = current.createSpan({ cls: 'ansi-italic' });
 					stack.push({ tag: 'italic', el: span });
 					current = span;
-				} else if (code === 22 || code === 23) {
-					closeTo(code === 22 ? 'bold' : 'italic');
+				} else if (code === 4) {
+					const span = current.createSpan({ cls: 'ansi-underline' });
+					stack.push({ tag: 'underline', el: span });
+					current = span;
+				} else if (code === 22) {
+					closeTo('bold');
+					closeTo('dim');
+				} else if (code === 23) {
+					closeTo('italic');
+				} else if (code === 24) {
+					closeTo('underline');
+				} else if ((code >= 30 && code <= 37) || (code >= 90 && code <= 97)) {
+					closeTo('fg');
+					const idx = code >= 90 ? (code - 90 + 8) : (code - 30);
+					const span = current.createSpan({ cls: 'ansi-fg' });
+					span.style.color = ReplayRenderer.ANSI_COLORS[idx];
+					stack.push({ tag: 'fg', el: span });
+					current = span;
 				} else if (code === 38 && params[i + 1] === 2 && i + 4 < params.length) {
+					closeTo('fg');
 					const r = params[i + 2], g = params[i + 3], b = params[i + 4];
 					const span = current.createSpan({ cls: 'ansi-fg' });
-					span.style.setProperty('--ansi-r', String(r));
-					span.style.setProperty('--ansi-g', String(g));
-					span.style.setProperty('--ansi-b', String(b));
+					span.style.color = `rgb(${r},${g},${b})`;
 					stack.push({ tag: 'fg', el: span });
 					current = span;
 					i += 4;
 				} else if (code === 39) {
 					closeTo('fg');
+				} else if ((code >= 40 && code <= 47) || (code >= 100 && code <= 107)) {
+					closeTo('bg');
+					const idx = code >= 100 ? (code - 100 + 8) : (code - 40);
+					const span = current.createSpan({ cls: 'ansi-bg' });
+					span.style.backgroundColor = ReplayRenderer.ANSI_COLORS[idx];
+					stack.push({ tag: 'bg', el: span });
+					current = span;
+				} else if (code === 48 && params[i + 1] === 2 && i + 4 < params.length) {
+					closeTo('bg');
+					const r = params[i + 2], g = params[i + 3], b = params[i + 4];
+					const span = current.createSpan({ cls: 'ansi-bg' });
+					span.style.backgroundColor = `rgb(${r},${g},${b})`;
+					stack.push({ tag: 'bg', el: span });
+					current = span;
+					i += 4;
+				} else if (code === 49) {
+					closeTo('bg');
 				}
 				i++;
 			}

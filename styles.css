@@ -697,20 +697,80 @@
 	font-style: italic;
 }
 
-/* 24-bit ANSI foreground — CSS custom properties set inline by the converter.
-   In dark mode: use the original RGB values directly.
-   In light mode: darken bright colors for readability on light backgrounds. */
-.theme-dark .agent-sessions-ansi-block .ansi-fg {
-	color: rgb(var(--ansi-r), var(--ansi-g), var(--ansi-b));
+.agent-sessions-ansi-block .ansi-dim {
+	opacity: 0.6;
 }
 
-.theme-light .agent-sessions-ansi-block .ansi-fg {
-	/* Clamp each channel to at most 60% brightness for legibility on light bg */
-	color: rgb(
-		min(var(--ansi-r), 153),
-		min(var(--ansi-g), 153),
-		min(var(--ansi-b), 153)
-	);
+.agent-sessions-ansi-block .ansi-underline {
+	text-decoration: underline;
+}
+
+.agent-sessions-ansi-block .ansi-bg {
+	padding: 0 2px;
+	border-radius: 2px;
+	color: #1a1a1a;
+}
+
+/* ═══════════════════════════════════════════
+   Task list (TaskCreate/TaskUpdate/TaskList)
+   ═══════════════════════════════════════════ */
+
+.agent-sessions-task-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-2);
+	padding: var(--size-4-2) 0;
+}
+
+.agent-sessions-task-item {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--size-2-3) var(--size-4-3);
+	border-radius: var(--radius-s);
+	background: var(--background-secondary);
+	font-size: var(--font-ui-small);
+	line-height: 1.4;
+}
+
+.agent-sessions-task-icon {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+}
+
+.agent-sessions-task-icon svg {
+	width: 16px;
+	height: 16px;
+}
+
+.agent-sessions-task-pending .agent-sessions-task-icon {
+	color: var(--text-muted);
+}
+
+.agent-sessions-task-in-progress .agent-sessions-task-icon {
+	color: var(--color-blue);
+}
+
+.agent-sessions-task-completed .agent-sessions-task-icon {
+	color: var(--color-green);
+}
+
+.agent-sessions-task-completed .agent-sessions-task-label {
+	color: var(--text-muted);
+}
+
+.agent-sessions-task-label {
+	display: flex;
+	gap: var(--size-4-2);
+	align-items: baseline;
+	min-width: 0;
+}
+
+.agent-sessions-task-id {
+	color: var(--text-faint);
+	font-size: var(--font-smallest);
+	flex-shrink: 0;
 }
 
 /* ═══════════════════════════════════════════
