@@ -12,7 +12,7 @@ import {
 	PROGRESS_HOOK, PROGRESS_AGENT,
 	SUBAGENT_TOOL_NAMES, MODEL_SYNTHETIC, OP_ENQUEUE, SUBTYPE_LOCAL_COMMAND,
 	TAG_TASK_NOTIFICATION,
-	RE_COMMAND_NAME, RE_COMMAND_ARGS, RE_COMMAND_MESSAGE,
+	RE_COMMAND_NAME, RE_COMMAND_ARGS,
 	RE_EXIT_COMMAND, RE_SLASH_COMMAND,
 	RE_LOCAL_STDOUT, RE_LOCAL_CAVEAT, RE_LOCAL_STDERR,
 	RE_SYSTEM_REMINDER, RE_COMMAND_MESSAGE_STRIP, RE_COMMAND_ARGS_STRIP,
@@ -618,15 +618,25 @@ export class ClaudeParser extends BaseParser {
 
 				const userBlocks = this.extractUserContent(record);
 				if (userBlocks.length > 0) {
-					flushAssistant();
-					const ts = this.formatTimestamp(record.timestamp);
-					turns.push({
-						index: turns.length,
-						role: 'user',
-						timestamp: ts,
-						endTimestamp: ts,
-						contentBlocks: userBlocks,
-					});
+					// Merge command output with preceding slash command turn
+					if (this._pendingCommandResult) {
+						this._pendingCommandResult = false;
+						const lastTurn = turns[turns.length - 1];
+						if (lastTurn?.role === 'user') {
+							for (const b of userBlocks) lastTurn.contentBlocks.push(b);
+							if (record.timestamp) lastTurn.endTimestamp = this.formatTimestamp(record.timestamp);
+						}
+					} else {
+						flushAssistant();
+						const ts = this.formatTimestamp(record.timestamp);
+						turns.push({
+							index: turns.length,
+							role: 'user',
+							timestamp: ts,
+							endTimestamp: ts,
+							contentBlocks: userBlocks,
+						});
+					}
 				}
 			} else if (unknownRecordTypes) {
 				unknownRecordTypes.set(record.type, (unknownRecordTypes.get(record.type) ?? 0) + 1);
@@ -738,8 +748,10 @@ export class ClaudeParser extends BaseParser {
 		return extractToolResultBlocks(record.message, toolUseNames, record.timestamp);
 	}
 
-	/** Track commands whose stdout should be captured as ANSI blocks. */
+	/** Track commands whose stdout should be captured. */
 	private pendingCommand: string | null = null;
+	/** When true, next user blocks should merge into the preceding slash command turn. */
+	private _pendingCommandResult = false;
 
 	/** Extract content from system records (slash commands like /rename, /compact). */
 	private extractSystemContent(record: ClaudeRecord): ContentBlock[] {
@@ -782,25 +794,32 @@ export class ClaudeParser extends BaseParser {
 			const cmdMatch = content.match(RE_SLASH_COMMAND);
 			if (cmdMatch) {
 				const cmd = cmdMatch[1];
+				this.pendingCommand = cmd;
 				// Commands that produce ANSI output
 				if (ANSI_COMMANDS.has(cmd)) {
-					this.pendingCommand = cmd;
 					return [{ type: 'text', text: cmd, timestamp } as TextBlock];
 				}
-				// All other slash commands: extract args and message for readable display
+				// All other slash commands: extract args for readable display
+				// Skip <command-message> — it just repeats the command name
 				const argsMatch = content.match(RE_COMMAND_ARGS);
-				const msgMatch = content.match(RE_COMMAND_MESSAGE);
 				const parts = [cmd];
 				if (argsMatch?.[1]?.trim()) parts.push(argsMatch[1].trim());
-				if (msgMatch?.[1]?.trim()) parts.push(msgMatch[1].trim());
 				return [{ type: 'text', text: parts.join(' '), timestamp } as TextBlock];
 			}
-			// Capture ANSI output from local command stdout when a pending command is active
+			// Capture output from local command stdout when a pending command is active
 			if (RE_LOCAL_STDOUT.test(content) && this.pendingCommand) {
 				const label = this.pendingCommand;
 				this.pendingCommand = null;
 				const stdout = content.replace(RE_LOCAL_STDOUT_TAGS, '');
-				return [{ type: 'ansi', label, text: stdout, timestamp } as AnsiBlock];
+				if (ANSI_COMMANDS.has(label)) {
+					return [{ type: 'ansi', label, text: stdout, timestamp } as AnsiBlock];
+				}
+				// Non-ANSI command result (e.g. /export) → merge with command turn
+				if (stdout.trim()) {
+					this._pendingCommandResult = true;
+					return [{ type: 'text', text: stdout.trim(), timestamp } as TextBlock];
+				}
+				return [];
 			}
 			// Skip local command output that follows /exit (e.g. "Goodbye!")
 			if (RE_LOCAL_STDOUT.test(content)) {

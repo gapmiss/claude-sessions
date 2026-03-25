@@ -5,7 +5,7 @@ import type {
 } from '../types';
 import {
 	type RenderContext, COLLAPSE_THRESHOLD,
-	makeClickable, formatElapsed,
+	makeClickable, shortModelName,
 } from './render-helpers';
 import { renderSummary } from './summary-renderer';
 import { renderToolGroup, type ToolRendererDelegate } from './tool-renderer';
@@ -18,8 +18,7 @@ export class ReplayRenderer {
 	private container: HTMLElement;
 	private ctx: RenderContext;
 	private turnEls: HTMLElement[] = [];
-	private sessionStartMs = 0;
-	private sessionModel?: string;
+	private sessionStartDate = '';  // tracks day changes across turns
 	private delegate: ToolRendererDelegate;
 
 	constructor(container: HTMLElement, app: App, component: Component, settings: PluginSettings) {
@@ -43,11 +42,10 @@ export class ReplayRenderer {
 	 * Render the full timeline of all turns into the container.
 	 * Returns the array of turn DOM elements.
 	 */
-	renderTimeline(turns: Turn[], sessionStartMs = 0, session?: Session): HTMLElement[] {
+	renderTimeline(turns: Turn[], _sessionStartMs = 0, session?: Session): HTMLElement[] {
 		this.container.empty();
 		this.turnEls = [];
-		this.sessionStartMs = sessionStartMs;
-		this.sessionModel = session?.metadata.model;
+		this.sessionStartDate = '';
 
 		if (session) {
 			renderSummary(session, this.container, this.ctx);
@@ -83,21 +81,41 @@ export class ReplayRenderer {
 		header.createSpan({ cls: 'agent-sessions-turn-label', text: `#${turn.index + 1}` });
 
 		if (turn.timestamp) {
-			if (this.sessionStartMs > 0) {
-				const elapsed = new Date(turn.timestamp).getTime() - this.sessionStartMs;
-				if (!isNaN(elapsed)) {
-					header.createSpan({ cls: 'agent-sessions-turn-ts', text: formatElapsed(elapsed) });
+			const d = new Date(turn.timestamp);
+			if (!isNaN(d.getTime())) {
+				const dateStr = d.toDateString();
+				const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+				let label: string;
+				if (this.sessionStartDate && dateStr !== this.sessionStartDate) {
+					// Day changed — show date prefix
+					const date = d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+					label = `${date}, ${time}`;
+				} else {
+					label = time;
 				}
-			} else {
-				const d = new Date(turn.timestamp);
-				const h = d.getHours();
-				const m = String(d.getMinutes()).padStart(2, '0');
-				header.createSpan({ cls: 'agent-sessions-turn-ts', text: `${h}:${m}` });
+				if (!this.sessionStartDate) this.sessionStartDate = dateStr;
+				header.createSpan({ cls: 'agent-sessions-turn-ts', text: label });
 			}
 		}
 
-		if (turn.model && turn.model !== this.sessionModel) {
-			header.createSpan({ cls: 'agent-sessions-turn-model', text: turn.model });
+		if (turn.model) {
+			const main = shortModelName(turn.model);
+			// Collect distinct sub-agent models
+			const subModels = new Set<string>();
+			for (const b of turn.contentBlocks) {
+				if (b.type === 'tool_use' && b.subAgentSession) {
+					for (const t of b.subAgentSession.turns) {
+						if (t.model && shortModelName(t.model) !== main) {
+							subModels.add(shortModelName(t.model));
+							break;
+						}
+					}
+				}
+			}
+			const label = subModels.size > 0
+				? `${main} → ${[...subModels].join(', ')}`
+				: main;
+			header.createSpan({ cls: 'agent-sessions-turn-model', text: label });
 		}
 		if (turn.stopReason === 'max_tokens') {
 			header.createSpan({

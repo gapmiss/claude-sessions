@@ -6,7 +6,6 @@ import { SessionBrowserModal, scanSessionDirs } from './views/session-browser-mo
 import { SessionSearchModal } from './views/search-modal';
 import { FilePickerModal } from './views/file-picker-modal';
 import { exportToMarkdown } from './exporters/markdown-exporter';
-import { exportToHtml } from './exporters/html-exporter';
 import { listDirectory, listSubdirectories, readFileContent } from './utils/streaming-reader';
 import { detectParser } from './parsers/detect';
 import { resolveSubAgentSessions } from './parsers/claude-subagent';
@@ -73,13 +72,7 @@ export default class AgentSessionsPlugin extends Plugin {
 		this.addCommand({
 			id: 'export-markdown',
 			name: 'Export session to Markdown',
-			callback: () => this.exportActiveSession('markdown'),
-		});
-
-		this.addCommand({
-			id: 'export-html',
-			name: 'Export session to HTML',
-			callback: () => this.exportActiveSession('html'),
+			callback: () => this.exportActiveSession(),
 		});
 
 		this.addCommand({
@@ -199,7 +192,7 @@ export default class AgentSessionsPlugin extends Plugin {
 		return leaf;
 	}
 
-	private async exportActiveSession(format: 'markdown' | 'html'): Promise<void> {
+	private async exportActiveSession(): Promise<void> {
 		const view = this.getActiveReplayView();
 		if (!view) {
 			new Notice('No active session to export.');
@@ -213,12 +206,8 @@ export default class AgentSessionsPlugin extends Plugin {
 		}
 
 		try {
-			if (format === 'markdown') {
-				await exportToMarkdown(this.app, session, this.settings);
-			} else {
-				await exportToHtml(this.app, session, this.settings);
-			}
-			new Notice(`Session exported as ${format}.`);
+			await exportToMarkdown(this.app, session, this.settings);
+			new Notice('Session exported as markdown.');
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			new Notice(`Export failed: ${msg}`);

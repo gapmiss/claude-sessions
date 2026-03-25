@@ -66,17 +66,6 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Default export format')
-			.addDropdown(dd => dd
-				.addOption('markdown', 'Markdown')
-				.addOption('html', 'HTML')
-				.setValue(this.plugin.settings.defaultExportFormat)
-				.onChange(async (value) => {
-					this.plugin.settings.defaultExportFormat = value as 'markdown' | 'html';
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
 			.setHeading()
 			.setName('Display');
 

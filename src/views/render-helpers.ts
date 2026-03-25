@@ -43,6 +43,17 @@ export function langFromPath(filePath: string): string {
 	return EXT_TO_LANG[ext] ?? '';
 }
 
+/** Convert full model ID to short display name, e.g. "claude-opus-4-6-20250514" → "opus 4.6". */
+export function shortModelName(model: string): string {
+	// New format: claude-opus-4-6[-date]
+	let m = model.match(/claude-(opus|sonnet|haiku)-(\d+)-(\d+)/);
+	if (m) return `${m[1]} ${m[2]}.${m[3]}`;
+	// Old format: claude-3-5-sonnet[-date]
+	m = model.match(/claude-(\d+)-(\d+)-(opus|sonnet|haiku)/);
+	if (m) return `${m[3]} ${m[1]}.${m[2]}`;
+	return model;
+}
+
 /** Return a backtick fence string (at least 3) that won't collide with content. */
 export function fence(content: string, lang = ''): string {
 	let max = 2;
