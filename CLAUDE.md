@@ -75,7 +75,13 @@ Working features:
 - Session browser (SuggestModal) — scans dirs before opening for synchronous getItems()
 - File picker modal with drag-and-drop, path input, and session directory path resolution fallback
 - Markdown export with frontmatter and Obsidian callouts
-- HTML export as self-contained replay file with embedded player
+- **HTML export** as self-contained, zero-dependency HTML file via DOM snapshot
+  - Captures live replay view DOM (all markdown already rendered by Obsidian)
+  - CSS captured at export time: theme variables (822 `--*` properties), relevant `app.css` rules (markdown rendering, PrismJS syntax highlighting, SVG icons), plugin `styles.css`
+  - Standalone JS (~4KB) handles collapsibles, copy-to-clipboard, show-more, image zoom modal, content filter menu via event delegation
+  - Electron save dialog with fallback to session directory
+  - All images inline as base64 data URIs
+  - All interactive features preserved: turn/tool/thinking/summary collapse, tool groups, sub-agent sessions, show-more, code copy buttons
 - Settings tab: session directories, export preferences, display toggles (thinking, tool calls, tool results, hook icons), tool group threshold, auto-scroll on update
 - ESLint with `eslint-plugin-obsidianmd` recommended rules
 - **Keyboard accessible**: all collapsible headers (turns, summary, tools, tool groups, thinking, sub-agent prompts) have `tabindex`, `role="button"`, `aria-expanded`, and Enter/Space handlers via `makeClickable()` helper; image thumbnails keyboard-activatable; show-more buttons track `aria-expanded`; document-level arrow key handler guards against input/textarea/contentEditable; `restoreUIState()` syncs ARIA attributes after live reload re-renders
@@ -179,6 +185,28 @@ Computed during parsing and stored on `Session.stats`:
 - **Sub-agent rendering**: `renderSubAgentSession()` with collapsible PROMPT, flattened tool groups, and OUTPUT
 - **Hook indicators**: fish icon with tooltip when `block.hooks` present
 
+### HTML Export Pipeline (`exporters/`)
+
+**DOM snapshot approach** — rather than rebuilding a separate renderer, the exporter captures the already-rendered replay view:
+
+1. **`css-capture.ts`** — at export time, scrapes CSS from the live Obsidian document:
+   - `captureThemeVariables()` — iterates all stylesheets to find `--*` property names, resolves via `getComputedStyle()` to bake the user's current theme into concrete values
+   - `captureMarkdownStyles()` — filters `app.css` rules matching `markdown-rendered`, PrismJS `token.*`, `svg-icon`, `copy-code-button`, `language-*`
+   - `capturePluginStyles()` — extracts the plugin's own stylesheet (detected by `agent-sessions` in first rule)
+
+2. **`standalone-player.ts`** — returns JS string (~4KB) for the `<script>` tag:
+   - **Collapsibles**: event delegation on `[role="button"][aria-expanded]` — toggles `open` class on parent container (matching live view's `toggleClass('open')` pattern); turns use `collapsed` class
+   - **Show-more**: toggles `is-collapsed` class on `.agent-sessions-collapsible-wrap`
+   - **Copy**: `navigator.clipboard.writeText()` with `document.execCommand('copy')` fallback for `file://`
+   - **Image modal**: overlay with download link and close button
+   - **Content filters**: checkbox menu toggling `display: none` on role/block-type elements
+
+3. **`html-exporter.ts`** — orchestrator:
+   - `snapshotTimeline()` — deep clones timeline DOM, adds `visible` class to all turns, processes copy buttons to add `data-copy-text` attributes (replacing closure-captured text from live view)
+   - `buildHeaderHTML()` — project name, model, date, duration, turn count, filter button
+   - Assembles `<!DOCTYPE html>` with `<style>` (captured CSS + export overrides) + snapshot DOM + `<script>`
+   - Saves via Electron `remote.dialog.showSaveDialog()`, falls back to writing next to session file
+
 ### Protocol Handler (`main.ts`)
 
 - Registered via `registerObsidianProtocolHandler('agent-sessions', ...)`
@@ -217,7 +245,9 @@ src/
     file-picker-modal.ts           # Import from arbitrary path (drag-and-drop, path input)
   exporters/
     markdown-exporter.ts           # Markdown with frontmatter & callouts
-    html-exporter.ts               # Self-contained HTML replay
+    html-exporter.ts               # DOM snapshot → standalone HTML orchestrator
+    css-capture.ts                 # Theme variable + app.css + plugin CSS extraction
+    standalone-player.ts           # Embedded JS for collapsibles, copy, filters, image modal
   utils/
     path-utils.ts                  # Home dir expansion, path helpers
     session-index.ts               # Cached session metadata index (JSON on disk)
@@ -259,7 +289,7 @@ npm run test:watch  # watch mode tests
 npx eslint .     # lint with eslint-plugin-obsidianmd rules
 ```
 
-Build script automatically copies `main.js`, `styles.css`, and `manifest.json` to `~/Vaults/Master/.obsidian/plugins/agent-sessions/`.
+Build script automatically copies `main.js`, `styles.css`, and `manifest.json` to `~/Vaults/Master/.obsidian/plugins/agent-sessions/` and `~/Vaults/live-mcp-for-obsidian/.obsidian/plugins/agent-sessions/`.
 
 ## Gotchas & Lessons Learned
 
@@ -292,6 +322,11 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 - File picker normalizes drag-and-drop filenames with `path.basename()` to prevent path traversal.
 - Skill/custom slash commands use `<command-message>plugin:cmd</command-message>\n<command-name>/plugin:cmd</command-name>` format. Built-in commands omit `<command-message>`. The colon-separated name `/wrap:wrap` is displayed as `/wrap` (user-facing name). `RE_SLASH_COMMAND` allows `[\w:./-]+` in the capture group.
 - `isMeta` user records with array content following a skill command carry the expanded prompt text. The parser must let `isMeta` user records through the first-pass filter to capture them in the turn-building pass.
+- HTML export collapsibles must use CSS class toggling (`open`/`collapsed`), not `display` style manipulation — the CSS rules (`.agent-sessions-tool-block.open > .agent-sessions-tool-body { display: block }`) drive visibility.
+- `StyleSheetList` and `CSSRuleList` don't have `[Symbol.iterator]()` in TypeScript DOM types — must use `Array.from()` before `for...of`.
+- Copy buttons in the live view capture text via JS closures in `addEventListener`. The HTML export must extract text into `data-copy-text` attributes since closures don't survive DOM serialization.
+- `navigator.clipboard.writeText()` requires HTTPS or localhost — exported HTML opened via `file://` needs `document.execCommand('copy')` fallback.
+- The session being exported may contain its own source code (meta/self-referential sessions) — grep for script content must distinguish the actual `<script>` block from rendered code blocks in the DOM.
 
 ## Roadmap
 
@@ -318,22 +353,20 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 ## Session State
 <!-- DO NOT edit this section manually. It is managed exclusively by /wrap SKILL. -->
 <!-- auto-updated by /wrap -->
-- **Last session**: 2026-03-25 19:50
-- **Goal**: Add in-session search, fix accessibility issues (focus-visible, keyboard menu positioning)
-- **Summary**: Added in-session search by adapting the existing `SessionSearchModal` for single-session mode — scoped `searchFile` with flat results, timestamp-based turn resolution, and TreeWalker DOM highlighting with 5s fade. Cross-session search also highlights matches now. Fixed filter menu keyboard positioning (`showAtPosition` for Enter/Space), switched focus-visible indicators to inset `box-shadow` to avoid `overflow:hidden` clipping, and added stable modal height (`has-query` class → 90vh). 94 tests pass.
+- **Last session**: 2026-03-25 23:05
+- **Goal**: Convert search modal to side panel, move role labels into turn headers
+- **Summary**: Converted `SessionSearchModal` from `Modal` to `SearchView` (`ItemView` in right split) with dual-mode toggle (cross-session / in-session). In-session mode auto-scopes to active replay view's session. Moved USER/CLAUDE role labels from standalone body divs into turn headers with `(Turn #N)` format. Updated CLAUDE.md architecture and feature docs to reflect modal→view transition. 94 tests pass.
 - **Decisions**:
-  - Reuse `SessionSearchModal` with optional `InSessionSearchOpts` rather than a separate modal — avoids code duplication, same UI patterns
-  - `plugin` param is `null` in single-session mode (only used for multi-session `openResult`) — overloaded constructor with type safety
-  - Timestamp-based turn resolution over approximate JSONL line-counter — fixes the imprecise scroll-to-turn that made cross-session search hard to use
-  - TreeWalker DOM search with auto-expand of collapsed ancestors — finds text as rendered (post-markdown), robust against DOM structure changes
-  - `has-query` class on `modalEl` (not `contentEl`) for stable 90vh height — Obsidian's `.modal` is the sizing element, `.modal-content` is inside it
-  - Inset `box-shadow` for all collapsible header focus indicators — parent containers use `overflow:hidden` which clips outset shadows
-  - Filter menu uses `showAtPosition` with button bounding rect for keyboard activation — `showAtMouseEvent` with synthetic click gives clientX=0,clientY=0
+  - `SearchView` extends `ItemView` instead of `Modal` — eliminates modal height/positioning issues, results stay visible while navigating sessions
+  - Dual-mode toggle ("All sessions" / "Current session") in the panel — replaces the overloaded `Modal` constructor with `InSessionSearchOpts`
+  - `getState()`/`setState()` persist mode, query, and role filter — workspace restore keeps search context
+  - Role labels in turn header rather than separate body divs — reduces vertical space, puts role identity at the scan point (header line)
+  - Turn number format `(Turn #N)` in muted text after role label — secondary info, role is primary
 - **Next steps**:
-  - Convert search modal to a side-view (`ItemView` in right split) — eliminates modal height issues, allows keeping results visible while navigating sessions
   - Skip filtered blocks during segment navigation (arrow keys land on hidden blocks)
   - Incremental parsing/rendering for large sessions
   - Cost estimation from token usage metadata
+  - TreeWalker DOM highlighting for in-session search results (carried over from modal implementation)
 - **Blockers**: None
 - **Branch**: main
-- **Uncommitted**: CLAUDE.md session state + minor .gitignore changes
+- **Uncommitted**: Clean

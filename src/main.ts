@@ -6,6 +6,7 @@ import { SearchView, VIEW_TYPE_SEARCH } from './views/search-view';
 import { SessionBrowserModal, scanSessionDirs } from './views/session-browser-modal';
 import { FilePickerModal } from './views/file-picker-modal';
 import { exportToMarkdown } from './exporters/markdown-exporter';
+import { exportToHTML } from './exporters/html-exporter';
 import { listDirectory, listSubdirectories, readFileContent } from './utils/streaming-reader';
 import { detectParser } from './parsers/detect';
 import { resolveSubAgentSessions } from './parsers/claude-subagent';
@@ -83,6 +84,12 @@ export default class AgentSessionsPlugin extends Plugin {
 			id: 'export-markdown',
 			name: 'Export session to Markdown',
 			callback: () => this.exportActiveSession(),
+		});
+
+		this.addCommand({
+			id: 'export-html',
+			name: 'Export session to HTML',
+			callback: () => this.exportActiveSessionHTML(),
 		});
 
 		this.addCommand({
@@ -233,6 +240,26 @@ export default class AgentSessionsPlugin extends Plugin {
 	private getActiveReplayView(): ReplayView | null {
 		const leaf = this.app.workspace.getActiveViewOfType(ReplayView);
 		return leaf;
+	}
+
+	private async exportActiveSessionHTML(): Promise<void> {
+		const view = this.getActiveReplayView();
+		if (!view) {
+			new Notice('No active session to export.');
+			return;
+		}
+		const session = view.getSession();
+		const timelineEl = view.getTimelineEl();
+		if (!session || !timelineEl) {
+			new Notice('No session loaded.');
+			return;
+		}
+		try {
+			await exportToHTML(timelineEl, session, this.settings);
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : String(e);
+			new Notice(`HTML export failed: ${msg}`);
+		}
 	}
 
 	private async exportActiveSession(): Promise<void> {

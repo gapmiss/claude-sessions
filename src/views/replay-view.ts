@@ -192,6 +192,10 @@ export class ReplayView extends ItemView {
 		return this.session;
 	}
 
+	getTimelineEl(): HTMLElement | null {
+		return this.timelineEl;
+	}
+
 	async reloadSession(): Promise<void> {
 		const filePath = this.session?.rawPath;
 		if (!filePath) {
