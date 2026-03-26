@@ -1,11 +1,11 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
-import type AgentSessionsPlugin from './main';
+import type ClaudeSessionsPlugin from './main';
 import { PluginSettings, DEFAULT_SETTINGS } from './types';
 
 export class SettingsTab extends PluginSettingTab {
-	plugin: AgentSessionsPlugin;
+	plugin: ClaudeSessionsPlugin;
 
-	constructor(app: App, plugin: AgentSessionsPlugin) {
+	constructor(app: App, plugin: ClaudeSessionsPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
@@ -19,7 +19,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Session directories');
 
 		// Session directories
-		const dirsContainer = containerEl.createDiv({ cls: 'agent-sessions-dirs-list' });
+		const dirsContainer = containerEl.createDiv({ cls: 'claude-sessions-dirs-list' });
 		this.renderDirsList(dirsContainer);
 
 		let addDirInput: import('obsidian').TextComponent;
@@ -35,7 +35,7 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Add session directory')
-			.setDesc('Path to a directory containing agent session files (supports ~ for home).')
+			.setDesc('Path to a directory containing Claude Code session files (supports ~ for home).')
 			.addText(text => {
 				addDirInput = text;
 				text.setPlaceholder('~/.claude/projects');
@@ -58,7 +58,7 @@ export class SettingsTab extends PluginSettingTab {
 			.setName('Export folder')
 			.setDesc('Vault folder for exported session files.')
 			.addText(text => text
-				.setPlaceholder('Agent sessions')
+				.setPlaceholder('Claude sessions')
 				.setValue(this.plugin.settings.exportFolder)
 				.onChange(async (value) => {
 					this.plugin.settings.exportFolder = value;
@@ -146,10 +146,10 @@ export class SettingsTab extends PluginSettingTab {
 		container.empty();
 		for (let i = 0; i < this.plugin.settings.sessionDirs.length; i++) {
 			const dir = this.plugin.settings.sessionDirs[i];
-			const row = container.createDiv({ cls: 'agent-sessions-dir-row' });
-			row.createSpan({ text: dir, cls: 'agent-sessions-dir-path' });
+			const row = container.createDiv({ cls: 'claude-sessions-dir-row' });
+			row.createSpan({ text: dir, cls: 'claude-sessions-dir-path' });
 			const removeBtn = row.createEl('button', {
-				cls: 'agent-sessions-btn agent-sessions-dir-remove',
+				cls: 'claude-sessions-btn claude-sessions-dir-remove',
 				text: '\u00D7',
 				attr: {
 					'aria-label': `Remove directory ${dir}`,

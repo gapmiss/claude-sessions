@@ -1,5 +1,5 @@
 import { App, SuggestModal, Notice, Platform } from 'obsidian';
-import type AgentSessionsPlugin from '../main';
+import type ClaudeSessionsPlugin from '../main';
 import { SessionListEntry } from '../types';
 import { expandHome, extractProjectName, basename, shortenPath, projectFromCwd } from '../utils/path-utils';
 import { listDirectory, listSubdirectories, readFileContent, extractQuickMetadataAsync } from '../utils/streaming-reader';
@@ -11,7 +11,7 @@ import { resolveSubAgentSessions } from '../parsers/claude-subagent';
  * Uses a persistent cache — only new/modified files are re-read.
  * Must be called before opening the modal so items are available synchronously.
  */
-export async function scanSessionDirs(plugin: AgentSessionsPlugin): Promise<{ entries: SessionListEntry[]; total: number; updated: number }> {
+export async function scanSessionDirs(plugin: ClaudeSessionsPlugin): Promise<{ entries: SessionListEntry[]; total: number; updated: number }> {
 	if (Platform.isMobile) {
 		new Notice('On mobile, session browsing is limited to vault files.');
 		return { entries: [], total: 0, updated: 0 };
@@ -119,10 +119,10 @@ async function buildEntry(
 }
 
 export class SessionBrowserModal extends SuggestModal<SessionListEntry> {
-	private plugin: AgentSessionsPlugin;
+	private plugin: ClaudeSessionsPlugin;
 	private entries: SessionListEntry[];
 
-	constructor(app: App, plugin: AgentSessionsPlugin, entries: SessionListEntry[]) {
+	constructor(app: App, plugin: ClaudeSessionsPlugin, entries: SessionListEntry[]) {
 		super(app);
 		this.plugin = plugin;
 		this.entries = entries;
@@ -140,19 +140,19 @@ export class SessionBrowserModal extends SuggestModal<SessionListEntry> {
 	}
 
 	renderSuggestion(item: SessionListEntry, el: HTMLElement): void {
-		el.addClass('agent-sessions-suggestion-item');
+		el.addClass('claude-sessions-suggestion-item');
 
-		const line1 = el.createDiv({ cls: 'agent-sessions-suggestion-line1' });
-		line1.createSpan({ cls: 'agent-sessions-suggestion-project', text: item.project });
+		const line1 = el.createDiv({ cls: 'claude-sessions-suggestion-line1' });
+		line1.createSpan({ cls: 'claude-sessions-suggestion-project', text: item.project });
 		if (item.date) {
-			line1.createSpan({ cls: 'agent-sessions-suggestion-date', text: item.date });
+			line1.createSpan({ cls: 'claude-sessions-suggestion-date', text: item.date });
 		}
 
-		const line2 = el.createDiv({ cls: 'agent-sessions-suggestion-line2' });
+		const line2 = el.createDiv({ cls: 'claude-sessions-suggestion-line2' });
 		const pathText = item.cwd ? shortenPath(item.cwd) : '';
 		const line2Left = pathText ? `${pathText} · ${item.id}` : item.id;
-		line2.createSpan({ cls: 'agent-sessions-suggestion-path', text: line2Left });
-		line2.createSpan({ cls: 'agent-sessions-suggestion-format', text: item.format });
+		line2.createSpan({ cls: 'claude-sessions-suggestion-path', text: line2Left });
+		line2.createSpan({ cls: 'claude-sessions-suggestion-format', text: item.format });
 	}
 
 	async onChooseSuggestion(item: SessionListEntry): Promise<void> {

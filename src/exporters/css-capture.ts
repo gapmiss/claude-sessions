@@ -74,7 +74,7 @@ export function captureMarkdownStyles(): string {
 	return result.join('\n\n');
 }
 
-/** Capture the plugin's own stylesheet (sheet containing agent-sessions rules). */
+/** Capture the plugin's own stylesheet (sheet containing claude-sessions rules). */
 export function capturePluginStyles(): string {
 	const result: string[] = [];
 
@@ -82,7 +82,7 @@ export function capturePluginStyles(): string {
 	for (const sheet of sheets) {
 		try {
 			const rules = Array.from(sheet.cssRules);
-			if (rules[0]?.cssText.includes('agent-sessions')) {
+			if (rules[0]?.cssText.includes('claude-sessions')) {
 				for (const rule of rules) {
 					result.push(rule.cssText);
 				}

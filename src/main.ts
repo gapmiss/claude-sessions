@@ -13,7 +13,7 @@ import { resolveSubAgentSessions } from './parsers/claude-subagent';
 import { expandHome } from './utils/path-utils';
 import { SessionIndex } from './utils/session-index';
 
-export default class AgentSessionsPlugin extends Plugin {
+export default class ClaudeSessionsPlugin extends Plugin {
 	settings: PluginSettings = DEFAULT_SETTINGS;
 	sessionIndex!: SessionIndex;
 
@@ -141,8 +141,8 @@ export default class AgentSessionsPlugin extends Plugin {
 			},
 		});
 
-		// Protocol handler: obsidian://agent-sessions?session=/path/to/session.jsonl&turn=7
-		this.registerObsidianProtocolHandler('agent-sessions', async (params) => {
+		// Protocol handler: obsidian://claude-sessions?session=/path/to/session.jsonl&turn=7
+		this.registerObsidianProtocolHandler('claude-sessions', async (params) => {
 			const p = params as Record<string, string>;
 			const sessionPath = p['session'];
 			if (!sessionPath) {

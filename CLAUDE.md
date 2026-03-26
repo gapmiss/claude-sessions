@@ -1,4 +1,4 @@
-# Agent Sessions — Obsidian Plugin
+# Claude Sessions — Obsidian Plugin
 
 ## Origin
 
@@ -33,7 +33,7 @@ Working features:
   - Token breakdown: total input (cache read + cache write + uncached), output
   - Tool usage breakdown sorted by count descending
   - User/assistant/total turn counts
-- **Obsidian protocol handler**: `obsidian://agent-sessions?session=/path/to/session.jsonl` opens session directly
+- **Obsidian protocol handler**: `obsidian://claude-sessions?session=/path/to/session.jsonl` opens session directly
 - Timeline replay view — all turns visible and scrollable from the start
 - Segment-level navigation: arrow keys step through segments (text, thinking, tool run) within turns
 - Segment-level playback: reveals segments with real timestamp-based delays (clamped 600ms–10s)
@@ -146,7 +146,7 @@ Computed during parsing and stored on `Session.stats`:
 
 ### Replay View (`views/replay-view.ts`)
 
-- Extends `ItemView` with type `agent-sessions-replay`
+- Extends `ItemView` with type `claude-sessions-replay`
 - **All turns rendered immediately** into a scrollable timeline — content is never hidden
 - `IntersectionObserver` on the timeline container watches each turn element; turns in viewport get `visible` class (opacity 1.0), others dim to 0.3
 - **Segment-level navigation**: arrow keys move a highlight cursor (`block-active`) through segments within turns, then across turns. A segment is: one text block, one thinking block, or one run of consecutive tool calls.
@@ -192,11 +192,11 @@ Computed during parsing and stored on `Session.stats`:
 1. **`css-capture.ts`** — at export time, scrapes CSS from the live Obsidian document:
    - `captureThemeVariables()` — iterates all stylesheets to find `--*` property names, resolves via `getComputedStyle()` to bake the user's current theme into concrete values
    - `captureMarkdownStyles()` — filters `app.css` rules matching `markdown-rendered`, PrismJS `token.*`, `svg-icon`, `copy-code-button`, `language-*`
-   - `capturePluginStyles()` — extracts the plugin's own stylesheet (detected by `agent-sessions` in first rule)
+   - `capturePluginStyles()` — extracts the plugin's own stylesheet (detected by `claude-sessions` in first rule)
 
 2. **`standalone-player.ts`** — returns JS string (~4KB) for the `<script>` tag:
    - **Collapsibles**: event delegation on `[role="button"][aria-expanded]` — toggles `open` class on parent container (matching live view's `toggleClass('open')` pattern); turns use `collapsed` class
-   - **Show-more**: toggles `is-collapsed` class on `.agent-sessions-collapsible-wrap`
+   - **Show-more**: toggles `is-collapsed` class on `.claude-sessions-collapsible-wrap`
    - **Copy**: `navigator.clipboard.writeText()` with `document.execCommand('copy')` fallback for `file://`
    - **Image modal**: overlay with download link and close button
    - **Content filters**: checkbox menu toggling `display: none` on role/block-type elements
@@ -209,8 +209,8 @@ Computed during parsing and stored on `Session.stats`:
 
 ### Protocol Handler (`main.ts`)
 
-- Registered via `registerObsidianProtocolHandler('agent-sessions', ...)`
-- URI format: `obsidian://agent-sessions?session=/full/path/to/session.jsonl&turn=7`
+- Registered via `registerObsidianProtocolHandler('claude-sessions', ...)`
+- URI format: `obsidian://claude-sessions?session=/full/path/to/session.jsonl&turn=7`
 - Calls `openSessionByPath()` which reads the file, detects format, parses, and opens in a new tab
 - Supports `~` home directory expansion via `expandHome()`
 
@@ -289,7 +289,7 @@ npm run test:watch  # watch mode tests
 npx eslint .     # lint with eslint-plugin-obsidianmd rules
 ```
 
-Build script automatically copies `main.js`, `styles.css`, and `manifest.json` to `~/Vaults/Master/.obsidian/plugins/agent-sessions/` and `~/Vaults/live-mcp-for-obsidian/.obsidian/plugins/agent-sessions/`.
+Build script automatically copies `main.js`, `styles.css`, and `manifest.json` to `~/Vaults/Master/.obsidian/plugins/claude-sessions/` and `~/Vaults/live-mcp-for-obsidian/.obsidian/plugins/claude-sessions/`.
 
 ## Gotchas & Lessons Learned
 
@@ -309,20 +309,20 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 - Electron `File` objects from drag-and-drop have a `.path` property with the absolute filesystem path. When unavailable, search configured session directories by filename as fallback.
 - Obsidian protocol handler params arrive as `Record<string, string>` from the query string; paths with special characters need `encodeURIComponent`/`decodeURIComponent`.
 - Claude Code sessions often start with multiple 6KB+ `file-history-snapshot` records — reading only the first 2KB misses all metadata. Use line-by-line reading with prefix-skip for large record types instead.
-- Session index cache uses `mtime` as staleness key — fast stat() check avoids re-reading unchanged files. Store in `.obsidian/plugins/agent-sessions/session-index.json` via direct `fs` (desktop-only).
+- Session index cache uses `mtime` as staleness key — fast stat() check avoids re-reading unchanged files. Store in `.obsidian/plugins/claude-sessions/session-index.json` via direct `fs` (desktop-only).
 - Live reload re-renders the entire DOM — UI state (expanded tools, show-more, scroll position) must be captured before and restored after. Keyed by turn+block index, which is stable as long as turns aren't reordered (safe for append-only JSONL).
 - Progress bar dots must be reused in place (not destroyed/recreated) to avoid flicker during live reload. Diff the count: reposition existing, append new, remove excess.
 - `agent_progress` records stream only `tool_use` and `tool_result` blocks — assistant text blocks are omitted. Must read the subagent's own JSONL file (`subagents/agent-<id>.jsonl`) to recover chain-of-thought text for both foreground and background agents.
 - Subagent JSONL files mark every record as `isSidechain: true` — parser needs `allowSidechain: true` constructor option to avoid filtering them out.
 - Background agents don't produce `agent_progress` records at all. Their completion arrives as `<task-notification>` XML in `queue-operation` or `user` records, which must be captured before those record types are skipped.
-- All JSONL magic strings live in `constants.ts` — when Claude Code changes its schema, update one file. Parser logs `[agent-sessions] Unknown record type` / `Unknown block type` warnings with counts for format change detection.
+- All JSONL magic strings live in `constants.ts` — when Claude Code changes its schema, update one file. Parser logs `[claude-sessions] Unknown record type` / `Unknown block type` warnings with counts for format change detection.
 - Token dedup uses fallback chain `msgId ?? record.uuid ?? '__anon_${counter++}'` to avoid silent data loss when `message.id` is missing.
 - ANSI rendering uses programmatic DOM construction (`buildAnsiDom()`) — no `innerHTML` anywhere in the renderer pipeline.
 - Image clipboard copy validates MIME type against `SAFE_IMAGE_TYPES` whitelist.
 - File picker normalizes drag-and-drop filenames with `path.basename()` to prevent path traversal.
 - Skill/custom slash commands use `<command-message>plugin:cmd</command-message>\n<command-name>/plugin:cmd</command-name>` format. Built-in commands omit `<command-message>`. The colon-separated name `/wrap:wrap` is displayed as `/wrap` (user-facing name). `RE_SLASH_COMMAND` allows `[\w:./-]+` in the capture group.
 - `isMeta` user records with array content following a skill command carry the expanded prompt text. The parser must let `isMeta` user records through the first-pass filter to capture them in the turn-building pass.
-- HTML export collapsibles must use CSS class toggling (`open`/`collapsed`), not `display` style manipulation — the CSS rules (`.agent-sessions-tool-block.open > .agent-sessions-tool-body { display: block }`) drive visibility.
+- HTML export collapsibles must use CSS class toggling (`open`/`collapsed`), not `display` style manipulation — the CSS rules (`.claude-sessions-tool-block.open > .claude-sessions-tool-body { display: block }`) drive visibility.
 - `StyleSheetList` and `CSSRuleList` don't have `[Symbol.iterator]()` in TypeScript DOM types — must use `Array.from()` before `for...of`.
 - Copy buttons in the live view capture text via JS closures in `addEventListener`. The HTML export must extract text into `data-copy-text` attributes since closures don't survive DOM serialization.
 - `navigator.clipboard.writeText()` requires HTTPS or localhost — exported HTML opened via `file://` needs `document.execCommand('copy')` fallback.
@@ -353,20 +353,23 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 ## Session State
 <!-- DO NOT edit this section manually. It is managed exclusively by /wrap SKILL. -->
 <!-- auto-updated by /wrap -->
-- **Last session**: 2026-03-25 23:05
-- **Goal**: Convert search modal to side panel, move role labels into turn headers
-- **Summary**: Converted `SessionSearchModal` from `Modal` to `SearchView` (`ItemView` in right split) with dual-mode toggle (cross-session / in-session). In-session mode auto-scopes to active replay view's session. Moved USER/CLAUDE role labels from standalone body divs into turn headers with `(Turn #N)` format. Updated CLAUDE.md architecture and feature docs to reflect modal→view transition. 94 tests pass.
+- **Last session**: 2026-03-26 16:10
+- **Goal**: Fix HTML export bugs and add context window / cost estimation to session summary
+- **Summary**: Fixed three HTML export bugs (filters, text copy, sub-agent collapsibles) plus copy button styling issues (`824d179`). Then investigated token count discrepancy with claude-devtools — confirmed our cumulative calculations are identical, but we were showing cumulative API throughput (12.8M) while devtools showed context window size (138.7k). Added context window tracking, model-aware cost estimation (Opus/Sonnet/Haiku pricing), and restructured summary display to show both metrics (`daad049`). 94 tests pass.
 - **Decisions**:
-  - `SearchView` extends `ItemView` instead of `Modal` — eliminates modal height/positioning issues, results stay visible while navigating sessions
-  - Dual-mode toggle ("All sessions" / "Current session") in the panel — replaces the overloaded `Modal` constructor with `InSessionSearchOpts`
-  - `getState()`/`setState()` persist mode, query, and role filter — workspace restore keeps search context
-  - Role labels in turn header rather than separate body divs — reduces vertical space, puts role identity at the scan point (header line)
-  - Turn number format `(Turn #N)` in muted text after role label — secondary info, role is primary
+  - Filter logic rewritten to match live view — `claude-sessions-filtered` class on role sections and block wrappers, not `style.display` on label spans
+  - Sub-agent collapsible toggle uses `parentElement` — the container-array `.closest()` matched outer Agent tool-block before inner tool-group
+  - Code block copy button styled via CSS — `MarkdownRenderer.render()` is async so programmatic class addition is unreliable; CSS captured by `capturePluginStyles()` for exports
+  - Exported HTML needs explicit `border: 0` — Obsidian's base `button { border: 0 }` rule isn't in the captured selector whitelist
+  - Context window = last API call's `input + cache_read + cache_creation` — matches claude-devtools' "Visible Context: Total" metric
+  - Cost estimation uses per-model pricing (Opus $15/$75/$1.50/$18.75 per MTok) — model family detected by name substring matching, defaults to Sonnet
+  - Summary header shows context size + cost + turns (not cumulative total) — context window is more meaningful at a glance than cumulative throughput
+  - Cumulative tokens section renamed "API usage (cumulative)" — makes clear these are summed across all API calls, not current window size
 - **Next steps**:
+  - Test HTML export in browser via `file://` protocol (clipboard fallback, image modal)
+  - Update `tmp/README.md` (woefully behind)
   - Skip filtered blocks during segment navigation (arrow keys land on hidden blocks)
   - Incremental parsing/rendering for large sessions
-  - Cost estimation from token usage metadata
-  - TreeWalker DOM highlighting for in-session search results (carried over from modal implementation)
 - **Blockers**: None
 - **Branch**: main
-- **Uncommitted**: Clean
+- **Uncommitted**: CLAUDE.md session state update

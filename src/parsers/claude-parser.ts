@@ -114,7 +114,7 @@ interface ToolResultContent {
 }
 
 
-const LOG_PREFIX = '[agent-sessions]';
+const LOG_PREFIX = '[claude-sessions]';
 
 export class ClaudeParser extends BaseParser {
 	readonly format = 'claude' as const;

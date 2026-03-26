@@ -5,7 +5,7 @@ import { readFileContent } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
 import { resolveSubAgentSessions } from '../parsers/claude-subagent';
 
-export const VIEW_TYPE_REPLAY = 'agent-sessions-replay';
+export const VIEW_TYPE_REPLAY = 'claude-sessions-replay';
 
 interface ReplayViewState {
 	sessionPath?: string;
@@ -82,7 +82,7 @@ export class ReplayView extends ItemView {
 		if (this.session) {
 			return `Session: ${this.session.metadata.project}`;
 		}
-		return 'Agent session';
+		return 'Claude session';
 	}
 
 	getIcon(): string {
@@ -92,20 +92,20 @@ export class ReplayView extends ItemView {
 	async onOpen(): Promise<void> {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.addClass('agent-sessions-replay-container');
+		contentEl.addClass('claude-sessions-replay-container');
 
 		// Timeline area (scrollable)
-		this.timelineEl = contentEl.createDiv({ cls: 'agent-sessions-timeline markdown-rendered' });
+		this.timelineEl = contentEl.createDiv({ cls: 'claude-sessions-timeline markdown-rendered' });
 		this.renderer = new ReplayRenderer(this.timelineEl, this.app, this, this.settings);
 
 		// Controls bar (fixed at bottom)
-		this.controlsEl = contentEl.createDiv({ cls: 'agent-sessions-controls' });
+		this.controlsEl = contentEl.createDiv({ cls: 'claude-sessions-controls' });
 		this.buildControls(this.controlsEl);
 
 		if (!this.session) {
 			this.timelineEl.createDiv({
-				cls: 'agent-sessions-empty',
-				text: 'No session loaded. Use "Browse agent sessions" or "Import session file" to load one.',
+				cls: 'claude-sessions-empty',
+				text: 'No session loaded. Use "Browse sessions" or "Import session file" to load one.',
 			});
 		}
 	}
@@ -293,10 +293,10 @@ export class ReplayView extends ItemView {
 	private updateWatchIndicator(): void {
 		if (!this.watchBtn) return;
 		if (this.isWatching) {
-			this.watchBtn.addClass('agent-sessions-watch-active');
+			this.watchBtn.addClass('claude-sessions-watch-active');
 			this.watchBtn.setAttribute('aria-label', 'Stop live watch');
 		} else {
-			this.watchBtn.removeClass('agent-sessions-watch-active');
+			this.watchBtn.removeClass('claude-sessions-watch-active');
 			this.watchBtn.setAttribute('aria-label', 'Start live watch');
 		}
 	}
@@ -338,7 +338,7 @@ export class ReplayView extends ItemView {
 	openInSessionSearch(): void {
 		if (!this.session?.rawPath) return;
 		// Use string constant to avoid circular import with search-view.ts
-		const SEARCH_TYPE = 'agent-sessions-search';
+		const SEARCH_TYPE = 'claude-sessions-search';
 		const existing = this.app.workspace.getLeavesOfType(SEARCH_TYPE);
 		let leaf: WorkspaceLeaf;
 		if (existing.length > 0) {
@@ -375,7 +375,7 @@ export class ReplayView extends ItemView {
 		// Expand the turn if collapsed
 		if (turnEl.hasClass('collapsed')) {
 			turnEl.removeClass('collapsed');
-			const header = turnEl.querySelector('.agent-sessions-turn-header');
+			const header = turnEl.querySelector('.claude-sessions-turn-header');
 			if (header) header.setAttribute('aria-expanded', 'true');
 		}
 
@@ -397,7 +397,7 @@ export class ReplayView extends ItemView {
 			void after;
 
 			const mark = document.createElement('mark');
-			mark.className = 'agent-sessions-search-highlight';
+			mark.className = 'claude-sessions-search-highlight';
 			before.parentNode!.replaceChild(mark, before);
 			mark.appendChild(document.createTextNode(before.textContent || ''));
 
@@ -414,33 +414,33 @@ export class ReplayView extends ItemView {
 		let el = node.parentElement;
 		while (el && el !== boundary) {
 			// Tool block
-			if (el.hasClass('agent-sessions-tool-block') && !el.hasClass('open')) {
+			if (el.hasClass('claude-sessions-tool-block') && !el.hasClass('open')) {
 				el.addClass('open');
-				const h = el.querySelector('.agent-sessions-tool-header');
+				const h = el.querySelector('.claude-sessions-tool-header');
 				if (h) h.setAttribute('aria-expanded', 'true');
 			}
 			// Tool group
-			if (el.hasClass('agent-sessions-tool-group') && !el.hasClass('open')) {
+			if (el.hasClass('claude-sessions-tool-group') && !el.hasClass('open')) {
 				el.addClass('open');
-				const h = el.querySelector('.agent-sessions-tool-group-header');
+				const h = el.querySelector('.claude-sessions-tool-group-header');
 				if (h) h.setAttribute('aria-expanded', 'true');
 			}
 			// Thinking block
-			if (el.hasClass('agent-sessions-thinking-block') && !el.hasClass('open')) {
+			if (el.hasClass('claude-sessions-thinking-block') && !el.hasClass('open')) {
 				el.addClass('open');
-				const h = el.querySelector('.agent-sessions-thinking-header');
+				const h = el.querySelector('.claude-sessions-thinking-header');
 				if (h) h.setAttribute('aria-expanded', 'true');
 			}
 			// Show-more collapse
-			if (el.hasClass('agent-sessions-collapsible-wrap') && el.hasClass('is-collapsed')) {
+			if (el.hasClass('claude-sessions-collapsible-wrap') && el.hasClass('is-collapsed')) {
 				el.removeClass('is-collapsed');
-				const btn = el.querySelector('.agent-sessions-show-more-btn');
+				const btn = el.querySelector('.claude-sessions-show-more-btn');
 				if (btn) btn.setAttribute('aria-expanded', 'true');
 			}
 			// Sub-agent prompt
-			if (el.hasClass('agent-sessions-subagent-prompt') && !el.hasClass('open')) {
+			if (el.hasClass('claude-sessions-subagent-prompt') && !el.hasClass('open')) {
 				el.addClass('open');
-				const h = el.querySelector('.agent-sessions-subagent-prompt-header');
+				const h = el.querySelector('.claude-sessions-subagent-prompt-header');
 				if (h) h.setAttribute('aria-expanded', 'true');
 			}
 			el = el.parentElement;
@@ -548,13 +548,13 @@ export class ReplayView extends ItemView {
 				collapsedTurns.add(i);
 			}
 		}
-		const summaryEl = this.timelineEl?.querySelector('.agent-sessions-summary');
+		const summaryEl = this.timelineEl?.querySelector('.claude-sessions-summary');
 		const summaryOpen = summaryEl?.hasClass('open') ?? false;
 
 		// Expanded tool blocks: keyed by "turnIndex-blockIndex"
 		const openTools = new Set<string>();
 		for (let t = 0; t < turnEls.length; t++) {
-			const toolBlocks = turnEls[t].querySelectorAll('.agent-sessions-tool-block');
+			const toolBlocks = turnEls[t].querySelectorAll('.claude-sessions-tool-block');
 			for (let b = 0; b < toolBlocks.length; b++) {
 				if (toolBlocks[b].hasClass('open')) {
 					openTools.add(`${t}-${b}`);
@@ -565,7 +565,7 @@ export class ReplayView extends ItemView {
 		// Expanded "show more" blocks: keyed by "turnIndex-wrapIndex"
 		const expandedText = new Set<string>();
 		for (let t = 0; t < turnEls.length; t++) {
-			const wraps = turnEls[t].querySelectorAll('.agent-sessions-collapsible-wrap');
+			const wraps = turnEls[t].querySelectorAll('.claude-sessions-collapsible-wrap');
 			for (let w = 0; w < wraps.length; w++) {
 				if (!wraps[w].hasClass('is-collapsed')) {
 					expandedText.add(`${t}-${w}`);
@@ -584,18 +584,18 @@ export class ReplayView extends ItemView {
 		for (const idx of state.collapsedTurns) {
 			if (idx < turnEls.length) {
 				turnEls[idx].addClass('collapsed');
-				const chevron = turnEls[idx].querySelector('.agent-sessions-turn-chevron');
+				const chevron = turnEls[idx].querySelector('.claude-sessions-turn-chevron');
 				if (chevron) chevron.textContent = '\u25B6';
-				const header = turnEls[idx].querySelector('.agent-sessions-turn-header');
+				const header = turnEls[idx].querySelector('.claude-sessions-turn-header');
 				header?.setAttribute('aria-expanded', 'false');
 			}
 		}
 		if (state.summaryOpen) {
-			const summaryEl = this.timelineEl?.querySelector('.agent-sessions-summary');
+			const summaryEl = this.timelineEl?.querySelector('.claude-sessions-summary');
 			summaryEl?.addClass('open');
-			const chevron = summaryEl?.querySelector('.agent-sessions-summary-chevron');
+			const chevron = summaryEl?.querySelector('.claude-sessions-summary-chevron');
 			if (chevron) chevron.textContent = '\u25BC';
-			const header = summaryEl?.querySelector('.agent-sessions-summary-header');
+			const header = summaryEl?.querySelector('.claude-sessions-summary-header');
 			header?.setAttribute('aria-expanded', 'true');
 		}
 
@@ -603,10 +603,10 @@ export class ReplayView extends ItemView {
 		for (const key of state.openTools) {
 			const [t, b] = key.split('-').map(Number);
 			if (t < turnEls.length) {
-				const toolBlocks = turnEls[t].querySelectorAll('.agent-sessions-tool-block');
+				const toolBlocks = turnEls[t].querySelectorAll('.claude-sessions-tool-block');
 				if (b < toolBlocks.length) {
 					toolBlocks[b].addClass('open');
-					const header = toolBlocks[b].querySelector('.agent-sessions-tool-header');
+					const header = toolBlocks[b].querySelector('.claude-sessions-tool-header');
 					header?.setAttribute('aria-expanded', 'true');
 				}
 			}
@@ -616,10 +616,10 @@ export class ReplayView extends ItemView {
 		for (const key of state.expandedText) {
 			const [t, w] = key.split('-').map(Number);
 			if (t < turnEls.length) {
-				const wraps = turnEls[t].querySelectorAll('.agent-sessions-collapsible-wrap');
+				const wraps = turnEls[t].querySelectorAll('.claude-sessions-collapsible-wrap');
 				if (w < wraps.length) {
 					wraps[w].removeClass('is-collapsed');
-					const btn = wraps[w].querySelector('.agent-sessions-collapsible-toggle');
+					const btn = wraps[w].querySelector('.claude-sessions-collapsible-toggle');
 					if (btn) {
 						btn.textContent = 'Show less';
 						(btn as HTMLElement).setAttribute('aria-expanded', 'true');
@@ -645,7 +645,7 @@ export class ReplayView extends ItemView {
 		if (this.session.turns.length === 0) {
 			this.timelineEl.empty();
 			this.timelineEl.createDiv({
-				cls: 'agent-sessions-empty',
+				cls: 'claude-sessions-empty',
 				text: 'This session has no turns.',
 			});
 			return;
@@ -718,7 +718,7 @@ export class ReplayView extends ItemView {
 		if (!this.session || !this.progressBar) return;
 
 		const total = this.session.turns.length;
-		const existingDots = this.progressBar.querySelectorAll('.agent-sessions-turn-dot');
+		const existingDots = this.progressBar.querySelectorAll('.claude-sessions-turn-dot');
 
 		if (total <= 1) {
 			existingDots.forEach(d => d.remove());
@@ -731,7 +731,7 @@ export class ReplayView extends ItemView {
 		for (let i = 0; i < needed; i++) {
 			const dot = i < existingDots.length
 				? existingDots[i] as HTMLElement
-				: this.progressBar.createDiv({ cls: 'agent-sessions-turn-dot' });
+				: this.progressBar.createDiv({ cls: 'claude-sessions-turn-dot' });
 			const pct = ((i + 1) / total) * 100;
 			dot.style.left = `${pct}%`;
 			dot.dataset.turnIndex = String(i + 1);
@@ -745,7 +745,7 @@ export class ReplayView extends ItemView {
 
 	private updateTurnDots(): void {
 		if (!this.progressBar) return;
-		const dots = this.progressBar.querySelectorAll('.agent-sessions-turn-dot');
+		const dots = this.progressBar.querySelectorAll('.claude-sessions-turn-dot');
 		dots.forEach((dot) => {
 			const idx = parseInt((dot as HTMLElement).dataset.turnIndex || '0', 10);
 			dot.toggleClass('reached', idx <= this.activeTurnIndex);
@@ -754,14 +754,14 @@ export class ReplayView extends ItemView {
 
 	// Controls
 	private buildControls(container: HTMLElement): void {
-		const row = container.createDiv({ cls: 'agent-sessions-controls-row' });
+		const row = container.createDiv({ cls: 'claude-sessions-controls-row' });
 
 		// Status text
-		this.statusEl = row.createSpan({ cls: 'agent-sessions-progress-text' });
+		this.statusEl = row.createSpan({ cls: 'claude-sessions-progress-text' });
 
 		// Search button
 		const searchBtn = row.createEl('button', {
-			cls: 'agent-sessions-ctrl-btn agent-sessions-search-btn',
+			cls: 'claude-sessions-ctrl-btn claude-sessions-search-btn',
 			attr: { 'aria-label': 'Search in session', 'data-tooltip-position': 'top' },
 		});
 		setIcon(searchBtn, 'search');
@@ -769,7 +769,7 @@ export class ReplayView extends ItemView {
 
 		// Filter button
 		const filterBtn = row.createEl('button', {
-			cls: 'agent-sessions-ctrl-btn agent-sessions-filter-btn',
+			cls: 'claude-sessions-ctrl-btn claude-sessions-filter-btn',
 			attr: { 'aria-label': 'Filter content', 'data-tooltip-position': 'top' },
 			text: '\u22EF',
 		});
@@ -785,23 +785,23 @@ export class ReplayView extends ItemView {
 
 		// Watch button
 		this.watchBtn = row.createEl('button', {
-			cls: 'agent-sessions-ctrl-btn agent-sessions-watch-btn',
+			cls: 'claude-sessions-ctrl-btn claude-sessions-watch-btn',
 			attr: { 'aria-label': 'Start live watch', 'data-tooltip-position': 'top' },
 		});
 		setIcon(this.watchBtn, 'radio');
 		this.watchBtn.addEventListener('click', () => this.toggleWatch());
 
 		// Progress bar (read-only indicator, not keyboard-interactive)
-		const progressWrap = container.createDiv({ cls: 'agent-sessions-progress-wrap' });
-		this.progressBar = progressWrap.createDiv({ cls: 'agent-sessions-progress-bar' });
+		const progressWrap = container.createDiv({ cls: 'claude-sessions-progress-wrap' });
+		this.progressBar = progressWrap.createDiv({ cls: 'claude-sessions-progress-bar' });
 		this.progressBar.setAttribute('role', 'progressbar');
 		this.progressBar.setAttribute('aria-label', 'Session progress');
 		this.progressBar.setAttribute('aria-valuemin', '0');
 		this.progressBar.setAttribute('aria-valuemax', '0');
 		this.progressBar.setAttribute('aria-valuenow', '0');
 		this.progressBar.setAttribute('aria-valuetext', 'No session loaded');
-		this.progressFill = this.progressBar.createDiv({ cls: 'agent-sessions-progress-fill' });
-		this.progressTooltip = this.progressBar.createDiv({ cls: 'agent-sessions-progress-tooltip' });
+		this.progressFill = this.progressBar.createDiv({ cls: 'claude-sessions-progress-fill' });
+		this.progressTooltip = this.progressBar.createDiv({ cls: 'claude-sessions-progress-tooltip' });
 
 		// Hover tooltip on progress bar
 		this.progressBar.addEventListener('mousemove', (e: MouseEvent) => {
@@ -935,55 +935,55 @@ export class ReplayView extends ItemView {
 		const f = this.filters;
 
 		// ── User section (parent toggle) ──
-		this.timelineEl.querySelectorAll('.agent-sessions-role-user').forEach(el => {
-			(el as HTMLElement).toggleClass('agent-sessions-filtered', !f.user);
+		this.timelineEl.querySelectorAll('.claude-sessions-role-user').forEach(el => {
+			(el as HTMLElement).toggleClass('claude-sessions-filtered', !f.user);
 		});
 
 		// User children (only matter when parent is on)
 		if (f.user) {
-			this.timelineEl.querySelectorAll('.agent-sessions-user-text').forEach(el => {
-				const wrapper = (el as HTMLElement).closest('.agent-sessions-block-wrapper') as HTMLElement | null;
-				wrapper?.toggleClass('agent-sessions-filtered', !f.userText);
+			this.timelineEl.querySelectorAll('.claude-sessions-user-text').forEach(el => {
+				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
+				wrapper?.toggleClass('claude-sessions-filtered', !f.userText);
 			});
-			this.timelineEl.querySelectorAll('.agent-sessions-slash-command-block').forEach(el => {
-				const wrapper = (el as HTMLElement).closest('.agent-sessions-block-wrapper') as HTMLElement | null;
-				wrapper?.toggleClass('agent-sessions-filtered', !f.userText);
+			this.timelineEl.querySelectorAll('.claude-sessions-slash-command-block').forEach(el => {
+				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
+				wrapper?.toggleClass('claude-sessions-filtered', !f.userText);
 			});
-			this.timelineEl.querySelectorAll('.agent-sessions-image-thumbnail').forEach(el => {
-				const wrapper = (el as HTMLElement).closest('.agent-sessions-block-wrapper') as HTMLElement | null;
-				wrapper?.toggleClass('agent-sessions-filtered', !f.userImages);
+			this.timelineEl.querySelectorAll('.claude-sessions-image-thumbnail').forEach(el => {
+				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
+				wrapper?.toggleClass('claude-sessions-filtered', !f.userImages);
 			});
 		}
 
 		// ── Assistant section (parent toggle) ──
-		this.timelineEl.querySelectorAll('.agent-sessions-role-assistant').forEach(el => {
-			(el as HTMLElement).toggleClass('agent-sessions-filtered', !f.assistant);
+		this.timelineEl.querySelectorAll('.claude-sessions-role-assistant').forEach(el => {
+			(el as HTMLElement).toggleClass('claude-sessions-filtered', !f.assistant);
 		});
 
 		// Assistant children (only matter when parent is on)
 		if (f.assistant) {
-			this.timelineEl.querySelectorAll('.agent-sessions-assistant-text').forEach(el => {
-				const wrapper = (el as HTMLElement).closest('.agent-sessions-block-wrapper') as HTMLElement | null;
-				wrapper?.toggleClass('agent-sessions-filtered', !f.assistantText);
+			this.timelineEl.querySelectorAll('.claude-sessions-assistant-text').forEach(el => {
+				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
+				wrapper?.toggleClass('claude-sessions-filtered', !f.assistantText);
 			});
-			this.timelineEl.querySelectorAll('.agent-sessions-thinking-block').forEach(el => {
-				const wrapper = (el as HTMLElement).closest('.agent-sessions-block-wrapper') as HTMLElement | null;
-				wrapper?.toggleClass('agent-sessions-filtered', !f.thinking);
+			this.timelineEl.querySelectorAll('.claude-sessions-thinking-block').forEach(el => {
+				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
+				wrapper?.toggleClass('claude-sessions-filtered', !f.thinking);
 			});
-			this.timelineEl.querySelectorAll('.agent-sessions-tool-block, .agent-sessions-tool-group').forEach(el => {
-				const wrapper = (el as HTMLElement).closest('.agent-sessions-block-wrapper') as HTMLElement | null;
-				wrapper?.toggleClass('agent-sessions-filtered', !f.toolCalls);
+			this.timelineEl.querySelectorAll('.claude-sessions-tool-block, .claude-sessions-tool-group').forEach(el => {
+				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
+				wrapper?.toggleClass('claude-sessions-filtered', !f.toolCalls);
 			});
-			this.timelineEl.querySelectorAll('.agent-sessions-tool-result').forEach(el => {
-				(el as HTMLElement).toggleClass('agent-sessions-filtered', !f.toolResults);
+			this.timelineEl.querySelectorAll('.claude-sessions-tool-result').forEach(el => {
+				(el as HTMLElement).toggleClass('claude-sessions-filtered', !f.toolResults);
 			});
 		}
 
 		// Update filter button appearance
 		const allOn = f.user && f.assistant && f.userText && f.userImages
 			&& f.assistantText && f.thinking && f.toolCalls && f.toolResults;
-		this.controlsEl?.querySelector('.agent-sessions-filter-btn')
-			?.toggleClass('agent-sessions-filter-active', !allOn);
+		this.controlsEl?.querySelector('.claude-sessions-filter-btn')
+			?.toggleClass('claude-sessions-filter-active', !allOn);
 	}
 
 	private updateControls(): void {

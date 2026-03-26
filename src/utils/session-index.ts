@@ -14,7 +14,7 @@ export class SessionIndex {
 			vaultBasePath,
 			configDir,
 			'plugins',
-			'agent-sessions',
+			'claude-sessions',
 			INDEX_FILENAME,
 		);
 	}

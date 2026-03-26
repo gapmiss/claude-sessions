@@ -4,38 +4,38 @@ import { type RenderContext, makeClickable, addCopyButton } from './render-helpe
 
 /** Render the session summary panel (collapsible) above the timeline. */
 export function renderSummary(session: Session, container: HTMLElement, ctx: RenderContext): void {
-	const el = container.createDiv({ cls: 'agent-sessions-summary' });
+	const el = container.createDiv({ cls: 'claude-sessions-summary' });
 	const { metadata, stats } = session;
 
 	// Header (click to toggle)
-	const header = el.createDiv({ cls: 'agent-sessions-summary-header' });
-	header.createSpan({ cls: 'agent-sessions-summary-chevron', text: '\u25B6' });
-	const icon = header.createSpan({ cls: 'agent-sessions-summary-icon' });
+	const header = el.createDiv({ cls: 'claude-sessions-summary-header' });
+	header.createSpan({ cls: 'claude-sessions-summary-chevron', text: '\u25B6' });
+	const icon = header.createSpan({ cls: 'claude-sessions-summary-icon' });
 	setIcon(icon, 'bar-chart-2');
-	header.createSpan({ cls: 'agent-sessions-summary-title', text: 'Session summary' });
+	header.createSpan({ cls: 'claude-sessions-summary-title', text: 'Session summary' });
 
 	// Inline stats in header: context window size, cost, turns
 	if (stats.contextWindowTokens > 0) {
 		header.createSpan({
-			cls: 'agent-sessions-summary-inline',
+			cls: 'claude-sessions-summary-inline',
 			text: `${formatTokens(stats.contextWindowTokens)} context`,
 		});
 	}
 	if (stats.costUSD > 0) {
 		header.createSpan({
-			cls: 'agent-sessions-summary-inline',
+			cls: 'claude-sessions-summary-inline',
 			text: formatCost(stats.costUSD),
 		});
 	}
 	if (metadata.totalTurns > 0) {
 		header.createSpan({
-			cls: 'agent-sessions-summary-inline',
+			cls: 'claude-sessions-summary-inline',
 			text: `${metadata.totalTurns} turns`,
 		});
 	}
 
 	// Body (collapsed by default)
-	const body = el.createDiv({ cls: 'agent-sessions-summary-body' });
+	const body = el.createDiv({ cls: 'claude-sessions-summary-body' });
 
 	makeClickable(header, { label: 'Toggle session summary', expanded: false });
 	header.addEventListener('click', () => {
@@ -45,29 +45,29 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 	});
 
 	// --- Session ID ---
-	const idSection = body.createDiv({ cls: 'agent-sessions-summary-section' });
-	idSection.createDiv({ cls: 'agent-sessions-summary-label', text: 'Session ID' });
-	const idRow = idSection.createDiv({ cls: 'agent-sessions-summary-id-row' });
-	idRow.createSpan({ cls: 'agent-sessions-summary-value agent-sessions-summary-mono', text: metadata.id });
+	const idSection = body.createDiv({ cls: 'claude-sessions-summary-section' });
+	idSection.createDiv({ cls: 'claude-sessions-summary-label', text: 'Session ID' });
+	const idRow = idSection.createDiv({ cls: 'claude-sessions-summary-id-row' });
+	idRow.createSpan({ cls: 'claude-sessions-summary-value claude-sessions-summary-mono', text: metadata.id });
 	addCopyButton(idRow, metadata.id, 'Copy session ID');
 	addCopyButton(idRow, session.rawPath, 'Copy file path');
 
 	// --- Obsidian URI ---
-	const obsidianUri = `obsidian://agent-sessions?session=${encodeURIComponent(session.rawPath)}`;
+	const obsidianUri = `obsidian://claude-sessions?session=${encodeURIComponent(session.rawPath)}`;
 	const mdLink = `[${metadata.project} session](${obsidianUri})`;
 
-	const uriSection = body.createDiv({ cls: 'agent-sessions-summary-section' });
-	uriSection.createDiv({ cls: 'agent-sessions-summary-label', text: 'Obsidian URI' });
-	const uriRow = uriSection.createDiv({ cls: 'agent-sessions-summary-id-row' });
+	const uriSection = body.createDiv({ cls: 'claude-sessions-summary-section' });
+	uriSection.createDiv({ cls: 'claude-sessions-summary-label', text: 'Obsidian URI' });
+	const uriRow = uriSection.createDiv({ cls: 'claude-sessions-summary-id-row' });
 	const uriPreview = obsidianUri.length > 60
 		? obsidianUri.substring(0, 60) + '...'
 		: obsidianUri;
-	uriRow.createSpan({ cls: 'agent-sessions-summary-value agent-sessions-summary-mono', text: uriPreview });
+	uriRow.createSpan({ cls: 'claude-sessions-summary-value claude-sessions-summary-mono', text: uriPreview });
 	addCopyButton(uriRow, obsidianUri, 'Copy URI');
 	addCopyButton(uriRow, mdLink, 'Copy markdown link');
 
 	// --- Metadata grid ---
-	const grid = body.createDiv({ cls: 'agent-sessions-summary-grid' });
+	const grid = body.createDiv({ cls: 'claude-sessions-summary-grid' });
 
 	if (metadata.project) addGridItem(grid, 'Project', metadata.project);
 	if (metadata.model) addGridItem(grid, 'Model', metadata.model);
@@ -83,18 +83,18 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 	}
 
 	// --- Turns ---
-	const turnsSection = body.createDiv({ cls: 'agent-sessions-summary-section' });
-	turnsSection.createDiv({ cls: 'agent-sessions-summary-label', text: 'Turns' });
-	const turnsGrid = turnsSection.createDiv({ cls: 'agent-sessions-summary-grid' });
+	const turnsSection = body.createDiv({ cls: 'claude-sessions-summary-section' });
+	turnsSection.createDiv({ cls: 'claude-sessions-summary-label', text: 'Turns' });
+	const turnsGrid = turnsSection.createDiv({ cls: 'claude-sessions-summary-grid' });
 	addGridItem(turnsGrid, 'User', String(stats.userTurns));
 	addGridItem(turnsGrid, 'Assistant', String(stats.assistantTurns));
 	addGridItem(turnsGrid, 'Total', String(metadata.totalTurns));
 
 	// --- Context & Cost ---
 	if (stats.contextWindowTokens > 0 || stats.costUSD > 0) {
-		const ctxSection = body.createDiv({ cls: 'agent-sessions-summary-section' });
-		ctxSection.createDiv({ cls: 'agent-sessions-summary-label', text: 'Context & cost' });
-		const ctxGrid = ctxSection.createDiv({ cls: 'agent-sessions-summary-grid' });
+		const ctxSection = body.createDiv({ cls: 'claude-sessions-summary-section' });
+		ctxSection.createDiv({ cls: 'claude-sessions-summary-label', text: 'Context & cost' });
+		const ctxGrid = ctxSection.createDiv({ cls: 'claude-sessions-summary-grid' });
 		if (stats.contextWindowTokens > 0) {
 			addGridItem(ctxGrid, 'Context window', formatTokens(stats.contextWindowTokens));
 		}
@@ -106,9 +106,9 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 	// --- Token usage (cumulative) ---
 	const totalInput = stats.inputTokens + stats.cacheReadTokens + stats.cacheCreationTokens;
 	if (totalInput > 0 || stats.outputTokens > 0) {
-		const tokenSection = body.createDiv({ cls: 'agent-sessions-summary-section' });
-		tokenSection.createDiv({ cls: 'agent-sessions-summary-label', text: 'API usage (cumulative)' });
-		const tokenGrid = tokenSection.createDiv({ cls: 'agent-sessions-summary-grid' });
+		const tokenSection = body.createDiv({ cls: 'claude-sessions-summary-section' });
+		tokenSection.createDiv({ cls: 'claude-sessions-summary-label', text: 'API usage (cumulative)' });
+		const tokenGrid = tokenSection.createDiv({ cls: 'claude-sessions-summary-grid' });
 		addGridItem(tokenGrid, 'Input (total)', formatTokens(totalInput));
 		addGridItem(tokenGrid, 'Output', formatTokens(stats.outputTokens));
 		if (stats.cacheReadTokens > 0) {
@@ -125,9 +125,9 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 	// --- Tool usage ---
 	const toolNames = Object.keys(stats.toolUseCounts);
 	if (toolNames.length > 0) {
-		const toolSection = body.createDiv({ cls: 'agent-sessions-summary-section' });
-		toolSection.createDiv({ cls: 'agent-sessions-summary-label', text: 'Tool usage' });
-		const toolGrid = toolSection.createDiv({ cls: 'agent-sessions-summary-grid' });
+		const toolSection = body.createDiv({ cls: 'claude-sessions-summary-section' });
+		toolSection.createDiv({ cls: 'claude-sessions-summary-label', text: 'Tool usage' });
+		const toolGrid = toolSection.createDiv({ cls: 'claude-sessions-summary-grid' });
 		toolNames
 			.sort((a, b) => stats.toolUseCounts[b] - stats.toolUseCounts[a])
 			.forEach(name => {
@@ -139,8 +139,8 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 }
 
 function addGridItem(grid: HTMLElement, label: string, value: string): void {
-	grid.createSpan({ cls: 'agent-sessions-summary-grid-label', text: label });
-	grid.createSpan({ cls: 'agent-sessions-summary-grid-value', text: value });
+	grid.createSpan({ cls: 'claude-sessions-summary-grid-label', text: label });
+	grid.createSpan({ cls: 'claude-sessions-summary-grid-value', text: value });
 }
 
 function formatTokens(n: number): string {

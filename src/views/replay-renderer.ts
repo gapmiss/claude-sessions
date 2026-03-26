@@ -69,21 +69,21 @@ export class ReplayRenderer {
 	getBlockWrappers(turnIndex: number): HTMLElement[] {
 		const turnEl = this.turnEls[turnIndex];
 		if (!turnEl) return [];
-		return Array.from(turnEl.querySelectorAll('.agent-sessions-block-wrapper')) as HTMLElement[];
+		return Array.from(turnEl.querySelectorAll('.claude-sessions-block-wrapper')) as HTMLElement[];
 	}
 
 	private renderTurn(turn: Turn): HTMLElement {
 		const turnEl = this.container.createDiv({
-			cls: 'agent-sessions-turn',
+			cls: 'claude-sessions-turn',
 			attr: { 'data-turn-index': String(turn.index) },
 		});
 
 		// Turn header (collapsible)
-		const roleClass = turn.role === 'user' ? 'agent-sessions-turn-role-user' : 'agent-sessions-turn-role-assistant';
-		const header = turnEl.createDiv({ cls: 'agent-sessions-turn-header' });
-		header.createSpan({ cls: 'agent-sessions-turn-chevron', text: '\u25B6' });
-		header.createSpan({ cls: `agent-sessions-turn-role ${roleClass}`, text: turn.role === 'user' ? 'USER' : 'CLAUDE' });
-		header.createSpan({ cls: 'agent-sessions-turn-label', text: `(Turn #${turn.index + 1})` });
+		const roleClass = turn.role === 'user' ? 'claude-sessions-turn-role-user' : 'claude-sessions-turn-role-assistant';
+		const header = turnEl.createDiv({ cls: 'claude-sessions-turn-header' });
+		header.createSpan({ cls: 'claude-sessions-turn-chevron', text: '\u25B6' });
+		header.createSpan({ cls: `claude-sessions-turn-role ${roleClass}`, text: turn.role === 'user' ? 'USER' : 'CLAUDE' });
+		header.createSpan({ cls: 'claude-sessions-turn-label', text: `(Turn #${turn.index + 1})` });
 
 		if (turn.timestamp) {
 			const d = new Date(turn.timestamp);
@@ -99,7 +99,7 @@ export class ReplayRenderer {
 					label = time;
 				}
 				if (!this.sessionStartDate) this.sessionStartDate = dateStr;
-				header.createSpan({ cls: 'agent-sessions-turn-ts', text: label });
+				header.createSpan({ cls: 'claude-sessions-turn-ts', text: label });
 			}
 		}
 
@@ -120,11 +120,11 @@ export class ReplayRenderer {
 			const label = subModels.size > 0
 				? `${main} → ${[...subModels].join(', ')}`
 				: main;
-			header.createSpan({ cls: 'agent-sessions-turn-model', text: label });
+			header.createSpan({ cls: 'claude-sessions-turn-model', text: label });
 		}
 		if (turn.stopReason === 'max_tokens') {
 			header.createSpan({
-				cls: 'agent-sessions-turn-stop-reason',
+				cls: 'claude-sessions-turn-stop-reason',
 				attr: { 'aria-label': 'Response truncated (max tokens)', 'data-tooltip-position': 'top' },
 				text: 'max tokens',
 			});
@@ -133,11 +133,11 @@ export class ReplayRenderer {
 			const errorLabel = turn.errorType === 'rate_limit' ? 'rate limit'
 				: turn.errorType ?? 'error';
 			header.createSpan({
-				cls: 'agent-sessions-turn-api-error',
+				cls: 'claude-sessions-turn-api-error',
 				attr: { 'aria-label': `API error: ${errorLabel}`, 'data-tooltip-position': 'top' },
 				text: errorLabel,
 			});
-			turnEl.addClass('agent-sessions-turn-error');
+			turnEl.addClass('claude-sessions-turn-error');
 		}
 
 		makeClickable(header, { label: `Toggle turn ${turn.index + 1}`, expanded: true });
@@ -148,7 +148,7 @@ export class ReplayRenderer {
 		});
 
 		// Turn body
-		const body = turnEl.createDiv({ cls: 'agent-sessions-turn-body' });
+		const body = turnEl.createDiv({ cls: 'claude-sessions-turn-body' });
 
 		const userBlocks = turn.role === 'user' ? turn.contentBlocks : [];
 		const assistantBlocks = turn.role === 'assistant' ? turn.contentBlocks : [];
@@ -156,15 +156,15 @@ export class ReplayRenderer {
 		// User section
 		let blockIdx = 0;
 		if (userBlocks.length > 0) {
-			const userSection = body.createDiv({ cls: 'agent-sessions-role-section agent-sessions-role-user' });
+			const userSection = body.createDiv({ cls: 'claude-sessions-role-section claude-sessions-role-user' });
 
 			for (const block of userBlocks) {
 				const wrapper = userSection.createDiv({
-					cls: 'agent-sessions-block-wrapper',
+					cls: 'claude-sessions-block-wrapper',
 					attr: { 'data-block-idx': String(blockIdx++) },
 				});
 				if (block.type === 'text') {
-					this.renderTextContent(block.text, wrapper, 'agent-sessions-user-text');
+					this.renderTextContent(block.text, wrapper, 'claude-sessions-user-text');
 				} else if (block.type === 'slash_command') {
 					this.renderSlashCommandBlock(block as SlashCommandBlock, wrapper);
 				} else if (block.type === 'ansi') {
@@ -172,7 +172,7 @@ export class ReplayRenderer {
 				} else if (block.type === 'image') {
 					const dataUri = `data:${block.mediaType};base64,${block.data}`;
 					const img = wrapper.createEl('img', {
-						cls: 'agent-sessions-image-thumbnail',
+						cls: 'claude-sessions-image-thumbnail',
 						attr: { src: dataUri, alt: 'User attachment' },
 					});
 					makeClickable(img, { label: 'View image attachment' });
@@ -185,7 +185,7 @@ export class ReplayRenderer {
 
 		// Assistant section
 		if (assistantBlocks.length > 0) {
-			const assistantSection = body.createDiv({ cls: 'agent-sessions-role-section agent-sessions-role-assistant' });
+			const assistantSection = body.createDiv({ cls: 'claude-sessions-role-section claude-sessions-role-assistant' });
 
 			this.renderAssistantBlocks(assistantBlocks, assistantSection, blockIdx);
 		}
@@ -217,7 +217,7 @@ export class ReplayRenderer {
 		let blockIdx = startBlockIdx;
 		for (const seg of segments) {
 			const wrapper = container.createDiv({
-				cls: 'agent-sessions-block-wrapper',
+				cls: 'claude-sessions-block-wrapper',
 				attr: { 'data-block-idx': String(blockIdx++) },
 			});
 			if (seg.type === 'single') {
@@ -231,7 +231,7 @@ export class ReplayRenderer {
 	private renderSingleBlock(block: ContentBlock, container: HTMLElement): void {
 		switch (block.type) {
 			case 'text':
-				this.renderTextContent(block.text, container, 'agent-sessions-assistant-text');
+				this.renderTextContent(block.text, container, 'claude-sessions-assistant-text');
 				break;
 			case 'thinking':
 				if (this.ctx.settings.showThinkingBlocks) {
@@ -246,10 +246,10 @@ export class ReplayRenderer {
 
 	private renderTextContent(text: string, container: HTMLElement, cls: string): void {
 		const lines = text.split('\n').length;
-		const wrapEl = container.createDiv({ cls: 'agent-sessions-text-block' });
+		const wrapEl = container.createDiv({ cls: 'claude-sessions-text-block' });
 
 		const copyBtn = wrapEl.createEl('button', {
-			cls: 'agent-sessions-text-copy clickable-icon',
+			cls: 'claude-sessions-text-copy clickable-icon',
 			attr: { 'aria-label': 'Copy to clipboard', 'data-tooltip-position': 'top' },
 		});
 		setIcon(copyBtn, 'copy');
@@ -260,14 +260,14 @@ export class ReplayRenderer {
 		});
 
 		if (lines > COLLAPSE_THRESHOLD) {
-			wrapEl.addClass('agent-sessions-collapsible-wrap', 'is-collapsed');
-			const contentEl = wrapEl.createDiv({ cls: 'agent-sessions-collapsible-content' });
+			wrapEl.addClass('claude-sessions-collapsible-wrap', 'is-collapsed');
+			const contentEl = wrapEl.createDiv({ cls: 'claude-sessions-collapsible-content' });
 			const mdEl = contentEl.createDiv({ cls });
 			MarkdownRenderer.render(this.ctx.app, text, mdEl, '', this.ctx.component);
 
-			wrapEl.createDiv({ cls: 'agent-sessions-collapsible-fade' });
+			wrapEl.createDiv({ cls: 'claude-sessions-collapsible-fade' });
 			const toggleBtn = wrapEl.createEl('button', {
-				cls: 'agent-sessions-collapsible-toggle',
+				cls: 'claude-sessions-collapsible-toggle',
 				text: `Show more (${lines} lines)`,
 				attr: { 'aria-expanded': 'false' },
 			});
@@ -285,20 +285,20 @@ export class ReplayRenderer {
 
 	private renderThinkingBlock(text: string, container: HTMLElement): void {
 		const isRedacted = !text.trim();
-		const el = container.createDiv({ cls: 'agent-sessions-thinking-block' });
+		const el = container.createDiv({ cls: 'claude-sessions-thinking-block' });
 
-		const header = el.createDiv({ cls: 'agent-sessions-thinking-header' });
-		const icon = header.createSpan({ cls: 'agent-sessions-thinking-icon' });
+		const header = el.createDiv({ cls: 'claude-sessions-thinking-header' });
+		const icon = header.createSpan({ cls: 'claude-sessions-thinking-icon' });
 		setIcon(icon, 'brain');
-		header.createSpan({ cls: 'agent-sessions-thinking-name', text: 'Thinking' });
+		header.createSpan({ cls: 'claude-sessions-thinking-name', text: 'Thinking' });
 		if (isRedacted) {
-			header.createSpan({ cls: 'agent-sessions-thinking-redacted', text: 'content encrypted' });
+			header.createSpan({ cls: 'claude-sessions-thinking-redacted', text: 'content encrypted' });
 		}
-		header.createSpan({ cls: 'agent-sessions-thinking-chevron', text: '\u25B6' });
+		header.createSpan({ cls: 'claude-sessions-thinking-chevron', text: '\u25B6' });
 
-		const body = el.createDiv({ cls: 'agent-sessions-thinking-body' });
+		const body = el.createDiv({ cls: 'claude-sessions-thinking-body' });
 		if (isRedacted) {
-			body.createDiv({ cls: 'agent-sessions-thinking-redacted-body', text: 'Thinking content is not available — encrypted by Claude Code.' });
+			body.createDiv({ cls: 'claude-sessions-thinking-redacted-body', text: 'Thinking content is not available — encrypted by Claude Code.' });
 		} else {
 			MarkdownRenderer.render(this.ctx.app, text, body, '', this.ctx.component);
 		}
@@ -312,16 +312,16 @@ export class ReplayRenderer {
 	}
 
 	private renderSlashCommandBlock(block: SlashCommandBlock, container: HTMLElement): void {
-		const el = container.createDiv({ cls: 'agent-sessions-slash-command-block' });
+		const el = container.createDiv({ cls: 'claude-sessions-slash-command-block' });
 
-		const header = el.createDiv({ cls: 'agent-sessions-slash-command-header' });
-		const icon = header.createSpan({ cls: 'agent-sessions-slash-command-icon' });
+		const header = el.createDiv({ cls: 'claude-sessions-slash-command-header' });
+		const icon = header.createSpan({ cls: 'claude-sessions-slash-command-icon' });
 		setIcon(icon, 'file-text');
-		header.createSpan({ cls: 'agent-sessions-slash-command-name', text: 'Slash output' });
+		header.createSpan({ cls: 'claude-sessions-slash-command-name', text: 'Slash output' });
 		addCopyButton(header, block.text, 'Copy slash command output');
-		header.createSpan({ cls: 'agent-sessions-slash-command-chevron', text: '\u25B6' });
+		header.createSpan({ cls: 'claude-sessions-slash-command-chevron', text: '\u25B6' });
 
-		const body = el.createDiv({ cls: 'agent-sessions-slash-command-body' });
+		const body = el.createDiv({ cls: 'claude-sessions-slash-command-body' });
 		MarkdownRenderer.render(this.ctx.app, block.text, body, '', this.ctx.component);
 
 		makeClickable(header, { label: 'Toggle slash command output', expanded: false });
@@ -446,18 +446,18 @@ export class ReplayRenderer {
 	}
 
 	private renderAnsiBlock(block: AnsiBlock, container: HTMLElement): void {
-		const pre = container.createEl('pre', { cls: 'agent-sessions-ansi-block' });
+		const pre = container.createEl('pre', { cls: 'claude-sessions-ansi-block' });
 		this.buildAnsiDom(block.text, pre);
 	}
 
 	private renderCompactionBlock(block: CompactionBlock, container: HTMLElement): void {
-		const el = container.createDiv({ cls: 'agent-sessions-compaction-block' });
-		const divider = el.createDiv({ cls: 'agent-sessions-compaction-divider' });
-		const icon = divider.createSpan({ cls: 'agent-sessions-compaction-icon' });
+		const el = container.createDiv({ cls: 'claude-sessions-compaction-block' });
+		const divider = el.createDiv({ cls: 'claude-sessions-compaction-divider' });
+		const icon = divider.createSpan({ cls: 'claude-sessions-compaction-icon' });
 		setIcon(icon, 'scissors');
 		divider.createSpan({ text: 'Context compacted' });
 		if (block.summary) {
-			const summaryEl = el.createDiv({ cls: 'agent-sessions-compaction-summary' });
+			const summaryEl = el.createDiv({ cls: 'claude-sessions-compaction-summary' });
 			MarkdownRenderer.render(this.ctx.app, block.summary, summaryEl, '', this.ctx.component);
 		}
 	}
@@ -480,16 +480,16 @@ class ImagePreviewModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl } = this;
-		this.modalEl.addClass('agent-sessions-image-preview-modal');
+		this.modalEl.addClass('claude-sessions-image-preview-modal');
 		contentEl.empty();
 
-		const scrollWrap = contentEl.createDiv({ cls: 'agent-sessions-image-preview-scroll' });
+		const scrollWrap = contentEl.createDiv({ cls: 'claude-sessions-image-preview-scroll' });
 		scrollWrap.createEl('img', {
-			cls: 'agent-sessions-image-preview',
+			cls: 'claude-sessions-image-preview',
 			attr: { src: this.dataUri, alt: 'Image attachment' },
 		});
 
-		const actions = contentEl.createDiv({ cls: 'agent-sessions-image-preview-actions' });
+		const actions = contentEl.createDiv({ cls: 'claude-sessions-image-preview-actions' });
 		const downloadBtn = actions.createEl('button', {
 			cls: 'mod-cta',
 			text: 'Download',

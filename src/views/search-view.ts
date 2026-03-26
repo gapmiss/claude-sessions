@@ -1,5 +1,5 @@
 import { ItemView, Notice, WorkspaceLeaf } from 'obsidian';
-import type AgentSessionsPlugin from '../main';
+import type ClaudeSessionsPlugin from '../main';
 import type { Session, SessionListEntry } from '../types';
 import { searchSessions, searchFile, resolveMatchTurn } from '../utils/session-search';
 import type { SearchQuery, SearchMatch, SessionSearchResult } from '../utils/session-search';
@@ -11,7 +11,7 @@ import { shortenPath } from '../utils/path-utils';
 import { scanSessionDirs } from './session-browser-modal';
 import { ReplayView } from './replay-view';
 
-export const VIEW_TYPE_SEARCH = 'agent-sessions-search';
+export const VIEW_TYPE_SEARCH = 'claude-sessions-search';
 
 const DEBOUNCE_MS = 300;
 const VISIBLE_MATCHES_PER_SESSION = 5;
@@ -27,7 +27,7 @@ interface SearchViewState {
 }
 
 export class SearchView extends ItemView {
-	private plugin: AgentSessionsPlugin;
+	private plugin: ClaudeSessionsPlugin;
 
 	// Mode
 	private mode: SearchMode = 'cross-session';
@@ -57,7 +57,7 @@ export class SearchView extends ItemView {
 	private progressEl!: HTMLElement;
 	private resultsEl!: HTMLElement;
 
-	constructor(leaf: WorkspaceLeaf, plugin: AgentSessionsPlugin) {
+	constructor(leaf: WorkspaceLeaf, plugin: ClaudeSessionsPlugin) {
 		super(leaf);
 		this.plugin = plugin;
 	}
@@ -77,34 +77,34 @@ export class SearchView extends ItemView {
 	async onOpen(): Promise<void> {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.addClass('agent-sessions-search-view');
+		contentEl.addClass('claude-sessions-search-view');
 
 		// Mode toggle
-		const modeRow = contentEl.createDiv({ cls: 'agent-sessions-search-mode-toggle' });
+		const modeRow = contentEl.createDiv({ cls: 'claude-sessions-search-mode-toggle' });
 
 		this.crossBtn = modeRow.createEl('button', {
-			cls: 'agent-sessions-search-mode-btn',
+			cls: 'claude-sessions-search-mode-btn',
 			text: 'All sessions',
 			attr: { 'aria-label': 'Search all sessions', 'data-tooltip-position': 'bottom' },
 		});
 		this.crossBtn.addEventListener('click', () => this.setMode('cross-session'));
 
 		this.inSessionBtn = modeRow.createEl('button', {
-			cls: 'agent-sessions-search-mode-btn',
+			cls: 'claude-sessions-search-mode-btn',
 			text: 'Current session',
 			attr: { 'aria-label': 'Search current session', 'data-tooltip-position': 'bottom' },
 		});
 		this.inSessionBtn.addEventListener('click', () => this.setMode('in-session'));
 
 		// Scope label
-		this.scopeLabel = contentEl.createDiv({ cls: 'agent-sessions-search-scope-label' });
+		this.scopeLabel = contentEl.createDiv({ cls: 'claude-sessions-search-scope-label' });
 
 		// Search input row
-		const inputRow = contentEl.createDiv({ cls: 'agent-sessions-search-input-row' });
+		const inputRow = contentEl.createDiv({ cls: 'claude-sessions-search-input-row' });
 
 		this.inputEl = inputRow.createEl('input', {
 			type: 'text',
-			cls: 'agent-sessions-search-input',
+			cls: 'claude-sessions-search-input',
 			attr: {
 				placeholder: 'Search...',
 				'aria-label': 'Search query',
@@ -112,7 +112,7 @@ export class SearchView extends ItemView {
 		});
 
 		this.roleSelect = inputRow.createEl('select', {
-			cls: 'agent-sessions-search-role-select',
+			cls: 'claude-sessions-search-role-select',
 			attr: { 'aria-label': 'Filter by role' },
 		});
 		for (const [value, label] of [['all', 'All'], ['user', 'User'], ['assistant', 'Assistant']] as const) {
@@ -120,10 +120,10 @@ export class SearchView extends ItemView {
 		}
 
 		// Progress
-		this.progressEl = contentEl.createDiv({ cls: 'agent-sessions-search-progress' });
+		this.progressEl = contentEl.createDiv({ cls: 'claude-sessions-search-progress' });
 
 		// Results
-		this.resultsEl = contentEl.createDiv({ cls: 'agent-sessions-search-results' });
+		this.resultsEl = contentEl.createDiv({ cls: 'claude-sessions-search-results' });
 
 		// Event handlers
 		this.inputEl.addEventListener('input', () => this.onQueryChange());
@@ -133,14 +133,14 @@ export class SearchView extends ItemView {
 		this.inputEl.addEventListener('keydown', (e: KeyboardEvent) => {
 			if (e.key === 'ArrowDown') {
 				e.preventDefault();
-				const first = this.resultsEl.querySelector('.agent-sessions-search-match-row') as HTMLElement | null;
+				const first = this.resultsEl.querySelector('.claude-sessions-search-match-row') as HTMLElement | null;
 				first?.focus();
 			}
 		});
 
 		this.resultsEl.addEventListener('keydown', (e: KeyboardEvent) => {
 			const target = e.target as HTMLElement;
-			if (!target.hasClass('agent-sessions-search-match-row')) return;
+			if (!target.hasClass('claude-sessions-search-match-row')) return;
 
 			if (e.key === 'ArrowDown') {
 				e.preventDefault();
@@ -269,7 +269,7 @@ export class SearchView extends ItemView {
 		}
 		// Fallback: search all replay leaves for one with a session
 		if (!this.trackedSession) {
-			const leaves = this.app.workspace.getLeavesOfType('agent-sessions-replay');
+			const leaves = this.app.workspace.getLeavesOfType('claude-sessions-replay');
 			for (const l of leaves) {
 				if (l.view instanceof ReplayView) {
 					const s = (l.view as ReplayView).getSession();
@@ -380,7 +380,7 @@ export class SearchView extends ItemView {
 		if (matches.length > SINGLE_SESSION_VISIBLE) {
 			const remaining = matches.length - SINGLE_SESSION_VISIBLE;
 			const moreBtn = this.resultsEl.createDiv({
-				cls: 'agent-sessions-search-more-btn',
+				cls: 'claude-sessions-search-more-btn',
 				text: `+${remaining} more`,
 			});
 			makeClickable(moreBtn, { label: `Show ${remaining} more matches` });
@@ -397,16 +397,16 @@ export class SearchView extends ItemView {
 		const session = this.trackedSession;
 		if (!session) return;
 
-		const row = this.resultsEl.createDiv({ cls: 'agent-sessions-search-match-row' });
+		const row = this.resultsEl.createDiv({ cls: 'claude-sessions-search-match-row' });
 		makeClickable(row, { label: 'Go to match' });
 
 		const resolvedTurn = resolveMatchTurn(match, session.turns);
 
 		// Turn label
-		row.createSpan({ cls: 'agent-sessions-search-match-turn', text: `#${resolvedTurn + 1}` });
+		row.createSpan({ cls: 'claude-sessions-search-match-turn', text: `#${resolvedTurn + 1}` });
 
 		// Role + type
-		const meta = row.createSpan({ cls: 'agent-sessions-search-match-meta' });
+		const meta = row.createSpan({ cls: 'claude-sessions-search-match-meta' });
 		const roleIcon = match.role === 'user' ? 'U' : 'A';
 		const typeLabel = match.toolName || match.blockType;
 		meta.setText(`${roleIcon} · ${typeLabel}`);
@@ -415,12 +415,12 @@ export class SearchView extends ItemView {
 			const ts = new Date(match.timestamp);
 			if (!isNaN(ts.getTime())) {
 				const time = ts.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
-				row.createSpan({ cls: 'agent-sessions-search-match-time', text: time });
+				row.createSpan({ cls: 'claude-sessions-search-match-time', text: time });
 			}
 		}
 
 		// Context snippet
-		const snippet = row.createDiv({ cls: 'agent-sessions-search-snippet' });
+		const snippet = row.createDiv({ cls: 'claude-sessions-search-snippet' });
 		if (match.contextBefore) snippet.createSpan({ text: match.contextBefore });
 		snippet.createEl('mark', { text: match.matchText });
 		if (match.contextAfter) snippet.createSpan({ text: match.contextAfter });
@@ -498,23 +498,23 @@ export class SearchView extends ItemView {
 	}
 
 	private renderSessionResult(result: SessionSearchResult, query: SearchQuery): void {
-		const group = this.resultsEl.createDiv({ cls: 'agent-sessions-search-session-group' });
+		const group = this.resultsEl.createDiv({ cls: 'claude-sessions-search-session-group' });
 
 		// Session header
-		const header = group.createDiv({ cls: 'agent-sessions-search-session-header' });
-		header.createSpan({ cls: 'agent-sessions-search-session-project', text: result.entry.project });
+		const header = group.createDiv({ cls: 'claude-sessions-search-session-header' });
+		header.createSpan({ cls: 'claude-sessions-search-session-project', text: result.entry.project });
 		if (result.entry.date) {
-			header.createSpan({ cls: 'agent-sessions-search-session-date', text: result.entry.date });
+			header.createSpan({ cls: 'claude-sessions-search-session-date', text: result.entry.date });
 		}
 		const pathText = result.entry.cwd ? shortenPath(result.entry.cwd) : '';
 		if (pathText) {
-			header.createDiv({ cls: 'agent-sessions-search-session-path', text: pathText });
+			header.createDiv({ cls: 'claude-sessions-search-session-path', text: pathText });
 		}
 
 		const countText = result.totalMatches === result.matches.length
 			? `${result.totalMatches} match${result.totalMatches !== 1 ? 'es' : ''}`
 			: `${result.totalMatches} matches (showing ${result.matches.length})`;
-		header.createSpan({ cls: 'agent-sessions-search-match-count', text: countText });
+		header.createSpan({ cls: 'claude-sessions-search-match-count', text: countText });
 
 		// Match rows
 		const visibleCount = Math.min(VISIBLE_MATCHES_PER_SESSION, result.matches.length);
@@ -526,7 +526,7 @@ export class SearchView extends ItemView {
 		if (result.matches.length > VISIBLE_MATCHES_PER_SESSION) {
 			const remaining = result.matches.length - VISIBLE_MATCHES_PER_SESSION;
 			const moreBtn = group.createDiv({
-				cls: 'agent-sessions-search-more-btn',
+				cls: 'claude-sessions-search-more-btn',
 				text: `+${remaining} more`,
 			});
 			makeClickable(moreBtn, { label: `Show ${remaining} more matches` });
@@ -545,11 +545,11 @@ export class SearchView extends ItemView {
 		match: SearchMatch,
 		query: SearchQuery,
 	): void {
-		const row = container.createDiv({ cls: 'agent-sessions-search-match-row' });
+		const row = container.createDiv({ cls: 'claude-sessions-search-match-row' });
 		makeClickable(row, { label: 'Open match in session' });
 
 		// Role + type label
-		const meta = row.createSpan({ cls: 'agent-sessions-search-match-meta' });
+		const meta = row.createSpan({ cls: 'claude-sessions-search-match-meta' });
 		const roleIcon = match.role === 'user' ? 'U' : 'A';
 		const typeLabel = match.toolName || match.blockType;
 		meta.setText(`${roleIcon} · ${typeLabel}`);
@@ -558,12 +558,12 @@ export class SearchView extends ItemView {
 			const ts = new Date(match.timestamp);
 			if (!isNaN(ts.getTime())) {
 				const time = ts.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
-				row.createSpan({ cls: 'agent-sessions-search-match-time', text: time });
+				row.createSpan({ cls: 'claude-sessions-search-match-time', text: time });
 			}
 		}
 
 		// Context snippet with highlighted match
-		const snippet = row.createDiv({ cls: 'agent-sessions-search-snippet' });
+		const snippet = row.createDiv({ cls: 'claude-sessions-search-snippet' });
 		if (match.contextBefore) snippet.createSpan({ text: match.contextBefore });
 		snippet.createEl('mark', { text: match.matchText });
 		if (match.contextAfter) snippet.createSpan({ text: match.contextAfter });
@@ -604,16 +604,16 @@ export class SearchView extends ItemView {
 	}
 }
 
-/** Find the next .agent-sessions-search-match-row after the current one. */
+/** Find the next .claude-sessions-search-match-row after the current one. */
 function nextFocusable(current: HTMLElement, container: HTMLElement): HTMLElement | null {
-	const all = Array.from(container.querySelectorAll('.agent-sessions-search-match-row'));
+	const all = Array.from(container.querySelectorAll('.claude-sessions-search-match-row'));
 	const idx = all.indexOf(current);
 	return idx >= 0 && idx < all.length - 1 ? all[idx + 1] as HTMLElement : null;
 }
 
-/** Find the previous .agent-sessions-search-match-row before the current one. */
+/** Find the previous .claude-sessions-search-match-row before the current one. */
 function prevFocusable(current: HTMLElement, container: HTMLElement): HTMLElement | null {
-	const all = Array.from(container.querySelectorAll('.agent-sessions-search-match-row'));
+	const all = Array.from(container.querySelectorAll('.claude-sessions-search-match-row'));
 	const idx = all.indexOf(current);
 	return idx > 0 ? all[idx - 1] as HTMLElement : null;
 }

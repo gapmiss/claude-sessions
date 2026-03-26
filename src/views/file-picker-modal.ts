@@ -1,14 +1,14 @@
 import { Modal, Notice, Setting, Platform } from 'obsidian';
-import type AgentSessionsPlugin from '../main';
+import type ClaudeSessionsPlugin from '../main';
 import { expandHome } from '../utils/path-utils';
 import { readFileContent } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
 import { resolveSubAgentSessions } from '../parsers/claude-subagent';
 
 export class FilePickerModal extends Modal {
-	private plugin: AgentSessionsPlugin;
+	private plugin: ClaudeSessionsPlugin;
 
-	constructor(app: InstanceType<typeof import('obsidian').App>, plugin: AgentSessionsPlugin) {
+	constructor(app: InstanceType<typeof import('obsidian').App>, plugin: ClaudeSessionsPlugin) {
 		super(app);
 		this.plugin = plugin;
 	}
@@ -16,14 +16,14 @@ export class FilePickerModal extends Modal {
 	onOpen(): void {
 		const { contentEl } = this;
 		contentEl.empty();
-		this.modalEl.addClass('agent-sessions-file-picker-modal');
+		this.modalEl.addClass('claude-sessions-file-picker-modal');
 		contentEl.createEl('h3', { text: 'Import session file' });
 
 		let filePath = '';
 
 		// Drop zone / file picker
 		if (!Platform.isMobile) {
-			const dropZone = contentEl.createDiv({ cls: 'agent-sessions-drop-zone' });
+			const dropZone = contentEl.createDiv({ cls: 'claude-sessions-drop-zone' });
 			dropZone.setAttribute('tabindex', '0');
 			dropZone.setAttribute('role', 'button');
 			dropZone.setAttribute('aria-label', 'Drop or click to select a session file');
@@ -35,21 +35,21 @@ export class FilePickerModal extends Modal {
 			});
 			const fileInput = dropZone.createEl('input', { type: 'file' });
 			fileInput.accept = '.jsonl,.json';
-			fileInput.addClass('agent-sessions-drop-zone-input');
-			fileInput.addClass('agent-sessions-hidden');
+			fileInput.addClass('claude-sessions-drop-zone-input');
+			fileInput.addClass('claude-sessions-hidden');
 
-			const label = dropZone.createDiv({ cls: 'agent-sessions-drop-zone-label' });
+			const label = dropZone.createDiv({ cls: 'claude-sessions-drop-zone-label' });
 			label.createSpan({ text: 'Drop a session file here, or ' });
 			const browseLink = label.createEl('button', {
 				text: 'Browse',
-				cls: 'agent-sessions-drop-zone-browse',
+				cls: 'claude-sessions-drop-zone-browse',
 				attr: { 'aria-label': 'Browse for session file', type: 'button' },
 			});
 			label.createSpan({ text: '.' });
 
 			const hint = dropZone.createDiv({
 				text: '.jsonl or .json',
-				cls: 'agent-sessions-drop-zone-hint',
+				cls: 'claude-sessions-drop-zone-hint',
 			});
 
 			// Click to browse
@@ -88,7 +88,7 @@ export class FilePickerModal extends Modal {
 
 		// Divider with "or enter path"
 		if (!Platform.isMobile) {
-			const divider = contentEl.createDiv({ cls: 'agent-sessions-drop-zone-divider' });
+			const divider = contentEl.createDiv({ cls: 'claude-sessions-drop-zone-divider' });
 			divider.createSpan({ text: 'or enter a path' });
 		}
 
@@ -116,7 +116,7 @@ export class FilePickerModal extends Modal {
 		if (Platform.isMobile) {
 			contentEl.createEl('p', {
 				text: 'On mobile, copy session files into your vault and open them from there.',
-				cls: 'agent-sessions-mobile-notice',
+				cls: 'claude-sessions-mobile-notice',
 			});
 		}
 	}

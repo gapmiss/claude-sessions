@@ -144,7 +144,7 @@ export interface PluginSettings {
 
 export const DEFAULT_SETTINGS: PluginSettings = {
 	sessionDirs: ['~/.claude/projects'],
-	exportFolder: 'agent-sessions',
+	exportFolder: 'Claude sessions',
 	showThinkingBlocks: true,
 	showToolCalls: true,
 	showToolResults: true,

@@ -11,7 +11,7 @@ export function getStandaloneScript(): string {
   /* ── Collapsible toggle (turns, tools, tool groups, thinking, sub-agents, summary, slash commands) ── */
   /*
    * The live view uses CSS class toggling — NOT display manipulation:
-   *   - Turn: "collapsed" class on .agent-sessions-turn
+   *   - Turn: "collapsed" class on .claude-sessions-turn
    *   - Everything else: "open" class on the parent container
    * The CSS handles show/hide via these classes.
    */
@@ -20,8 +20,8 @@ export function getStandaloneScript(): string {
     header.setAttribute('aria-expanded', String(!expanded));
 
     /* Turn header: toggle "collapsed" class on turn element */
-    var turn = header.closest('.agent-sessions-turn');
-    if (turn && header.classList.contains('agent-sessions-turn-header')) {
+    var turn = header.closest('.claude-sessions-turn');
+    if (turn && header.classList.contains('claude-sessions-turn-header')) {
       turn.classList.toggle('collapsed', expanded); /* expanded=true means collapse */
       return;
     }
@@ -36,7 +36,7 @@ export function getStandaloneScript(): string {
 
   /* ── Show more / show less ── */
   function toggleShowMore(btn) {
-    var wrap = btn.closest('.agent-sessions-collapsible-wrap');
+    var wrap = btn.closest('.claude-sessions-collapsible-wrap');
     if (!wrap) return;
     var collapsed = wrap.classList.toggle('is-collapsed');
     btn.setAttribute('aria-expanded', String(!collapsed));
@@ -73,13 +73,13 @@ export function getStandaloneScript(): string {
   function openImageModal(src, mime) {
     closeImageModal();
     modalOverlay = document.createElement('div');
-    modalOverlay.className = 'agent-sessions-image-modal-overlay';
+    modalOverlay.className = 'claude-sessions-image-modal-overlay';
     modalOverlay.addEventListener('click', function(e) {
       if (e.target === modalOverlay) closeImageModal();
     });
 
     var container = document.createElement('div');
-    container.className = 'agent-sessions-image-modal-container';
+    container.className = 'claude-sessions-image-modal-container';
 
     var img = document.createElement('img');
     img.src = src;
@@ -88,18 +88,18 @@ export function getStandaloneScript(): string {
     container.appendChild(img);
 
     var toolbar = document.createElement('div');
-    toolbar.className = 'agent-sessions-image-modal-toolbar';
+    toolbar.className = 'claude-sessions-image-modal-toolbar';
 
     var dlBtn = document.createElement('a');
     dlBtn.href = src;
     dlBtn.download = 'image.' + (mime || 'png').split('/').pop();
     dlBtn.textContent = 'Download';
-    dlBtn.className = 'agent-sessions-image-modal-btn';
+    dlBtn.className = 'claude-sessions-image-modal-btn';
     toolbar.appendChild(dlBtn);
 
     var closeBtn = document.createElement('button');
     closeBtn.textContent = 'Close';
-    closeBtn.className = 'agent-sessions-image-modal-btn';
+    closeBtn.className = 'claude-sessions-image-modal-btn';
     closeBtn.addEventListener('click', closeImageModal);
     toolbar.appendChild(closeBtn);
 
@@ -125,7 +125,7 @@ export function getStandaloneScript(): string {
 
     menu = document.createElement('div');
     menu.id = 'as-filter-menu';
-    menu.className = 'agent-sessions-filter-menu';
+    menu.className = 'claude-sessions-filter-menu';
 
     var filters = [
       { key: 'user', label: 'User', parent: true },
@@ -142,7 +142,7 @@ export function getStandaloneScript(): string {
 
     filters.forEach(function(f) {
       var row = document.createElement('label');
-      row.className = 'agent-sessions-filter-row' + (f.parent ? ' parent' : ' child');
+      row.className = 'claude-sessions-filter-row' + (f.parent ? ' parent' : ' child');
       var cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.checked = state[f.key] !== false;
@@ -173,49 +173,49 @@ export function getStandaloneScript(): string {
   function applyFilters(state) {
     var root = document.getElementById('as-export-root');
     if (!root) return;
-    var FC = 'agent-sessions-filtered';
+    var FC = 'claude-sessions-filtered';
 
     function toggleFiltered(el, hidden) {
       if (hidden) el.classList.add(FC); else el.classList.remove(FC);
     }
 
     /* User role sections */
-    root.querySelectorAll('.agent-sessions-role-user').forEach(function(el) {
+    root.querySelectorAll('.claude-sessions-role-user').forEach(function(el) {
       toggleFiltered(el, state.user === false);
     });
     if (state.user !== false) {
-      root.querySelectorAll('.agent-sessions-user-text').forEach(function(el) {
-        var wrapper = el.closest('.agent-sessions-block-wrapper');
+      root.querySelectorAll('.claude-sessions-user-text').forEach(function(el) {
+        var wrapper = el.closest('.claude-sessions-block-wrapper');
         if (wrapper) toggleFiltered(wrapper, state.userText === false);
       });
-      root.querySelectorAll('.agent-sessions-slash-command-block').forEach(function(el) {
-        var wrapper = el.closest('.agent-sessions-block-wrapper');
+      root.querySelectorAll('.claude-sessions-slash-command-block').forEach(function(el) {
+        var wrapper = el.closest('.claude-sessions-block-wrapper');
         if (wrapper) toggleFiltered(wrapper, state.userText === false);
       });
-      root.querySelectorAll('.agent-sessions-image-thumbnail').forEach(function(el) {
-        var wrapper = el.closest('.agent-sessions-block-wrapper');
+      root.querySelectorAll('.claude-sessions-image-thumbnail').forEach(function(el) {
+        var wrapper = el.closest('.claude-sessions-block-wrapper');
         if (wrapper) toggleFiltered(wrapper, state.userImages === false);
       });
     }
 
     /* Assistant role sections */
-    root.querySelectorAll('.agent-sessions-role-assistant').forEach(function(el) {
+    root.querySelectorAll('.claude-sessions-role-assistant').forEach(function(el) {
       toggleFiltered(el, state.assistant === false);
     });
     if (state.assistant !== false) {
-      root.querySelectorAll('.agent-sessions-assistant-text').forEach(function(el) {
-        var wrapper = el.closest('.agent-sessions-block-wrapper');
+      root.querySelectorAll('.claude-sessions-assistant-text').forEach(function(el) {
+        var wrapper = el.closest('.claude-sessions-block-wrapper');
         if (wrapper) toggleFiltered(wrapper, state.assistantText === false);
       });
-      root.querySelectorAll('.agent-sessions-thinking-block').forEach(function(el) {
-        var wrapper = el.closest('.agent-sessions-block-wrapper');
+      root.querySelectorAll('.claude-sessions-thinking-block').forEach(function(el) {
+        var wrapper = el.closest('.claude-sessions-block-wrapper');
         if (wrapper) toggleFiltered(wrapper, state.thinking === false);
       });
-      root.querySelectorAll('.agent-sessions-tool-block, .agent-sessions-tool-group').forEach(function(el) {
-        var wrapper = el.closest('.agent-sessions-block-wrapper');
+      root.querySelectorAll('.claude-sessions-tool-block, .claude-sessions-tool-group').forEach(function(el) {
+        var wrapper = el.closest('.claude-sessions-block-wrapper');
         if (wrapper) toggleFiltered(wrapper, state.toolCalls === false);
       });
-      root.querySelectorAll('.agent-sessions-tool-result').forEach(function(el) {
+      root.querySelectorAll('.claude-sessions-tool-result').forEach(function(el) {
         toggleFiltered(el, state.toolResults === false);
       });
     }
@@ -233,7 +233,7 @@ export function getStandaloneScript(): string {
     }
 
     /* Show more button */
-    var showBtn = target.closest('.agent-sessions-show-more-btn');
+    var showBtn = target.closest('.claude-sessions-show-more-btn');
     if (showBtn) {
       e.preventDefault();
       toggleShowMore(showBtn);
@@ -241,7 +241,7 @@ export function getStandaloneScript(): string {
     }
 
     /* Copy buttons */
-    var copyBtn = target.closest('.agent-sessions-copy-btn, .agent-sessions-text-copy, .agent-sessions-summary-copy, .copy-code-button');
+    var copyBtn = target.closest('.claude-sessions-copy-btn, .claude-sessions-text-copy, .claude-sessions-summary-copy, .copy-code-button');
     if (copyBtn) {
       e.preventDefault();
       var text = copyBtn.getAttribute('data-copy-text');
@@ -258,7 +258,7 @@ export function getStandaloneScript(): string {
     }
 
     /* Image thumbnails */
-    var thumb = target.closest('.agent-sessions-image-thumbnail');
+    var thumb = target.closest('.claude-sessions-image-thumbnail');
     if (thumb) {
       var img = thumb.querySelector('img');
       if (img) openImageModal(img.src, thumb.getAttribute('data-mime'));
@@ -286,7 +286,7 @@ export function getStandaloneScript(): string {
   });
 
   /* Make all turns visible (no IntersectionObserver in export) */
-  document.querySelectorAll('.agent-sessions-turn').forEach(function(t) {
+  document.querySelectorAll('.claude-sessions-turn').forEach(function(t) {
     t.classList.add('visible');
   });
 })();`;

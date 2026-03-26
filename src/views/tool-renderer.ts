@@ -45,19 +45,19 @@ export function renderToolGroup(
 			renderToolCall(tu, resultMap.get(tu.id), container, ctx, delegate);
 		}
 	} else {
-		const groupEl = container.createDiv({ cls: 'agent-sessions-tool-group' });
-		const groupHeader = groupEl.createDiv({ cls: 'agent-sessions-tool-group-header' });
-		groupHeader.createSpan({ cls: 'agent-sessions-tool-group-chevron', text: '\u25B6' });
+		const groupEl = container.createDiv({ cls: 'claude-sessions-tool-group' });
+		const groupHeader = groupEl.createDiv({ cls: 'claude-sessions-tool-group-header' });
+		groupHeader.createSpan({ cls: 'claude-sessions-tool-group-chevron', text: '\u25B6' });
 
 		const uniqueNames = [...new Set(toolUses.map(t => t.name))].join(', ');
 		const hasError = toolResults.some(r => r.isError);
 		if (hasError) {
-			groupHeader.createSpan({ cls: 'agent-sessions-tool-indicator agent-sessions-tool-error' });
+			groupHeader.createSpan({ cls: 'claude-sessions-tool-indicator claude-sessions-tool-error' });
 		}
 		groupHeader.createSpan({ text: `${toolUses.length} tool calls ` });
-		groupHeader.createSpan({ cls: 'agent-sessions-tool-group-names', text: uniqueNames });
+		groupHeader.createSpan({ cls: 'claude-sessions-tool-group-names', text: uniqueNames });
 
-		const groupBody = groupEl.createDiv({ cls: 'agent-sessions-tool-group-body' });
+		const groupBody = groupEl.createDiv({ cls: 'claude-sessions-tool-group-body' });
 
 		makeClickable(groupHeader, { label: `Toggle ${toolUses.length} tool calls`, expanded: false });
 		groupHeader.addEventListener('click', () => {
@@ -79,39 +79,39 @@ export function renderToolCall(
 	ctx: RenderContext,
 	delegate: ToolRendererDelegate,
 ): void {
-	const toolEl = container.createDiv({ cls: 'agent-sessions-tool-block' });
+	const toolEl = container.createDiv({ cls: 'claude-sessions-tool-block' });
 
 	// Header bar
-	const header = toolEl.createDiv({ cls: 'agent-sessions-tool-header' });
+	const header = toolEl.createDiv({ cls: 'claude-sessions-tool-header' });
 	const isError = result?.isError ?? false;
 	const indicatorCls = (block.isOrphaned || block.isPending)
-		? 'agent-sessions-tool-indicator agent-sessions-tool-orphaned'
-		: `agent-sessions-tool-indicator ${isError ? 'agent-sessions-tool-error' : ''}`;
+		? 'claude-sessions-tool-indicator claude-sessions-tool-orphaned'
+		: `claude-sessions-tool-indicator ${isError ? 'claude-sessions-tool-error' : ''}`;
 	header.createSpan({ cls: indicatorCls });
-	header.createSpan({ cls: 'agent-sessions-tool-name', text: block.name });
-	header.createSpan({ cls: 'agent-sessions-tool-preview', text: toolPreview(block) });
+	header.createSpan({ cls: 'claude-sessions-tool-name', text: block.name });
+	header.createSpan({ cls: 'claude-sessions-tool-preview', text: toolPreview(block) });
 	if (block.isPending) {
-		header.createSpan({ cls: 'agent-sessions-tool-duration agent-sessions-tool-orphaned-label', text: 'in progress' });
+		header.createSpan({ cls: 'claude-sessions-tool-duration claude-sessions-tool-orphaned-label', text: 'in progress' });
 	} else if (block.isOrphaned) {
-		header.createSpan({ cls: 'agent-sessions-tool-duration agent-sessions-tool-orphaned-label', text: 'interrupted' });
+		header.createSpan({ cls: 'claude-sessions-tool-duration claude-sessions-tool-orphaned-label', text: 'interrupted' });
 	} else if (block.timestamp && result?.timestamp) {
 		const elapsed = new Date(result.timestamp).getTime() - new Date(block.timestamp).getTime();
 		if (elapsed > 0 && !isNaN(elapsed)) {
-			header.createSpan({ cls: 'agent-sessions-tool-duration', text: formatToolDuration(elapsed) });
+			header.createSpan({ cls: 'claude-sessions-tool-duration', text: formatToolDuration(elapsed) });
 		}
 	}
 	if (ctx.settings.showHookIcons && block.hooks && block.hooks.length > 0) {
 		const hookNames = [...new Set(block.hooks.map(h => h.hookName))].join(', ');
 		const hookIcon = header.createSpan({
-			cls: 'agent-sessions-hook-icon',
+			cls: 'claude-sessions-hook-icon',
 			attr: { 'aria-label': hookNames, 'data-tooltip-position': 'top' },
 		});
 		setIcon(hookIcon, 'fish');
 	}
-	header.createSpan({ cls: 'agent-sessions-tool-chevron', text: '\u25B6' });
+	header.createSpan({ cls: 'claude-sessions-tool-chevron', text: '\u25B6' });
 
 	// Body (hidden by default)
-	const body = toolEl.createDiv({ cls: 'agent-sessions-tool-body' });
+	const body = toolEl.createDiv({ cls: 'claude-sessions-tool-body' });
 
 	// Input section
 	if ((block.name === 'Agent' || block.name === 'Task') && block.subAgentSession) {
@@ -123,11 +123,11 @@ export function renderToolCall(
 	} else if (block.name === 'Bash') {
 		renderBashInput(block, body, ctx);
 	} else {
-		const inputEl = body.createDiv({ cls: 'agent-sessions-tool-input' });
-		inputEl.createDiv({ cls: 'agent-sessions-tool-section-label', text: 'INPUT' });
+		const inputEl = body.createDiv({ cls: 'claude-sessions-tool-input' });
+		inputEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'INPUT' });
 		const inputText = formatInput(block.input);
 		const inputMd = fence(inputText, 'json');
-		const inputMdContainer = inputEl.createDiv({ cls: 'agent-sessions-tool-input-code' });
+		const inputMdContainer = inputEl.createDiv({ cls: 'claude-sessions-tool-input-code' });
 		MarkdownRenderer.render(ctx.app, inputMd, inputMdContainer, '', ctx.component);
 	}
 
@@ -160,9 +160,9 @@ function renderToolResult(
 	delegate: ToolRendererDelegate,
 ): void {
 	const resultEl = body.createDiv({
-		cls: `agent-sessions-tool-result ${isError ? 'agent-sessions-tool-result-error' : ''}`,
+		cls: `claude-sessions-tool-result ${isError ? 'claude-sessions-tool-result-error' : ''}`,
 	});
-	resultEl.createDiv({ cls: 'agent-sessions-tool-section-label', text: 'RESULT' });
+	resultEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'RESULT' });
 	const resultText = result.content.length > 5000
 		? result.content.substring(0, 5000) + '\n... (truncated)'
 		: result.content;
@@ -179,19 +179,19 @@ function renderToolResult(
 			renderReadMarkdownToggle(cleaned, lang, resultEl, ctx);
 		} else {
 			const md = fence(cleaned, lang);
-			const mdContainer = resultEl.createDiv({ cls: 'agent-sessions-read-result' });
+			const mdContainer = resultEl.createDiv({ cls: 'claude-sessions-read-result' });
 			MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
 		}
 	} else if (block.name === 'Bash' && !isError && isBashDiffResult(block, resultText)) {
 		const resultMd = fence(resultText, 'diff');
-		const resultMdContainer = resultEl.createDiv({ cls: 'agent-sessions-tool-result-code' });
+		const resultMdContainer = resultEl.createDiv({ cls: 'claude-sessions-tool-result-code' });
 		MarkdownRenderer.render(ctx.app, resultMd, resultMdContainer, '', ctx.component);
 	} else if (block.name === 'Bash' && !isError && hasAnsiCodes(resultText)) {
-		const pre = resultEl.createEl('pre', { cls: 'agent-sessions-ansi-block' });
+		const pre = resultEl.createEl('pre', { cls: 'claude-sessions-ansi-block' });
 		delegate.buildAnsiDom(resultText, pre);
 	} else {
 		const resultMd = fence(resultText);
-		const resultMdContainer = resultEl.createDiv({ cls: 'agent-sessions-tool-result-code' });
+		const resultMdContainer = resultEl.createDiv({ cls: 'claude-sessions-tool-result-code' });
 		MarkdownRenderer.render(ctx.app, resultMd, resultMdContainer, '', ctx.component);
 	}
 
@@ -200,16 +200,16 @@ function renderToolResult(
 		const exitCode = result.enrichedResult['exitCode'];
 		const stderr = result.enrichedResult['stderr'] as string | undefined;
 		if (exitCode != null && exitCode !== 0) {
-			resultEl.createDiv({ cls: 'agent-sessions-tool-exit-code', text: `Exit code: ${exitCode}` });
+			resultEl.createDiv({ cls: 'claude-sessions-tool-exit-code', text: `Exit code: ${exitCode}` });
 		}
 		if (stderr?.trim()) {
-			const stderrLabel = resultEl.createDiv({ cls: 'agent-sessions-tool-section-label' });
+			const stderrLabel = resultEl.createDiv({ cls: 'claude-sessions-tool-section-label' });
 			stderrLabel.createSpan({ text: 'STDERR' });
 			const stderrText = stderr.length > 2000
 				? stderr.substring(0, 2000) + '\n... (truncated)'
 				: stderr;
 			const stderrMd = fence(stderrText);
-			const stderrContainer = resultEl.createDiv({ cls: 'agent-sessions-tool-result-code agent-sessions-tool-result-error' });
+			const stderrContainer = resultEl.createDiv({ cls: 'claude-sessions-tool-result-code claude-sessions-tool-result-error' });
 			MarkdownRenderer.render(ctx.app, stderrMd, stderrContainer, '', ctx.component);
 		}
 	}
@@ -271,47 +271,47 @@ function renderTaskResult(
 	if (ts.size === 0) return;
 
 	// Render full cumulative task list
-	const list = container.createDiv({ cls: 'agent-sessions-task-list' });
+	const list = container.createDiv({ cls: 'claude-sessions-task-list' });
 	for (const task of ts.values()) {
 		const statusCls = TASK_STATUS_CLS[task.status] || 'pending';
-		const item = list.createDiv({ cls: `agent-sessions-task-item agent-sessions-task-${statusCls}` });
-		const icon = item.createSpan({ cls: 'agent-sessions-task-icon' });
+		const item = list.createDiv({ cls: `claude-sessions-task-item claude-sessions-task-${statusCls}` });
+		const icon = item.createSpan({ cls: 'claude-sessions-task-icon' });
 		setIcon(icon, TASK_STATUS_ICON[task.status] || 'circle');
-		const label = item.createSpan({ cls: 'agent-sessions-task-label' });
-		label.createSpan({ cls: 'agent-sessions-task-id', text: `#${task.id}` });
+		const label = item.createSpan({ cls: 'claude-sessions-task-label' });
+		label.createSpan({ cls: 'claude-sessions-task-id', text: `#${task.id}` });
 		label.createSpan({ text: task.subject });
 	}
 }
 
 function renderBashInput(block: ToolUseBlock, container: HTMLElement, ctx: RenderContext): void {
-	const inputEl = container.createDiv({ cls: 'agent-sessions-tool-input' });
-	inputEl.createDiv({ cls: 'agent-sessions-tool-section-label', text: 'INPUT' });
+	const inputEl = container.createDiv({ cls: 'claude-sessions-tool-input' });
+	inputEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'INPUT' });
 	const command = String(block.input['command'] || '');
 	const md = fence(command, 'bash');
-	const mdContainer = inputEl.createDiv({ cls: 'agent-sessions-tool-input-code' });
+	const mdContainer = inputEl.createDiv({ cls: 'claude-sessions-tool-input-code' });
 	MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
 }
 
 function renderReadMarkdownToggle(content: string, lang: string, container: HTMLElement, ctx: RenderContext): void {
-	const wrapper = container.createDiv({ cls: 'agent-sessions-read-result agent-sessions-read-md-toggle' });
+	const wrapper = container.createDiv({ cls: 'claude-sessions-read-result claude-sessions-read-md-toggle' });
 
-	const toggleRow = wrapper.createDiv({ cls: 'agent-sessions-read-md-toggle-row' });
+	const toggleRow = wrapper.createDiv({ cls: 'claude-sessions-read-md-toggle-row' });
 	const codeBtn = toggleRow.createEl('button', {
-		cls: 'agent-sessions-read-md-btn active',
+		cls: 'claude-sessions-read-md-btn active',
 		text: 'Code',
 		attr: { 'aria-label': 'Show raw code', 'aria-pressed': 'true' },
 	});
 	const previewBtn = toggleRow.createEl('button', {
-		cls: 'agent-sessions-read-md-btn',
+		cls: 'claude-sessions-read-md-btn',
 		text: 'Preview',
 		attr: { 'aria-label': 'Show rendered Markdown', 'aria-pressed': 'false' },
 	});
 
-	const codeView = wrapper.createDiv({ cls: 'agent-sessions-read-md-code' });
+	const codeView = wrapper.createDiv({ cls: 'claude-sessions-read-md-code' });
 	const codeMd = fence(content, lang);
 	MarkdownRenderer.render(ctx.app, codeMd, codeView, '', ctx.component);
 
-	const previewView = wrapper.createDiv({ cls: 'agent-sessions-read-md-preview agent-sessions-read-md-hidden' });
+	const previewView = wrapper.createDiv({ cls: 'claude-sessions-read-md-preview claude-sessions-read-md-hidden' });
 	let previewRendered = false;
 
 	const setActive = (mode: 'code' | 'preview') => {
@@ -320,8 +320,8 @@ function renderReadMarkdownToggle(content: string, lang: string, container: HTML
 		previewBtn.toggleClass('active', !isCode);
 		codeBtn.setAttribute('aria-pressed', String(isCode));
 		previewBtn.setAttribute('aria-pressed', String(!isCode));
-		codeView.toggleClass('agent-sessions-read-md-hidden', !isCode);
-		previewView.toggleClass('agent-sessions-read-md-hidden', isCode);
+		codeView.toggleClass('claude-sessions-read-md-hidden', !isCode);
+		previewView.toggleClass('claude-sessions-read-md-hidden', isCode);
 		if (!isCode && !previewRendered) {
 			previewRendered = true;
 			MarkdownRenderer.render(ctx.app, content, previewView, '', ctx.component);
@@ -339,15 +339,15 @@ function renderSubAgentSession(
 	ctx: RenderContext,
 	delegate: ToolRendererDelegate,
 ): void {
-	const timeline = container.createDiv({ cls: 'agent-sessions-subagent-timeline' });
+	const timeline = container.createDiv({ cls: 'claude-sessions-subagent-timeline' });
 
 	// Header with prompt (collapsible)
-	const promptSection = timeline.createDiv({ cls: 'agent-sessions-subagent-prompt' });
-	const promptHeader = promptSection.createDiv({ cls: 'agent-sessions-subagent-prompt-header' });
-	promptHeader.createSpan({ cls: 'agent-sessions-subagent-prompt-chevron', text: '\u25B6' });
-	promptHeader.createSpan({ cls: 'agent-sessions-tool-section-label', text: 'PROMPT' });
-	const promptBody = promptSection.createDiv({ cls: 'agent-sessions-subagent-prompt-body' });
-	delegate.renderTextContent(session.prompt, promptBody, 'agent-sessions-user-text');
+	const promptSection = timeline.createDiv({ cls: 'claude-sessions-subagent-prompt' });
+	const promptHeader = promptSection.createDiv({ cls: 'claude-sessions-subagent-prompt-header' });
+	promptHeader.createSpan({ cls: 'claude-sessions-subagent-prompt-chevron', text: '\u25B6' });
+	promptHeader.createSpan({ cls: 'claude-sessions-tool-section-label', text: 'PROMPT' });
+	const promptBody = promptSection.createDiv({ cls: 'claude-sessions-subagent-prompt-body' });
+	delegate.renderTextContent(session.prompt, promptBody, 'claude-sessions-user-text');
 	makeClickable(promptHeader, { label: 'Toggle sub-agent prompt', expanded: false });
 	promptHeader.addEventListener('click', () => {
 		const willOpen = !promptSection.hasClass('open');
@@ -364,25 +364,25 @@ function renderSubAgentSession(
 		}
 	}
 	if (allBlocks.length > 0) {
-		const turnEl = timeline.createDiv({ cls: 'agent-sessions-subagent-turn' });
+		const turnEl = timeline.createDiv({ cls: 'claude-sessions-subagent-turn' });
 		delegate.renderAssistantBlocks(allBlocks, turnEl, 0, 0);
 	}
 
 	// Render agent output
 	if (result && ctx.settings.showToolResults) {
-		const outputEl = timeline.createDiv({ cls: 'agent-sessions-subagent-output' });
-		const outputLabel = outputEl.createDiv({ cls: 'agent-sessions-tool-section-label' });
+		const outputEl = timeline.createDiv({ cls: 'claude-sessions-subagent-output' });
+		const outputLabel = outputEl.createDiv({ cls: 'claude-sessions-tool-section-label' });
 		outputLabel.createSpan({ text: 'OUTPUT' });
 		addCopyButton(outputLabel, result.content, 'Copy output');
 		const lines = result.content.split('\n').length;
 		if (lines > COLLAPSE_THRESHOLD) {
-			const wrapEl = outputEl.createDiv({ cls: 'agent-sessions-collapsible-wrap is-collapsed' });
-			const contentEl = wrapEl.createDiv({ cls: 'agent-sessions-collapsible-content' });
-			const bodyEl = contentEl.createDiv({ cls: 'agent-sessions-subagent-output-body' });
+			const wrapEl = outputEl.createDiv({ cls: 'claude-sessions-collapsible-wrap is-collapsed' });
+			const contentEl = wrapEl.createDiv({ cls: 'claude-sessions-collapsible-content' });
+			const bodyEl = contentEl.createDiv({ cls: 'claude-sessions-subagent-output-body' });
 			MarkdownRenderer.render(ctx.app, result.content, bodyEl, '', ctx.component);
-			wrapEl.createDiv({ cls: 'agent-sessions-collapsible-fade' });
+			wrapEl.createDiv({ cls: 'claude-sessions-collapsible-fade' });
 			const toggleBtn = wrapEl.createEl('button', {
-				cls: 'agent-sessions-collapsible-toggle',
+				cls: 'claude-sessions-collapsible-toggle',
 				text: `Show more (${lines} lines)`,
 				attr: { 'aria-expanded': 'false' },
 			});
@@ -393,7 +393,7 @@ function renderSubAgentSession(
 				toggleBtn.setAttribute('aria-expanded', String(collapsed));
 			});
 		} else {
-			const bodyEl = outputEl.createDiv({ cls: 'agent-sessions-subagent-output-body' });
+			const bodyEl = outputEl.createDiv({ cls: 'claude-sessions-subagent-output-body' });
 			MarkdownRenderer.render(ctx.app, result.content, bodyEl, '', ctx.component);
 		}
 	}
@@ -406,11 +406,11 @@ function isBashDiffResult(block: ToolUseBlock, resultText: string): boolean {
 }
 
 function renderDiffView(block: ToolUseBlock, result: ToolResultBlock | undefined, container: HTMLElement, ctx: RenderContext): void {
-	const diffEl = container.createDiv({ cls: 'agent-sessions-diff-view' });
+	const diffEl = container.createDiv({ cls: 'claude-sessions-diff-view' });
 
 	if (block.input['file_path']) {
 		diffEl.createDiv({
-			cls: 'agent-sessions-diff-file',
+			cls: 'claude-sessions-diff-file',
 			text: String(block.input['file_path']) + (block.input['replace_all'] ? ' (replace all)' : ''),
 		});
 	}
@@ -429,38 +429,38 @@ function renderDiffView(block: ToolUseBlock, result: ToolResultBlock | undefined
 	}
 
 	const md = fence(outputLines.join('\n'), 'diff');
-	const mdContainer = diffEl.createDiv({ cls: 'agent-sessions-diff-code' });
+	const mdContainer = diffEl.createDiv({ cls: 'claude-sessions-diff-code' });
 	MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
 
 	if (result?.isError) {
 		diffEl.createDiv({
-			cls: 'agent-sessions-diff-result agent-sessions-diff-result-error',
+			cls: 'claude-sessions-diff-result claude-sessions-diff-result-error',
 			text: result.content,
 		});
 	}
 }
 
 function renderWriteView(block: ToolUseBlock, result: ToolResultBlock | undefined, container: HTMLElement, ctx: RenderContext): void {
-	const writeEl = container.createDiv({ cls: 'agent-sessions-tool-input' });
+	const writeEl = container.createDiv({ cls: 'claude-sessions-tool-input' });
 
 	const filePath = String(block.input['file_path'] || '');
 	if (filePath) {
-		writeEl.createDiv({ cls: 'agent-sessions-diff-file', text: filePath });
+		writeEl.createDiv({ cls: 'claude-sessions-diff-file', text: filePath });
 	}
 
 	const content = String(block.input['content'] || '');
 	const lang = langFromPath(filePath);
 	const md = fence(content, lang);
-	const mdContainer = writeEl.createDiv({ cls: 'agent-sessions-tool-input-code' });
+	const mdContainer = writeEl.createDiv({ cls: 'claude-sessions-tool-input-code' });
 	MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
 
 	if (result?.isError) {
 		const resultEl = container.createDiv({
-			cls: 'agent-sessions-tool-result agent-sessions-tool-result-error',
+			cls: 'claude-sessions-tool-result claude-sessions-tool-result-error',
 		});
-		resultEl.createDiv({ cls: 'agent-sessions-tool-section-label', text: 'RESULT' });
+		resultEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'RESULT' });
 		const resultMd = fence(result.content);
-		const resultMdContainer = resultEl.createDiv({ cls: 'agent-sessions-tool-result-code' });
+		const resultMdContainer = resultEl.createDiv({ cls: 'claude-sessions-tool-result-code' });
 		MarkdownRenderer.render(ctx.app, resultMd, resultMdContainer, '', ctx.component);
 	}
 }

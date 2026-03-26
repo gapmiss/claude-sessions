@@ -21,18 +21,18 @@ html, body {
 }
 
 /* Remove Obsidian viewport constraints — fill the browser window */
-.agent-sessions-replay-container {
+.claude-sessions-replay-container {
   height: auto;
   min-height: 100vh;
 }
 
-.agent-sessions-timeline {
+.claude-sessions-timeline {
   overflow-y: visible;
   padding-bottom: 80px;
 }
 
 /* All turns visible (no IntersectionObserver) */
-.agent-sessions-turn {
+.claude-sessions-turn {
   opacity: 1 !important;
 }
 
@@ -85,7 +85,7 @@ html, body {
 }
 
 /* Filter dropdown menu */
-.agent-sessions-filter-menu {
+.claude-sessions-filter-menu {
   position: absolute;
   top: 100%;
   right: 0;
@@ -98,7 +98,7 @@ html, body {
   box-shadow: var(--shadow-s);
 }
 
-.agent-sessions-filter-row {
+.claude-sessions-filter-row {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -109,25 +109,25 @@ html, body {
   border-radius: var(--radius-s);
 }
 
-.agent-sessions-filter-row:hover {
+.claude-sessions-filter-row:hover {
   background: var(--background-modifier-hover);
 }
 
-.agent-sessions-filter-row.parent {
+.claude-sessions-filter-row.parent {
   font-weight: 600;
   margin-top: 4px;
 }
 
-.agent-sessions-filter-row.parent:first-child {
+.claude-sessions-filter-row.parent:first-child {
   margin-top: 0;
 }
 
-.agent-sessions-filter-row.child {
+.claude-sessions-filter-row.child {
   padding-left: 22px;
 }
 
 /* Image modal overlay */
-.agent-sessions-image-modal-overlay {
+.claude-sessions-image-modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.8);
@@ -137,7 +137,7 @@ html, body {
   justify-content: center;
 }
 
-.agent-sessions-image-modal-container {
+.claude-sessions-image-modal-container {
   max-width: 90vw;
   max-height: 85vh;
   display: flex;
@@ -146,12 +146,12 @@ html, body {
   gap: 12px;
 }
 
-.agent-sessions-image-modal-toolbar {
+.claude-sessions-image-modal-toolbar {
   display: flex;
   gap: 8px;
 }
 
-.agent-sessions-image-modal-btn {
+.claude-sessions-image-modal-btn {
   background: var(--interactive-normal);
   border: 1px solid var(--background-modifier-border);
   color: var(--text-normal);
@@ -163,18 +163,18 @@ html, body {
   font-family: var(--font-interface);
 }
 
-.agent-sessions-image-modal-btn:hover {
+.claude-sessions-image-modal-btn:hover {
   background: var(--interactive-hover);
 }
 
 /* Hide controls bar (playback/nav) — not applicable in export */
-.agent-sessions-controls {
+.claude-sessions-controls {
   display: none !important;
 }
 
 /* Copy button: ensure the SVG inline icon renders */
-.agent-sessions-copy-btn,
-.agent-sessions-summary-copy {
+.claude-sessions-copy-btn,
+.claude-sessions-summary-copy {
   min-width: 24px;
   min-height: 24px;
 }
@@ -230,7 +230,7 @@ function snapshotTimeline(timelineEl: HTMLElement): string {
 	const clone = timelineEl.cloneNode(true) as HTMLElement;
 
 	// Ensure all turns are visible (remove IntersectionObserver dimming)
-	clone.querySelectorAll('.agent-sessions-turn').forEach(turn => {
+	clone.querySelectorAll('.claude-sessions-turn').forEach(turn => {
 		(turn as HTMLElement).classList.add('visible');
 	});
 
@@ -242,7 +242,7 @@ function snapshotTimeline(timelineEl: HTMLElement): string {
 	processCopyButtons(clone, timelineEl);
 
 	// Remove progress bar dots if present
-	clone.querySelectorAll('.agent-sessions-progress-dot').forEach(el => el.remove());
+	clone.querySelectorAll('.claude-sessions-progress-dot').forEach(el => el.remove());
 
 	return clone.innerHTML;
 }
@@ -253,26 +253,26 @@ function snapshotTimeline(timelineEl: HTMLElement): string {
  */
 function processCopyButtons(clone: HTMLElement, original: HTMLElement): void {
 	// Text block copy buttons — extract text from the adjacent content
-	clone.querySelectorAll('.agent-sessions-text-copy').forEach(btn => {
-		const wrapper = btn.closest('.agent-sessions-text-block');
+	clone.querySelectorAll('.claude-sessions-text-copy').forEach(btn => {
+		const wrapper = btn.closest('.claude-sessions-text-block');
 		if (wrapper) {
-			// Short text: content div has .agent-sessions-user-text or .agent-sessions-assistant-text
-			// Long text: content is inside .agent-sessions-collapsible-content
+			// Short text: content div has .claude-sessions-user-text or .claude-sessions-assistant-text
+			// Long text: content is inside .claude-sessions-collapsible-content
 			const contentEl = wrapper.querySelector(
-				'.agent-sessions-collapsible-content, .agent-sessions-user-text, .agent-sessions-assistant-text',
+				'.claude-sessions-collapsible-content, .claude-sessions-user-text, .claude-sessions-assistant-text',
 			);
 			if (contentEl) {
 				(btn as HTMLElement).setAttribute('data-copy-text', contentEl.textContent ?? '');
-				(btn as HTMLElement).classList.add('agent-sessions-copy-btn');
+				(btn as HTMLElement).classList.add('claude-sessions-copy-btn');
 			}
 		}
 	});
 
 	// Summary copy buttons — already have text in the adjacent value elements
-	clone.querySelectorAll('.agent-sessions-summary-copy').forEach(btn => {
-		const row = btn.closest('.agent-sessions-summary-id-row');
+	clone.querySelectorAll('.claude-sessions-summary-copy').forEach(btn => {
+		const row = btn.closest('.claude-sessions-summary-id-row');
 		if (row) {
-			const valueEl = row.querySelector('.agent-sessions-summary-value, .agent-sessions-summary-mono');
+			const valueEl = row.querySelector('.claude-sessions-summary-value, .claude-sessions-summary-mono');
 			if (valueEl && !(btn as HTMLElement).hasAttribute('data-copy-text')) {
 				(btn as HTMLElement).setAttribute('data-copy-text', valueEl.textContent ?? '');
 			}
@@ -280,13 +280,13 @@ function processCopyButtons(clone: HTMLElement, original: HTMLElement): void {
 	});
 
 	// Tool result / sub-agent output copy buttons
-	clone.querySelectorAll('.agent-sessions-subagent-copy').forEach(btn => {
-		const output = btn.closest('.agent-sessions-subagent-output');
+	clone.querySelectorAll('.claude-sessions-subagent-copy').forEach(btn => {
+		const output = btn.closest('.claude-sessions-subagent-output');
 		if (output) {
-			const content = output.querySelector('.agent-sessions-subagent-output-content');
+			const content = output.querySelector('.claude-sessions-subagent-output-content');
 			if (content) {
 				(btn as HTMLElement).setAttribute('data-copy-text', content.textContent ?? '');
-				(btn as HTMLElement).classList.add('agent-sessions-copy-btn');
+				(btn as HTMLElement).classList.add('claude-sessions-copy-btn');
 			}
 		}
 	});
@@ -297,7 +297,7 @@ function processCopyButtons(clone: HTMLElement, original: HTMLElement): void {
 		if (pre) {
 			const code = pre.querySelector('code');
 			(btn as HTMLElement).setAttribute('data-copy-text', code?.textContent ?? pre.textContent ?? '');
-			(btn as HTMLElement).classList.add('agent-sessions-copy-btn');
+			(btn as HTMLElement).classList.add('claude-sessions-copy-btn');
 		}
 	});
 }
@@ -344,8 +344,8 @@ ${EXPORT_OVERRIDES}
 <body class="${themeClass}">
 <div id="as-export-root" data-filters='{}'>
 ${headerHTML}
-<div class="agent-sessions-replay-container">
-<div class="agent-sessions-timeline markdown-rendered">
+<div class="claude-sessions-replay-container">
+<div class="claude-sessions-timeline markdown-rendered">
 ${timelineHTML}
 </div>
 </div>
