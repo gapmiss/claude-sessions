@@ -1,6 +1,7 @@
 import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon } from 'obsidian';
 import { Session, PluginSettings } from '../types';
 import { ReplayRenderer } from './replay-renderer';
+import { SessionSearchModal } from './search-modal';
 import { readFileContent } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
 import { resolveSubAgentSessions } from '../parsers/claude-subagent';
@@ -52,6 +53,10 @@ export class ReplayView extends ItemView {
 	private isWatching = false;
 	private isFollowing = true;
 	private watchBtn: HTMLButtonElement | null = null;
+
+	// Search highlight
+	private activeHighlight: HTMLElement | null = null;
+	private highlightTimer: number | null = null;
 
 	// Content filters
 	private filters: FilterState = {
@@ -107,6 +112,7 @@ export class ReplayView extends ItemView {
 	}
 
 	async onClose(): Promise<void> {
+		this.clearHighlight();
 		this.stopWatching();
 		this.destroyObserver();
 	}
@@ -321,6 +327,123 @@ export class ReplayView extends ItemView {
 		if (!this.session) return;
 		if (this.activeTurnIndex > 0) {
 			this.scrollToTurn(this.activeTurnIndex - 1);
+		}
+	}
+
+	// ── In-session search ──
+
+	openInSessionSearch(): void {
+		if (!this.session?.rawPath) return;
+		const session = this.session;
+		new SessionSearchModal(this.app, null, [], {
+			session,
+			filePath: session.rawPath,
+			onNavigate: (turnIndex, query) => this.navigateToMatch(turnIndex, query),
+		}).open();
+	}
+
+	navigateToMatch(turnIndex: number, query: string): void {
+		this.clearHighlight();
+		this.scrollToTurn(turnIndex);
+		// Allow scroll to settle before highlighting
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				this.highlightMatchInTurn(turnIndex, query);
+			});
+		});
+	}
+
+	private highlightMatchInTurn(turnIndex: number, query: string): void {
+		const turnEls = this.renderer?.getTurnElements() || [];
+		const turnEl = turnEls[turnIndex];
+		if (!turnEl) return;
+
+		// Expand the turn if collapsed
+		if (turnEl.hasClass('collapsed')) {
+			turnEl.removeClass('collapsed');
+			const header = turnEl.querySelector('.agent-sessions-turn-header');
+			if (header) header.setAttribute('aria-expanded', 'true');
+		}
+
+		const lowerQuery = query.toLowerCase();
+		const walker = document.createTreeWalker(turnEl, NodeFilter.SHOW_TEXT);
+		let node: Text | null;
+		while ((node = walker.nextNode() as Text | null)) {
+			const text = node.textContent || '';
+			const idx = text.toLowerCase().indexOf(lowerQuery);
+			if (idx === -1) continue;
+
+			// Expand any collapsed ancestors between the text node and turn
+			this.expandAncestors(node, turnEl);
+
+			// Split text node and wrap match in <mark>
+			const before = node.splitText(idx);
+			const after = before.splitText(query.length);
+			// after is unused but splitText needs the call to isolate the match
+			void after;
+
+			const mark = document.createElement('mark');
+			mark.className = 'agent-sessions-search-highlight';
+			before.parentNode!.replaceChild(mark, before);
+			mark.appendChild(document.createTextNode(before.textContent || ''));
+
+			this.activeHighlight = mark;
+			mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+			// Auto-clear after 3s
+			this.highlightTimer = window.setTimeout(() => this.clearHighlight(), 5000);
+			return;
+		}
+	}
+
+	private expandAncestors(node: Node, boundary: HTMLElement): void {
+		let el = node.parentElement;
+		while (el && el !== boundary) {
+			// Tool block
+			if (el.hasClass('agent-sessions-tool-block') && !el.hasClass('open')) {
+				el.addClass('open');
+				const h = el.querySelector('.agent-sessions-tool-header');
+				if (h) h.setAttribute('aria-expanded', 'true');
+			}
+			// Tool group
+			if (el.hasClass('agent-sessions-tool-group') && !el.hasClass('open')) {
+				el.addClass('open');
+				const h = el.querySelector('.agent-sessions-tool-group-header');
+				if (h) h.setAttribute('aria-expanded', 'true');
+			}
+			// Thinking block
+			if (el.hasClass('agent-sessions-thinking-block') && !el.hasClass('open')) {
+				el.addClass('open');
+				const h = el.querySelector('.agent-sessions-thinking-header');
+				if (h) h.setAttribute('aria-expanded', 'true');
+			}
+			// Show-more collapse
+			if (el.hasClass('agent-sessions-collapsible-wrap') && el.hasClass('is-collapsed')) {
+				el.removeClass('is-collapsed');
+				const btn = el.querySelector('.agent-sessions-show-more-btn');
+				if (btn) btn.setAttribute('aria-expanded', 'true');
+			}
+			// Sub-agent prompt
+			if (el.hasClass('agent-sessions-subagent-prompt') && !el.hasClass('open')) {
+				el.addClass('open');
+				const h = el.querySelector('.agent-sessions-subagent-prompt-header');
+				if (h) h.setAttribute('aria-expanded', 'true');
+			}
+			el = el.parentElement;
+		}
+	}
+
+	private clearHighlight(): void {
+		if (this.activeHighlight) {
+			const text = this.activeHighlight.textContent || '';
+			const textNode = document.createTextNode(text);
+			this.activeHighlight.parentNode?.replaceChild(textNode, this.activeHighlight);
+			textNode.parentNode?.normalize();
+			this.activeHighlight = null;
+		}
+		if (this.highlightTimer !== null) {
+			window.clearTimeout(this.highlightTimer);
+			this.highlightTimer = null;
 		}
 	}
 
@@ -622,6 +745,14 @@ export class ReplayView extends ItemView {
 		// Status text
 		this.statusEl = row.createSpan({ cls: 'agent-sessions-progress-text' });
 
+		// Search button
+		const searchBtn = row.createEl('button', {
+			cls: 'agent-sessions-ctrl-btn agent-sessions-search-btn',
+			attr: { 'aria-label': 'Search in session', 'data-tooltip-position': 'top' },
+		});
+		setIcon(searchBtn, 'search');
+		searchBtn.addEventListener('click', () => this.openInSessionSearch());
+
 		// Filter button
 		const filterBtn = row.createEl('button', {
 			cls: 'agent-sessions-ctrl-btn agent-sessions-filter-btn',
@@ -630,6 +761,12 @@ export class ReplayView extends ItemView {
 		});
 		filterBtn.addEventListener('click', (e: MouseEvent) => {
 			this.showFilterMenu(e);
+		});
+		filterBtn.addEventListener('keydown', (e: KeyboardEvent) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				this.showFilterMenu(e);
+			}
 		});
 
 		// Watch button
@@ -704,7 +841,7 @@ export class ReplayView extends ItemView {
 
 	}
 
-	private showFilterMenu(e: MouseEvent): void {
+	private showFilterMenu(e: MouseEvent | KeyboardEvent): void {
 		const menu = new Menu();
 		const f = this.filters;
 
@@ -771,7 +908,12 @@ export class ReplayView extends ItemView {
 			.setIcon(f.assistant ? 'eye-off' : 'eye')
 			.onClick(() => { f.assistant = !f.assistant; this.applyFilters(); }));
 
-		menu.showAtMouseEvent(e);
+		if (e instanceof MouseEvent && (e.clientX !== 0 || e.clientY !== 0)) {
+			menu.showAtMouseEvent(e);
+		} else {
+			const rect = (e.target as HTMLElement).getBoundingClientRect();
+			menu.showAtPosition({ x: rect.left, y: rect.top });
+		}
 	}
 
 	private applyFilters(): void {

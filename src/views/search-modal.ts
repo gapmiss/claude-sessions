@@ -1,7 +1,7 @@
 import { App, Modal, Notice } from 'obsidian';
 import type AgentSessionsPlugin from '../main';
-import type { SessionListEntry } from '../types';
-import { searchSessions, SearchQuery, SessionSearchResult } from '../utils/session-search';
+import type { Session, SessionListEntry, Turn } from '../types';
+import { searchSessions, searchFile, SearchQuery, SearchMatch, SessionSearchResult } from '../utils/session-search';
 import { readFileContent } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
 import { resolveSubAgentSessions } from '../parsers/claude-subagent';
@@ -10,10 +10,20 @@ import { shortenPath } from '../utils/path-utils';
 
 const DEBOUNCE_MS = 300;
 const VISIBLE_MATCHES_PER_SESSION = 5;
+const SINGLE_SESSION_MAX_MATCHES = 100;
+const SINGLE_SESSION_VISIBLE = 20;
+
+/** Options for single-session (in-view) search mode. */
+export interface InSessionSearchOpts {
+	session: Session;
+	filePath: string;
+	onNavigate: (turnIndex: number, query: string) => void;
+}
 
 export class SessionSearchModal extends Modal {
-	private plugin: AgentSessionsPlugin;
+	private plugin: AgentSessionsPlugin | null;
 	private entries: SessionListEntry[];
+	private inSession: InSessionSearchOpts | null;
 	private abortController: AbortController | null = null;
 	private debounceTimer: number | null = null;
 
@@ -22,16 +32,19 @@ export class SessionSearchModal extends Modal {
 	private progressEl!: HTMLElement;
 	private resultsEl!: HTMLElement;
 
-	constructor(app: App, plugin: AgentSessionsPlugin, entries: SessionListEntry[]) {
+	constructor(app: App, plugin: AgentSessionsPlugin, entries: SessionListEntry[], inSession?: InSessionSearchOpts);
+	constructor(app: App, plugin: null, entries: [], inSession: InSessionSearchOpts);
+	constructor(app: App, plugin: AgentSessionsPlugin | null, entries: SessionListEntry[], inSession?: InSessionSearchOpts) {
 		super(app);
 		this.plugin = plugin;
 		this.entries = entries;
+		this.inSession = inSession ?? null;
 	}
 
 	onOpen(): void {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.addClass('agent-sessions-search-modal');
+		this.modalEl.addClass('agent-sessions-search-modal');
 
 		// ── Search input row ──
 		const inputRow = contentEl.createDiv({ cls: 'agent-sessions-search-input-row' });
@@ -39,7 +52,10 @@ export class SessionSearchModal extends Modal {
 		this.inputEl = inputRow.createEl('input', {
 			type: 'text',
 			cls: 'agent-sessions-search-input',
-			attr: { placeholder: 'Search across sessions...', 'aria-label': 'Search query' },
+			attr: {
+				placeholder: this.inSession ? 'Search in session...' : 'Search across sessions...',
+				'aria-label': 'Search query',
+			},
 		});
 
 		this.roleSelect = inputRow.createEl('select', {
@@ -107,6 +123,7 @@ export class SessionSearchModal extends Modal {
 		}
 
 		const text = this.inputEl.value.trim();
+		this.modalEl.toggleClass('has-query', text.length > 0);
 		if (text.length < 2) {
 			this.resultsEl.empty();
 			this.progressEl.setText(text.length === 1 ? 'Type at least 2 characters...' : '');
@@ -115,7 +132,11 @@ export class SessionSearchModal extends Modal {
 
 		this.debounceTimer = window.setTimeout(() => {
 			this.debounceTimer = null;
-			this.executeSearch(text);
+			if (this.inSession) {
+				this.executeInSessionSearch(text);
+			} else {
+				this.executeMultiSearch(text);
+			}
 		}, DEBOUNCE_MS);
 	}
 
@@ -126,7 +147,100 @@ export class SessionSearchModal extends Modal {
 		}
 	}
 
-	private executeSearch(text: string): void {
+	// ── Single-session search ──
+
+	private async executeInSessionSearch(text: string): Promise<void> {
+		this.abortSearch();
+		this.resultsEl.empty();
+
+		const controller = new AbortController();
+		this.abortController = controller;
+		const opts = this.inSession!;
+
+		const query: SearchQuery = {
+			text,
+			caseSensitive: false,
+			roleFilter: this.roleSelect.value as 'all' | 'user' | 'assistant',
+		};
+
+		this.progressEl.setText('Searching...');
+
+		const { matches, totalMatches } = await searchFile(
+			opts.filePath, query, SINGLE_SESSION_MAX_MATCHES, controller.signal,
+		);
+
+		if (controller.signal.aborted) return;
+
+		if (matches.length === 0) {
+			this.progressEl.setText('No matches found.');
+			return;
+		}
+
+		const countText = totalMatches === matches.length
+			? `${totalMatches} match${totalMatches !== 1 ? 'es' : ''}`
+			: `${totalMatches} matches (showing ${matches.length})`;
+		this.progressEl.setText(countText);
+
+		const visibleCount = Math.min(SINGLE_SESSION_VISIBLE, matches.length);
+		for (let i = 0; i < visibleCount; i++) {
+			this.renderInSessionMatchRow(matches[i], query);
+		}
+
+		if (matches.length > SINGLE_SESSION_VISIBLE) {
+			const remaining = matches.length - SINGLE_SESSION_VISIBLE;
+			const moreBtn = this.resultsEl.createDiv({
+				cls: 'agent-sessions-search-more-btn',
+				text: `+${remaining} more`,
+			});
+			makeClickable(moreBtn, { label: `Show ${remaining} more matches` });
+			moreBtn.addEventListener('click', () => {
+				moreBtn.remove();
+				for (let i = SINGLE_SESSION_VISIBLE; i < matches.length; i++) {
+					this.renderInSessionMatchRow(matches[i], query);
+				}
+			});
+		}
+	}
+
+	private renderInSessionMatchRow(match: SearchMatch, query: SearchQuery): void {
+		const opts = this.inSession!;
+		const row = this.resultsEl.createDiv({ cls: 'agent-sessions-search-match-row' });
+		makeClickable(row, { label: 'Go to match' });
+
+		const resolvedTurn = resolveMatchTurn(match, opts.session.turns);
+
+		// Turn label
+		row.createSpan({ cls: 'agent-sessions-search-match-turn', text: `#${resolvedTurn + 1}` });
+
+		// Role + type
+		const meta = row.createSpan({ cls: 'agent-sessions-search-match-meta' });
+		const roleIcon = match.role === 'user' ? 'U' : 'A';
+		const typeLabel = match.toolName || match.blockType;
+		meta.setText(`${roleIcon} · ${typeLabel}`);
+
+		if (match.timestamp) {
+			const ts = new Date(match.timestamp);
+			if (!isNaN(ts.getTime())) {
+				const time = ts.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+				row.createSpan({ cls: 'agent-sessions-search-match-time', text: time });
+			}
+		}
+
+		// Context snippet
+		const snippet = row.createDiv({ cls: 'agent-sessions-search-snippet' });
+		if (match.contextBefore) snippet.createSpan({ text: match.contextBefore });
+		snippet.createEl('mark', { text: match.matchText });
+		if (match.contextAfter) snippet.createSpan({ text: match.contextAfter });
+
+		row.addEventListener('click', () => {
+			opts.onNavigate(resolvedTurn, query.text);
+			this.close();
+		});
+	}
+
+	// ── Multi-session search ──
+
+	private executeMultiSearch(text: string): void {
 		this.abortSearch();
 		this.resultsEl.empty();
 
@@ -187,7 +301,7 @@ export class SessionSearchModal extends Modal {
 		// Match rows
 		const visibleCount = Math.min(VISIBLE_MATCHES_PER_SESSION, result.matches.length);
 		for (let i = 0; i < visibleCount; i++) {
-			this.renderMatchRow(group, result, result.matches[i], query);
+			this.renderMultiMatchRow(group, result, result.matches[i], query);
 		}
 
 		// "+N more" expander
@@ -201,16 +315,16 @@ export class SessionSearchModal extends Modal {
 			moreBtn.addEventListener('click', () => {
 				moreBtn.remove();
 				for (let i = VISIBLE_MATCHES_PER_SESSION; i < result.matches.length; i++) {
-					this.renderMatchRow(group, result, result.matches[i], query);
+					this.renderMultiMatchRow(group, result, result.matches[i], query);
 				}
 			});
 		}
 	}
 
-	private renderMatchRow(
+	private renderMultiMatchRow(
 		container: HTMLElement,
 		result: SessionSearchResult,
-		match: import('../utils/session-search').SearchMatch,
+		match: SearchMatch,
 		query: SearchQuery,
 	): void {
 		const row = container.createDiv({ cls: 'agent-sessions-search-match-row' });
@@ -232,21 +346,17 @@ export class SessionSearchModal extends Modal {
 
 		// Context snippet with highlighted match
 		const snippet = row.createDiv({ cls: 'agent-sessions-search-snippet' });
-		if (match.contextBefore) {
-			snippet.createSpan({ text: match.contextBefore });
-		}
+		if (match.contextBefore) snippet.createSpan({ text: match.contextBefore });
 		snippet.createEl('mark', { text: match.matchText });
-		if (match.contextAfter) {
-			snippet.createSpan({ text: match.contextAfter });
-		}
+		if (match.contextAfter) snippet.createSpan({ text: match.contextAfter });
 
 		// Click opens session at turn
 		row.addEventListener('click', () => {
-			this.openResult(result.entry, match.turnIndex);
+			this.openResult(result.entry, match.turnIndex, query.text);
 		});
 	}
 
-	private async openResult(entry: SessionListEntry, turnIndex: number): Promise<void> {
+	private async openResult(entry: SessionListEntry, turnIndex: number, query: string): Promise<void> {
 		try {
 			new Notice('Loading session...');
 			const content = await readFileContent(entry.path);
@@ -257,13 +367,35 @@ export class SessionSearchModal extends Modal {
 			}
 			const session = parser.parse(content, entry.path);
 			await resolveSubAgentSessions(session, readFileContent);
-			await this.plugin.openSession(session, turnIndex);
+			await this.plugin!.openSession(session, turnIndex, query);
 			this.close();
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			new Notice(`Failed to load session: ${msg}`);
 		}
 	}
+}
+
+/** Map a search match to the correct parsed turn index using timestamps. */
+function resolveMatchTurn(match: SearchMatch, turns: Turn[]): number {
+	if (!turns.length) return 0;
+
+	if (match.timestamp) {
+		const matchMs = new Date(match.timestamp).getTime();
+		if (!isNaN(matchMs)) {
+			for (let i = 0; i < turns.length; i++) {
+				const turnMs = turns[i].timestamp ? new Date(turns[i].timestamp!).getTime() : NaN;
+				const nextMs = i + 1 < turns.length && turns[i + 1].timestamp
+					? new Date(turns[i + 1].timestamp!).getTime()
+					: Infinity;
+				if (!isNaN(turnMs) && matchMs >= turnMs && matchMs < nextMs) {
+					return i;
+				}
+			}
+		}
+	}
+
+	return Math.min(match.turnIndex, turns.length - 1);
 }
 
 /** Find the next .agent-sessions-search-match-row after the current one. */

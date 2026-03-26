@@ -1104,8 +1104,7 @@
 }
 
 .agent-sessions-ctrl-btn:focus-visible {
-	outline: 2px solid var(--interactive-accent);
-	outline-offset: 2px;
+	box-shadow: 0 0 0 3px var(--background-modifier-border-focus);
 }
 
 .agent-sessions-progress-text {
@@ -1478,11 +1477,10 @@
 .agent-sessions-replay-container button:focus-visible,
 .agent-sessions-replay-container input:focus-visible,
 .agent-sessions-replay-container summary:focus-visible {
-	outline: 2px solid var(--interactive-accent);
-	outline-offset: 2px;
+	box-shadow: 0 0 0 3px var(--background-modifier-border-focus);
 }
 
-/* Focus indicators for custom clickable headers */
+/* Focus indicators for custom clickable headers (inset to avoid overflow:hidden clipping) */
 .agent-sessions-turn-header:focus-visible,
 .agent-sessions-summary-header:focus-visible,
 .agent-sessions-tool-header:focus-visible,
@@ -1490,13 +1488,11 @@
 .agent-sessions-thinking-header:focus-visible,
 .agent-sessions-subagent-prompt-header:focus-visible,
 .agent-sessions-slash-command-header:focus-visible {
-	outline: 2px solid var(--interactive-accent);
-	outline-offset: -2px;
+	box-shadow: inset 0 0 0 3px var(--background-modifier-border-focus);
 }
 
 .agent-sessions-image-thumbnail:focus-visible {
-	outline: 2px solid var(--interactive-accent);
-	outline-offset: 2px;
+	box-shadow: 0 0 0 3px var(--background-modifier-border-focus);
 }
 
 /* Scrollable content regions */
@@ -1507,14 +1503,12 @@
 .agent-sessions-slash-command-body:focus-visible,
 .agent-sessions-compaction-summary:focus-visible,
 .agent-sessions-ansi-block:focus-visible {
-	outline: 2px solid var(--interactive-accent);
-	outline-offset: -2px;
+	box-shadow: 0 0 0 3px var(--background-modifier-border-focus);
 }
 
 /* Drop zone focus indicator */
 .agent-sessions-drop-zone:focus-visible {
-	outline: 2px solid var(--interactive-accent);
-	outline-offset: 2px;
+	box-shadow: 0 0 0 3px var(--background-modifier-border-focus);
 }
 
 /* ═══════════════════════════════════════════
@@ -1526,8 +1520,24 @@
 	font-size: 13px;
 }
 
-.agent-sessions-search-modal .modal-content {
+.agent-sessions-search-modal.has-query {
+	height: 90vh;
+}
+
+.agent-sessions-search-modal > .modal-content {
 	padding: 0;
+}
+
+.agent-sessions-search-modal.has-query > .modal-content {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	overflow: hidden;
+}
+
+.agent-sessions-search-modal.has-query .agent-sessions-search-results {
+	max-height: none;
+	flex: 1;
 }
 
 .agent-sessions-search-input-row {
@@ -1694,4 +1704,29 @@
 .agent-sessions-search-more-btn:focus-visible {
 	outline: 2px solid var(--interactive-accent);
 	outline-offset: -2px;
+}
+
+/* ── In-session search: turn label ── */
+
+.agent-sessions-search-match-turn {
+	font-size: 10px;
+	color: var(--text-muted);
+	font-weight: 600;
+	flex-shrink: 0;
+	min-width: 28px;
+}
+
+/* ── In-session search: highlight in timeline ── */
+
+.agent-sessions-search-highlight {
+	background: var(--text-highlight-bg);
+	color: var(--text-normal);
+	padding: 1px 2px;
+	border-radius: 2px;
+	animation: agent-sessions-highlight-fade 5s ease-out forwards;
+}
+
+@keyframes agent-sessions-highlight-fade {
+	0%, 70% { background: var(--text-highlight-bg); }
+	100% { background: transparent; }
 }

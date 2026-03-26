@@ -111,6 +111,19 @@ export default class AgentSessionsPlugin extends Plugin {
 			},
 		});
 
+		this.addCommand({
+			id: 'search-in-session',
+			name: 'Search in session',
+			checkCallback: (checking: boolean) => {
+				const view = this.getActiveReplayView();
+				const session = view?.getSession();
+				if (!view || !session?.rawPath) return false;
+				if (checking) return true;
+				view.openInSessionSearch();
+				return true;
+			},
+		});
+
 		// Protocol handler: obsidian://agent-sessions?session=/path/to/session.jsonl&turn=7
 		this.registerObsidianProtocolHandler('agent-sessions', async (params) => {
 			const p = params as Record<string, string>;
@@ -161,7 +174,7 @@ export default class AgentSessionsPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	async openSession(session: Session, turnIndex?: number): Promise<void> {
+	async openSession(session: Session, turnIndex?: number, highlightQuery?: string): Promise<void> {
 		const leaf = this.app.workspace.getLeaf('tab');
 		await leaf.setViewState({
 			type: VIEW_TYPE_REPLAY,
@@ -172,7 +185,12 @@ export default class AgentSessionsPlugin extends Plugin {
 		if (view instanceof ReplayView) {
 			view.loadSession(session);
 			if (turnIndex !== undefined) {
-				requestAnimationFrame(() => view.scrollToTurn(turnIndex));
+				requestAnimationFrame(() => {
+					view.scrollToTurn(turnIndex);
+					if (highlightQuery) {
+						view.navigateToMatch(turnIndex, highlightQuery);
+					}
+				});
 			}
 		}
 	}
