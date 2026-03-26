@@ -160,6 +160,11 @@ export class ClaudeParser extends BaseParser {
 		const usageByMsg = new Map<string, { inp: number; out: number; cr: number; cc: number }>();
 		let anonymousUsageCounter = 0;
 
+		// Track last API call's input tokens for context window size
+		let lastCallInput = 0;
+		let lastCallCacheRead = 0;
+		let lastCallCacheWrite = 0;
+
 		// Enriched tool results by sourceToolUseID
 		const enrichedResults = new Map<string, Record<string, unknown>>();
 
@@ -204,6 +209,11 @@ export class ClaudeParser extends BaseParser {
 					cr: Math.max(prev?.cr ?? 0, u.cache_read_input_tokens ?? 0),
 					cc: Math.max(prev?.cc ?? 0, u.cache_creation_input_tokens ?? 0),
 				});
+
+				// Track last API call for context window size
+				lastCallInput = u.input_tokens ?? 0;
+				lastCallCacheRead = u.cache_read_input_tokens ?? 0;
+				lastCallCacheWrite = u.cache_creation_input_tokens ?? 0;
 			}
 
 			// Capture enriched toolUseResult from user entries
@@ -404,6 +414,11 @@ export class ClaudeParser extends BaseParser {
 			totalCacheCreationTokens += u.cc;
 		}
 
+		const contextWindowTokens = lastCallInput + lastCallCacheRead + lastCallCacheWrite;
+		const costUSD = estimateCost(
+			model, totalInputTokens, totalOutputTokens, totalCacheReadTokens, totalCacheCreationTokens,
+		);
+
 		const stats: SessionStats = {
 			userTurns,
 			assistantTurns,
@@ -412,6 +427,8 @@ export class ClaudeParser extends BaseParser {
 			cacheReadTokens: totalCacheReadTokens,
 			cacheCreationTokens: totalCacheCreationTokens,
 			totalTokens: totalInputTokens + totalOutputTokens + totalCacheReadTokens + totalCacheCreationTokens,
+			contextWindowTokens,
+			costUSD,
 			toolUseCounts,
 			durationMs,
 		};
@@ -935,4 +952,37 @@ export class ClaudeParser extends BaseParser {
 		return null;
 	}
 
+}
+
+/** Per-million-token pricing by model family. */
+interface ModelPricing {
+	input: number;
+	output: number;
+	cacheRead: number;
+	cacheWrite: number;
+}
+
+const MODEL_PRICING: Record<string, ModelPricing> = {
+	opus: { input: 15, output: 75, cacheRead: 1.5, cacheWrite: 18.75 },
+	sonnet: { input: 3, output: 15, cacheRead: 0.30, cacheWrite: 3.75 },
+	haiku: { input: 0.80, output: 4, cacheRead: 0.08, cacheWrite: 1 },
+};
+
+function getPricing(model: string): ModelPricing {
+	const m = model.toLowerCase();
+	if (m.includes('opus')) return MODEL_PRICING.opus;
+	if (m.includes('haiku')) return MODEL_PRICING.haiku;
+	return MODEL_PRICING.sonnet; // default
+}
+
+function estimateCost(
+	model: string, input: number, output: number, cacheRead: number, cacheWrite: number,
+): number {
+	const p = getPricing(model);
+	return (
+		(input / 1_000_000) * p.input +
+		(output / 1_000_000) * p.output +
+		(cacheRead / 1_000_000) * p.cacheRead +
+		(cacheWrite / 1_000_000) * p.cacheWrite
+	);
 }

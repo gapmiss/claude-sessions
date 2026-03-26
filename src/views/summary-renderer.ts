@@ -14,11 +14,17 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 	setIcon(icon, 'bar-chart-2');
 	header.createSpan({ cls: 'agent-sessions-summary-title', text: 'Session summary' });
 
-	// Inline stats in header
-	if (stats.totalTokens > 0) {
+	// Inline stats in header: context window size, cost, turns
+	if (stats.contextWindowTokens > 0) {
 		header.createSpan({
 			cls: 'agent-sessions-summary-inline',
-			text: `${formatTokens(stats.totalTokens)} tokens`,
+			text: `${formatTokens(stats.contextWindowTokens)} context`,
+		});
+	}
+	if (stats.costUSD > 0) {
+		header.createSpan({
+			cls: 'agent-sessions-summary-inline',
+			text: formatCost(stats.costUSD),
 		});
 	}
 	if (metadata.totalTurns > 0) {
@@ -84,11 +90,24 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 	addGridItem(turnsGrid, 'Assistant', String(stats.assistantTurns));
 	addGridItem(turnsGrid, 'Total', String(metadata.totalTurns));
 
-	// --- Tokens ---
+	// --- Context & Cost ---
+	if (stats.contextWindowTokens > 0 || stats.costUSD > 0) {
+		const ctxSection = body.createDiv({ cls: 'agent-sessions-summary-section' });
+		ctxSection.createDiv({ cls: 'agent-sessions-summary-label', text: 'Context & cost' });
+		const ctxGrid = ctxSection.createDiv({ cls: 'agent-sessions-summary-grid' });
+		if (stats.contextWindowTokens > 0) {
+			addGridItem(ctxGrid, 'Context window', formatTokens(stats.contextWindowTokens));
+		}
+		if (stats.costUSD > 0) {
+			addGridItem(ctxGrid, 'Estimated cost', formatCost(stats.costUSD));
+		}
+	}
+
+	// --- Token usage (cumulative) ---
 	const totalInput = stats.inputTokens + stats.cacheReadTokens + stats.cacheCreationTokens;
 	if (totalInput > 0 || stats.outputTokens > 0) {
 		const tokenSection = body.createDiv({ cls: 'agent-sessions-summary-section' });
-		tokenSection.createDiv({ cls: 'agent-sessions-summary-label', text: 'Tokens' });
+		tokenSection.createDiv({ cls: 'agent-sessions-summary-label', text: 'API usage (cumulative)' });
 		const tokenGrid = tokenSection.createDiv({ cls: 'agent-sessions-summary-grid' });
 		addGridItem(tokenGrid, 'Input (total)', formatTokens(totalInput));
 		addGridItem(tokenGrid, 'Output', formatTokens(stats.outputTokens));
@@ -128,6 +147,11 @@ function formatTokens(n: number): string {
 	if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
 	if (n >= 1_000) return (n / 1_000).toFixed(1) + 'k';
 	return String(n);
+}
+
+function formatCost(usd: number): string {
+	if (usd >= 1) return `$${usd.toFixed(2)}`;
+	return `$${usd.toFixed(3)}`;
 }
 
 function formatDuration(ms: number): string {

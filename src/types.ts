@@ -16,11 +16,20 @@ export interface SessionMetadata {
 export interface SessionStats {
 	userTurns: number;
 	assistantTurns: number;
+	/** Cumulative uncached input tokens across all API calls. */
 	inputTokens: number;
+	/** Cumulative output tokens across all API calls. */
 	outputTokens: number;
+	/** Cumulative cache-read input tokens across all API calls. */
 	cacheReadTokens: number;
+	/** Cumulative cache-creation input tokens across all API calls. */
 	cacheCreationTokens: number;
+	/** Cumulative total tokens (input + output + cache read + cache write). */
 	totalTokens: number;
+	/** Context window size at the final API call (input + cache read + cache write). */
+	contextWindowTokens: number;
+	/** Estimated session cost in USD (model-aware pricing). */
+	costUSD: number;
 	toolUseCounts: Record<string, number>;
 	durationMs: number;
 }

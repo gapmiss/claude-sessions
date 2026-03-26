@@ -198,6 +198,10 @@ function buildHeaderHTML(session: Session): string {
 	if (date) metaParts.push(`<span>${escapeHtml(date)}</span>`);
 	if (duration) metaParts.push(`<span>Duration: ${escapeHtml(duration)}</span>`);
 	metaParts.push(`<span>Turns: ${m.totalTurns}</span>`);
+	if (s.costUSD > 0) {
+		const cost = s.costUSD >= 1 ? `$${s.costUSD.toFixed(2)}` : `$${s.costUSD.toFixed(3)}`;
+		metaParts.push(`<span>Cost: ~${escapeHtml(cost)}</span>`);
+	}
 
 	return `<div class="as-export-header">
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
