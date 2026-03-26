@@ -1,59 +1,112 @@
-import { App, Modal, Notice } from 'obsidian';
+import { ItemView, Notice, WorkspaceLeaf } from 'obsidian';
 import type AgentSessionsPlugin from '../main';
-import type { Session, SessionListEntry, Turn } from '../types';
-import { searchSessions, searchFile, SearchQuery, SearchMatch, SessionSearchResult } from '../utils/session-search';
+import type { Session, SessionListEntry } from '../types';
+import { searchSessions, searchFile, resolveMatchTurn } from '../utils/session-search';
+import type { SearchQuery, SearchMatch, SessionSearchResult } from '../utils/session-search';
 import { readFileContent } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
 import { resolveSubAgentSessions } from '../parsers/claude-subagent';
 import { makeClickable } from './render-helpers';
 import { shortenPath } from '../utils/path-utils';
+import { scanSessionDirs } from './session-browser-modal';
+import { ReplayView } from './replay-view';
+
+export const VIEW_TYPE_SEARCH = 'agent-sessions-search';
 
 const DEBOUNCE_MS = 300;
 const VISIBLE_MATCHES_PER_SESSION = 5;
 const SINGLE_SESSION_MAX_MATCHES = 100;
 const SINGLE_SESSION_VISIBLE = 20;
 
-/** Options for single-session (in-view) search mode. */
-export interface InSessionSearchOpts {
-	session: Session;
-	filePath: string;
-	onNavigate: (turnIndex: number, query: string) => void;
+type SearchMode = 'cross-session' | 'in-session';
+
+interface SearchViewState {
+	mode?: SearchMode;
+	query?: string;
+	roleFilter?: 'all' | 'user' | 'assistant';
 }
 
-export class SessionSearchModal extends Modal {
-	private plugin: AgentSessionsPlugin | null;
-	private entries: SessionListEntry[];
-	private inSession: InSessionSearchOpts | null;
+export class SearchView extends ItemView {
+	private plugin: AgentSessionsPlugin;
+
+	// Mode
+	private mode: SearchMode = 'cross-session';
+
+	// Cross-session state
+	private entries: SessionListEntry[] = [];
+	private entriesLoaded = false;
+
+	// In-session state
+	private trackedReplayLeaf: WorkspaceLeaf | null = null;
+	private trackedSession: Session | null = null;
+	private trackedFilePath: string | null = null;
+
+	// Search state
 	private abortController: AbortController | null = null;
 	private debounceTimer: number | null = null;
 
+	// Active result tracking
+	private activeRowEl: HTMLElement | null = null;
+
+	// DOM refs
+	private crossBtn!: HTMLElement;
+	private inSessionBtn!: HTMLElement;
+	private scopeLabel!: HTMLElement;
 	private inputEl!: HTMLInputElement;
 	private roleSelect!: HTMLSelectElement;
 	private progressEl!: HTMLElement;
 	private resultsEl!: HTMLElement;
 
-	constructor(app: App, plugin: AgentSessionsPlugin, entries: SessionListEntry[], inSession?: InSessionSearchOpts);
-	constructor(app: App, plugin: null, entries: [], inSession: InSessionSearchOpts);
-	constructor(app: App, plugin: AgentSessionsPlugin | null, entries: SessionListEntry[], inSession?: InSessionSearchOpts) {
-		super(app);
+	constructor(leaf: WorkspaceLeaf, plugin: AgentSessionsPlugin) {
+		super(leaf);
 		this.plugin = plugin;
-		this.entries = entries;
-		this.inSession = inSession ?? null;
 	}
 
-	onOpen(): void {
+	getViewType(): string {
+		return VIEW_TYPE_SEARCH;
+	}
+
+	getDisplayText(): string {
+		return 'Session search';
+	}
+
+	getIcon(): string {
+		return 'search';
+	}
+
+	async onOpen(): Promise<void> {
 		const { contentEl } = this;
 		contentEl.empty();
-		this.modalEl.addClass('agent-sessions-search-modal');
+		contentEl.addClass('agent-sessions-search-view');
 
-		// ── Search input row ──
+		// Mode toggle
+		const modeRow = contentEl.createDiv({ cls: 'agent-sessions-search-mode-toggle' });
+
+		this.crossBtn = modeRow.createEl('button', {
+			cls: 'agent-sessions-search-mode-btn',
+			text: 'All sessions',
+			attr: { 'aria-label': 'Search all sessions', 'data-tooltip-position': 'bottom' },
+		});
+		this.crossBtn.addEventListener('click', () => this.setMode('cross-session'));
+
+		this.inSessionBtn = modeRow.createEl('button', {
+			cls: 'agent-sessions-search-mode-btn',
+			text: 'Current session',
+			attr: { 'aria-label': 'Search current session', 'data-tooltip-position': 'bottom' },
+		});
+		this.inSessionBtn.addEventListener('click', () => this.setMode('in-session'));
+
+		// Scope label
+		this.scopeLabel = contentEl.createDiv({ cls: 'agent-sessions-search-scope-label' });
+
+		// Search input row
 		const inputRow = contentEl.createDiv({ cls: 'agent-sessions-search-input-row' });
 
 		this.inputEl = inputRow.createEl('input', {
 			type: 'text',
 			cls: 'agent-sessions-search-input',
 			attr: {
-				placeholder: this.inSession ? 'Search in session...' : 'Search across sessions...',
+				placeholder: 'Search...',
 				'aria-label': 'Search query',
 			},
 		});
@@ -66,13 +119,13 @@ export class SessionSearchModal extends Modal {
 			this.roleSelect.createEl('option', { value, text: label });
 		}
 
-		// ── Progress ──
+		// Progress
 		this.progressEl = contentEl.createDiv({ cls: 'agent-sessions-search-progress' });
 
-		// ── Results ──
+		// Results
 		this.resultsEl = contentEl.createDiv({ cls: 'agent-sessions-search-results' });
 
-		// ── Event handlers ──
+		// Event handlers
 		this.inputEl.addEventListener('input', () => this.onQueryChange());
 		this.roleSelect.addEventListener('change', () => this.onQueryChange());
 
@@ -104,16 +157,149 @@ export class SessionSearchModal extends Modal {
 			}
 		});
 
-		// Auto-focus
+		// Apply initial mode
+		this.syncModeUI();
+		this.resolveTrackedSession();
+		this.updateScopeLabel();
+
 		requestAnimationFrame(() => this.inputEl.focus());
 	}
 
-	onClose(): void {
+	async onClose(): Promise<void> {
 		this.abortSearch();
 		if (this.debounceTimer !== null) {
 			window.clearTimeout(this.debounceTimer);
 		}
 	}
+
+	getState(): Record<string, unknown> {
+		return {
+			mode: this.mode,
+			query: this.inputEl?.value ?? '',
+			roleFilter: this.roleSelect?.value ?? 'all',
+		};
+	}
+
+	async setState(state: SearchViewState): Promise<void> {
+		if (state.mode) {
+			this.mode = state.mode;
+			this.syncModeUI();
+		}
+		if (state.roleFilter && this.roleSelect) {
+			this.roleSelect.value = state.roleFilter;
+		}
+		if (state.query && this.inputEl) {
+			this.inputEl.value = state.query;
+		}
+		this.resolveTrackedSession();
+		this.updateScopeLabel();
+		// Re-execute query if present
+		if (this.inputEl?.value.trim().length >= 2) {
+			this.onQueryChange();
+		}
+	}
+
+	// ── Public API ──
+
+	setMode(mode: SearchMode): void {
+		if (this.mode === mode) return;
+		this.mode = mode;
+		this.abortSearch();
+		this.resultsEl.empty();
+		this.progressEl.setText('');
+		this.activeRowEl = null;
+
+		this.syncModeUI();
+		this.resolveTrackedSession();
+		this.updateScopeLabel();
+
+		// Re-execute current query in new mode
+		if (this.inputEl.value.trim().length >= 2) {
+			this.onQueryChange();
+		}
+	}
+
+	onActiveLeafChanged(leaf: WorkspaceLeaf | null): void {
+		// Ignore if the search view itself became active
+		if (leaf?.view instanceof SearchView) return;
+
+		if (this.mode !== 'in-session') return;
+
+		if (leaf?.view instanceof ReplayView) {
+			const session = (leaf.view as ReplayView).getSession();
+			if (session?.rawPath && session.rawPath !== this.trackedFilePath) {
+				this.trackedReplayLeaf = leaf;
+				this.trackedSession = session;
+				this.trackedFilePath = session.rawPath;
+				this.updateScopeLabel();
+
+				// Re-execute search against new session
+				this.resultsEl.empty();
+				this.progressEl.setText('');
+				this.activeRowEl = null;
+				if (this.inputEl.value.trim().length >= 2) {
+					this.onQueryChange();
+				}
+			}
+		}
+	}
+
+	// ── Mode UI ──
+
+	private syncModeUI(): void {
+		if (!this.crossBtn) return;
+		this.crossBtn.toggleClass('active', this.mode === 'cross-session');
+		this.inSessionBtn.toggleClass('active', this.mode === 'in-session');
+		this.inputEl.setAttribute('placeholder',
+			this.mode === 'in-session' ? 'Search in session...' : 'Search across sessions...');
+	}
+
+	private resolveTrackedSession(): void {
+		if (this.mode !== 'in-session') return;
+		// Find the active replay view
+		const replayView = this.app.workspace.getActiveViewOfType(ReplayView);
+		if (replayView) {
+			const session = replayView.getSession();
+			if (session?.rawPath) {
+				this.trackedReplayLeaf = replayView.leaf;
+				this.trackedSession = session;
+				this.trackedFilePath = session.rawPath;
+				return;
+			}
+		}
+		// Fallback: search all replay leaves for one with a session
+		if (!this.trackedSession) {
+			const leaves = this.app.workspace.getLeavesOfType('agent-sessions-replay');
+			for (const l of leaves) {
+				if (l.view instanceof ReplayView) {
+					const s = (l.view as ReplayView).getSession();
+					if (s?.rawPath) {
+						this.trackedReplayLeaf = l;
+						this.trackedSession = s;
+						this.trackedFilePath = s.rawPath;
+						return;
+					}
+				}
+			}
+		}
+	}
+
+	private updateScopeLabel(): void {
+		if (!this.scopeLabel) return;
+		if (this.mode === 'cross-session') {
+			this.scopeLabel.setText(this.entriesLoaded
+				? `All sessions (${this.entries.length})`
+				: 'All sessions');
+		} else {
+			if (this.trackedSession) {
+				this.scopeLabel.setText(`Searching in: ${this.trackedSession.metadata.project}`);
+			} else {
+				this.scopeLabel.setText('No session open');
+			}
+		}
+	}
+
+	// ── Query handling ──
 
 	private onQueryChange(): void {
 		this.abortSearch();
@@ -123,19 +309,19 @@ export class SessionSearchModal extends Modal {
 		}
 
 		const text = this.inputEl.value.trim();
-		this.modalEl.toggleClass('has-query', text.length > 0);
 		if (text.length < 2) {
 			this.resultsEl.empty();
 			this.progressEl.setText(text.length === 1 ? 'Type at least 2 characters...' : '');
+			this.activeRowEl = null;
 			return;
 		}
 
 		this.debounceTimer = window.setTimeout(() => {
 			this.debounceTimer = null;
-			if (this.inSession) {
+			if (this.mode === 'in-session') {
 				this.executeInSessionSearch(text);
 			} else {
-				this.executeMultiSearch(text);
+				this.executeCrossSessionSearch(text);
 			}
 		}, DEBOUNCE_MS);
 	}
@@ -147,15 +333,20 @@ export class SessionSearchModal extends Modal {
 		}
 	}
 
-	// ── Single-session search ──
+	// ── In-session search ──
 
 	private async executeInSessionSearch(text: string): Promise<void> {
 		this.abortSearch();
 		this.resultsEl.empty();
+		this.activeRowEl = null;
+
+		if (!this.trackedFilePath || !this.trackedSession) {
+			this.progressEl.setText('No session open.');
+			return;
+		}
 
 		const controller = new AbortController();
 		this.abortController = controller;
-		const opts = this.inSession!;
 
 		const query: SearchQuery = {
 			text,
@@ -166,7 +357,7 @@ export class SessionSearchModal extends Modal {
 		this.progressEl.setText('Searching...');
 
 		const { matches, totalMatches } = await searchFile(
-			opts.filePath, query, SINGLE_SESSION_MAX_MATCHES, controller.signal,
+			this.trackedFilePath, query, SINGLE_SESSION_MAX_MATCHES, controller.signal,
 		);
 
 		if (controller.signal.aborted) return;
@@ -203,11 +394,13 @@ export class SessionSearchModal extends Modal {
 	}
 
 	private renderInSessionMatchRow(match: SearchMatch, query: SearchQuery): void {
-		const opts = this.inSession!;
+		const session = this.trackedSession;
+		if (!session) return;
+
 		const row = this.resultsEl.createDiv({ cls: 'agent-sessions-search-match-row' });
 		makeClickable(row, { label: 'Go to match' });
 
-		const resolvedTurn = resolveMatchTurn(match, opts.session.turns);
+		const resolvedTurn = resolveMatchTurn(match, session.turns);
 
 		// Turn label
 		row.createSpan({ cls: 'agent-sessions-search-match-turn', text: `#${resolvedTurn + 1}` });
@@ -233,16 +426,41 @@ export class SessionSearchModal extends Modal {
 		if (match.contextAfter) snippet.createSpan({ text: match.contextAfter });
 
 		row.addEventListener('click', () => {
-			opts.onNavigate(resolvedTurn, query.text);
-			this.close();
+			this.setActiveRow(row);
+			this.navigateToInSessionMatch(resolvedTurn, query.text);
 		});
 	}
 
-	// ── Multi-session search ──
+	private navigateToInSessionMatch(turnIndex: number, query: string): void {
+		if (!this.trackedReplayLeaf) return;
+		const view = this.trackedReplayLeaf.view;
+		if (view instanceof ReplayView) {
+			// Reveal the replay leaf so the user sees the result
+			this.app.workspace.revealLeaf(this.trackedReplayLeaf);
+			view.navigateToMatch(turnIndex, query);
+		}
+	}
 
-	private executeMultiSearch(text: string): void {
+	// ── Cross-session search ──
+
+	private async executeCrossSessionSearch(text: string): Promise<void> {
 		this.abortSearch();
 		this.resultsEl.empty();
+		this.activeRowEl = null;
+
+		// Lazy-load entries
+		if (!this.entriesLoaded) {
+			this.progressEl.setText('Scanning session directories...');
+			const result = await scanSessionDirs(this.plugin);
+			this.entries = result.entries;
+			this.entriesLoaded = true;
+			this.updateScopeLabel();
+		}
+
+		if (this.entries.length === 0) {
+			this.progressEl.setText('No sessions found. Check session directories in settings.');
+			return;
+		}
 
 		const controller = new AbortController();
 		this.abortController = controller;
@@ -328,7 +546,7 @@ export class SessionSearchModal extends Modal {
 		query: SearchQuery,
 	): void {
 		const row = container.createDiv({ cls: 'agent-sessions-search-match-row' });
-		makeClickable(row, { label: `Open match in session` });
+		makeClickable(row, { label: 'Open match in session' });
 
 		// Role + type label
 		const meta = row.createSpan({ cls: 'agent-sessions-search-match-meta' });
@@ -352,11 +570,12 @@ export class SessionSearchModal extends Modal {
 
 		// Click opens session at turn
 		row.addEventListener('click', () => {
-			this.openResult(result.entry, match.turnIndex, query.text);
+			this.setActiveRow(row);
+			this.openCrossSessionResult(result.entry, match.turnIndex, query.text);
 		});
 	}
 
-	private async openResult(entry: SessionListEntry, turnIndex: number, query: string): Promise<void> {
+	private async openCrossSessionResult(entry: SessionListEntry, turnIndex: number, query: string): Promise<void> {
 		try {
 			new Notice('Loading session...');
 			const content = await readFileContent(entry.path);
@@ -367,35 +586,22 @@ export class SessionSearchModal extends Modal {
 			}
 			const session = parser.parse(content, entry.path);
 			await resolveSubAgentSessions(session, readFileContent);
-			await this.plugin!.openSession(session, turnIndex, query);
-			this.close();
+			await this.plugin.openSession(session, turnIndex, query);
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			new Notice(`Failed to load session: ${msg}`);
 		}
 	}
-}
 
-/** Map a search match to the correct parsed turn index using timestamps. */
-function resolveMatchTurn(match: SearchMatch, turns: Turn[]): number {
-	if (!turns.length) return 0;
+	// ── Active row tracking ──
 
-	if (match.timestamp) {
-		const matchMs = new Date(match.timestamp).getTime();
-		if (!isNaN(matchMs)) {
-			for (let i = 0; i < turns.length; i++) {
-				const turnMs = turns[i].timestamp ? new Date(turns[i].timestamp!).getTime() : NaN;
-				const nextMs = i + 1 < turns.length && turns[i + 1].timestamp
-					? new Date(turns[i + 1].timestamp!).getTime()
-					: Infinity;
-				if (!isNaN(turnMs) && matchMs >= turnMs && matchMs < nextMs) {
-					return i;
-				}
-			}
+	private setActiveRow(row: HTMLElement): void {
+		if (this.activeRowEl) {
+			this.activeRowEl.removeClass('active');
 		}
+		row.addClass('active');
+		this.activeRowEl = row;
 	}
-
-	return Math.min(match.turnIndex, turns.length - 1);
 }
 
 /** Find the next .agent-sessions-search-match-row after the current one. */

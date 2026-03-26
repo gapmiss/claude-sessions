@@ -2,8 +2,8 @@ import { Notice, Plugin, WorkspaceLeaf } from 'obsidian';
 import { SettingsTab } from './settings';
 import { PluginSettings, DEFAULT_SETTINGS, Session } from './types';
 import { ReplayView, VIEW_TYPE_REPLAY } from './views/replay-view';
+import { SearchView, VIEW_TYPE_SEARCH } from './views/search-view';
 import { SessionBrowserModal, scanSessionDirs } from './views/session-browser-modal';
-import { SessionSearchModal } from './views/search-modal';
 import { FilePickerModal } from './views/file-picker-modal';
 import { exportToMarkdown } from './exporters/markdown-exporter';
 import { listDirectory, listSubdirectories, readFileContent } from './utils/streaming-reader';
@@ -25,6 +25,22 @@ export default class AgentSessionsPlugin extends Plugin {
 		this.registerView(VIEW_TYPE_REPLAY, (leaf: WorkspaceLeaf) => {
 			return new ReplayView(leaf, this.settings);
 		});
+
+		this.registerView(VIEW_TYPE_SEARCH, (leaf: WorkspaceLeaf) => {
+			return new SearchView(leaf, this);
+		});
+
+		// Forward active-leaf-change to search view for auto-scoping
+		this.registerEvent(
+			this.app.workspace.on('active-leaf-change', (leaf) => {
+				const searchLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_SEARCH);
+				for (const sl of searchLeaves) {
+					if (sl.view instanceof SearchView) {
+						(sl.view as SearchView).onActiveLeafChanged(leaf);
+					}
+				}
+			})
+		);
 
 		this.addSettingTab(new SettingsTab(this.app, this));
 
@@ -51,13 +67,7 @@ export default class AgentSessionsPlugin extends Plugin {
 			id: 'search-sessions',
 			name: 'Search sessions',
 			callback: async () => {
-				new Notice('Scanning session directories...');
-				const result = await scanSessionDirs(this);
-				if (result.entries.length === 0) {
-					new Notice('No sessions found. Check your session directories in settings.');
-					return;
-				}
-				new SessionSearchModal(this.app, this, result.entries).open();
+				await this.revealSearchView('cross-session');
 			},
 		});
 
@@ -119,7 +129,7 @@ export default class AgentSessionsPlugin extends Plugin {
 				const session = view?.getSession();
 				if (!view || !session?.rawPath) return false;
 				if (checking) return true;
-				view.openInSessionSearch();
+				this.revealSearchView('in-session');
 				return true;
 			},
 		});
@@ -193,6 +203,21 @@ export default class AgentSessionsPlugin extends Plugin {
 				});
 			}
 		}
+	}
+
+	async revealSearchView(mode: 'cross-session' | 'in-session'): Promise<SearchView> {
+		const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_SEARCH);
+		let leaf: WorkspaceLeaf;
+		if (existing.length > 0) {
+			leaf = existing[0];
+		} else {
+			leaf = this.app.workspace.getRightLeaf(false)!;
+			await leaf.setViewState({ type: VIEW_TYPE_SEARCH, active: true });
+		}
+		this.app.workspace.revealLeaf(leaf);
+		const view = leaf.view as SearchView;
+		view.setMode(mode);
+		return view;
 	}
 
 	updateReplayViews(): void {

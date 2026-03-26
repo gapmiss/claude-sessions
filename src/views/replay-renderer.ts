@@ -79,9 +79,11 @@ export class ReplayRenderer {
 		});
 
 		// Turn header (collapsible)
+		const roleClass = turn.role === 'user' ? 'agent-sessions-turn-role-user' : 'agent-sessions-turn-role-assistant';
 		const header = turnEl.createDiv({ cls: 'agent-sessions-turn-header' });
 		header.createSpan({ cls: 'agent-sessions-turn-chevron', text: '\u25B6' });
-		header.createSpan({ cls: 'agent-sessions-turn-label', text: `#${turn.index + 1}` });
+		header.createSpan({ cls: `agent-sessions-turn-role ${roleClass}`, text: turn.role === 'user' ? 'USER' : 'CLAUDE' });
+		header.createSpan({ cls: 'agent-sessions-turn-label', text: `(Turn #${turn.index + 1})` });
 
 		if (turn.timestamp) {
 			const d = new Date(turn.timestamp);
@@ -155,7 +157,6 @@ export class ReplayRenderer {
 		let blockIdx = 0;
 		if (userBlocks.length > 0) {
 			const userSection = body.createDiv({ cls: 'agent-sessions-role-section agent-sessions-role-user' });
-			userSection.createDiv({ cls: 'agent-sessions-role-label agent-sessions-role-user-label', text: 'USER' });
 
 			for (const block of userBlocks) {
 				const wrapper = userSection.createDiv({
@@ -185,7 +186,6 @@ export class ReplayRenderer {
 		// Assistant section
 		if (assistantBlocks.length > 0) {
 			const assistantSection = body.createDiv({ cls: 'agent-sessions-role-section agent-sessions-role-assistant' });
-			assistantSection.createDiv({ cls: 'agent-sessions-role-label agent-sessions-role-assistant-label', text: 'CLAUDE' });
 
 			this.renderAssistantBlocks(assistantBlocks, assistantSection, blockIdx);
 		}

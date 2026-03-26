@@ -1,7 +1,6 @@
 import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon } from 'obsidian';
 import { Session, PluginSettings } from '../types';
 import { ReplayRenderer } from './replay-renderer';
-import { SessionSearchModal } from './search-modal';
 import { readFileContent } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
 import { resolveSubAgentSessions } from '../parsers/claude-subagent';
@@ -334,12 +333,23 @@ export class ReplayView extends ItemView {
 
 	openInSessionSearch(): void {
 		if (!this.session?.rawPath) return;
-		const session = this.session;
-		new SessionSearchModal(this.app, null, [], {
-			session,
-			filePath: session.rawPath,
-			onNavigate: (turnIndex, query) => this.navigateToMatch(turnIndex, query),
-		}).open();
+		// Use string constant to avoid circular import with search-view.ts
+		const SEARCH_TYPE = 'agent-sessions-search';
+		const existing = this.app.workspace.getLeavesOfType(SEARCH_TYPE);
+		let leaf: WorkspaceLeaf;
+		if (existing.length > 0) {
+			leaf = existing[0];
+		} else {
+			const right = this.app.workspace.getRightLeaf(false);
+			if (!right) return;
+			leaf = right;
+			leaf.setViewState({ type: SEARCH_TYPE, active: true });
+		}
+		this.app.workspace.revealLeaf(leaf);
+		const view = leaf.view;
+		if (view && 'setMode' in view) {
+			(view as { setMode(mode: string): void }).setMode('in-session');
+		}
 	}
 
 	navigateToMatch(turnIndex: number, query: string): void {

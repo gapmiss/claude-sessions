@@ -1,5 +1,5 @@
 import { Platform } from 'obsidian';
-import type { TurnRole, SessionListEntry } from '../types';
+import type { Turn, TurnRole, SessionListEntry } from '../types';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -229,6 +229,28 @@ export async function searchFile(
  * Search across multiple session files. Processes newest first.
  * Calls onResult per session that has matches. Calls onProgress with counts.
  */
+/** Map a search match to the correct parsed turn index using timestamps. */
+export function resolveMatchTurn(match: SearchMatch, turns: Turn[]): number {
+	if (!turns.length) return 0;
+
+	if (match.timestamp) {
+		const matchMs = new Date(match.timestamp).getTime();
+		if (!isNaN(matchMs)) {
+			for (let i = 0; i < turns.length; i++) {
+				const turnMs = turns[i].timestamp ? new Date(turns[i].timestamp!).getTime() : NaN;
+				const nextMs = i + 1 < turns.length && turns[i + 1].timestamp
+					? new Date(turns[i + 1].timestamp!).getTime()
+					: Infinity;
+				if (!isNaN(turnMs) && matchMs >= turnMs && matchMs < nextMs) {
+					return i;
+				}
+			}
+		}
+	}
+
+	return Math.min(match.turnIndex, turns.length - 1);
+}
+
 export async function searchSessions(
 	entries: SessionListEntry[],
 	query: SearchQuery,

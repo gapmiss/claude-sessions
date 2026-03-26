@@ -55,22 +55,23 @@ Working features:
 - Copy-to-clipboard buttons on user/assistant text blocks (hover to reveal)
 - Image blocks with thumbnail preview, click-to-zoom modal with Download and Copy buttons
 - "Show more" with fade gradient for long text blocks (10+ lines)
-- Collapsible turn headers with `#N` label and timestamp
-- Role sections with colored left borders (accent for USER, cyan for CLAUDE)
+- Collapsible turn headers with role label (USER/CLAUDE) and `(Turn #N)` — role color in header, content sections retain colored left borders
 - **Live watch** with file watcher — auto-reloads session on file change
   - **UI state preservation** across re-renders: expanded tool blocks, "show more" sections, scroll position, turn collapse, and summary panel state all persist
   - **Auto-scroll setting** — toggle whether live updates scroll to bottom or preserve position
 - **Cached session index** — persists metadata to `session-index.json`; only new/modified files re-read on browse
 - **Async line-by-line metadata extraction** — skips large record types (file-history-snapshot, queue-operation, progress) by prefix check; reads up to 100 lines
 - **Empty session filtering** — sessions with zero user/assistant records are hidden from the browser
-- **Cross-session search** — keyword search across all JSONL session files with progressive results
+- **Search side panel** (`ItemView` in right split) — dual-mode search with persistent results
+  - **Cross-session mode** ("All sessions"): keyword search across all JSONL files with progressive results
+  - **In-session mode** ("Current session"): scoped to active replay view's session with timestamp-based turn resolution and DOM highlighting
+  - Mode toggle buttons, scope label showing active session path
   - On-demand line-by-line grep using Node.js `readline` (no persistent index)
-  - Custom `Modal` with debounced input, role filter (all/user/assistant), and progressive results
+  - Role filter (all/user/assistant), debounced input, `AbortController` cancellation
   - Results grouped by session with `<mark>`-highlighted match snippets (75-char context)
-  - Approximate turn index tracking via role transitions; clicking a result opens session at matched turn
-  - `AbortController` cancels previous search on query change or modal close
-  - Arrow key navigation between results, "+N more" expander per session
+  - Arrow key navigation between results, "+N more" expander per session, active result highlighting
   - Processes newest sessions first (sorted by mtime)
+  - `getState()`/`setState()` persist mode, query, and role filter across workspace restores
 - Session browser (SuggestModal) — scans dirs before opening for synchronous getItems()
 - File picker modal with drag-and-drop, path input, and session directory path resolution fallback
 - Markdown export with frontmatter and Obsidian callouts
@@ -211,7 +212,7 @@ src/
     render-helpers.ts              # Shared utilities: RenderContext, makeClickable, fence, langFromPath, etc.
     summary-renderer.ts            # Collapsible summary panel with metadata grid, token stats, tool breakdown
     tool-renderer.ts               # All tool-specific rendering: Bash, Edit, Write, Read, sub-agents, tool groups
-    search-modal.ts                # Cross-session search modal with progressive results
+    search-view.ts                 # Search side panel (ItemView) — dual-mode cross-session and in-session search
     session-browser-modal.ts       # SuggestModal + scanSessionDirs() with cached index
     file-picker-modal.ts           # Import from arbitrary path (drag-and-drop, path input)
   exporters/
@@ -317,20 +318,22 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 ## Session State
 <!-- DO NOT edit this section manually. It is managed exclusively by /wrap SKILL. -->
 <!-- auto-updated by /wrap -->
-- **Last session**: 2026-03-24 22:20
-- **Goal**: Fix ANSI rendering in Bash tool results, add visual task list rendering
-- **Summary**: Fixed Bash tool results showing raw ANSI bracket sequences by routing ANSI-containing output through `buildAnsiDom()`. Expanded the ANSI parser to handle standard 4-bit colors (30-37, 90-97), backgrounds (40-47, 100-107), dim, and underline. Added cumulative task list rendering for TaskCreate/TaskUpdate/TaskList tools with lucide status icons. Fixed `enrichedResult` capture for tools lacking `sourceToolUseID`. All 89 tests pass.
+- **Last session**: 2026-03-25 19:50
+- **Goal**: Add in-session search, fix accessibility issues (focus-visible, keyboard menu positioning)
+- **Summary**: Added in-session search by adapting the existing `SessionSearchModal` for single-session mode — scoped `searchFile` with flat results, timestamp-based turn resolution, and TreeWalker DOM highlighting with 5s fade. Cross-session search also highlights matches now. Fixed filter menu keyboard positioning (`showAtPosition` for Enter/Space), switched focus-visible indicators to inset `box-shadow` to avoid `overflow:hidden` clipping, and added stable modal height (`has-query` class → 90vh). 94 tests pass.
 - **Decisions**:
-  - Detect ANSI codes in Bash results via `hasAnsiCodes()` regex, render through `buildAnsiDom()` instead of MarkdownRenderer — avoids ESC stripping that left bracket sequences visible
-  - Standard 4-bit ANSI colors use hardcoded hex palette (not CSS variables) — matches terminal emulator behavior
-  - Force dark text on `.ansi-bg` spans — bright backgrounds (cyan, green) need contrast regardless of theme
-  - Cumulative task state via `Map<string, TaskState>` on `ToolRendererDelegate` — each task tool result shows full list at that point, not just the individual change
-  - `enrichedResult` capture falls back to extracting `tool_use_id` from content array when `sourceToolUseID` is missing — task tools use `sourceToolAssistantUUID` instead
-  - `TaskList` results replace (clear + rebuild) accumulated state — authoritative snapshot
+  - Reuse `SessionSearchModal` with optional `InSessionSearchOpts` rather than a separate modal — avoids code duplication, same UI patterns
+  - `plugin` param is `null` in single-session mode (only used for multi-session `openResult`) — overloaded constructor with type safety
+  - Timestamp-based turn resolution over approximate JSONL line-counter — fixes the imprecise scroll-to-turn that made cross-session search hard to use
+  - TreeWalker DOM search with auto-expand of collapsed ancestors — finds text as rendered (post-markdown), robust against DOM structure changes
+  - `has-query` class on `modalEl` (not `contentEl`) for stable 90vh height — Obsidian's `.modal` is the sizing element, `.modal-content` is inside it
+  - Inset `box-shadow` for all collapsible header focus indicators — parent containers use `overflow:hidden` which clips outset shadows
+  - Filter menu uses `showAtPosition` with button bounding rect for keyboard activation — `showAtMouseEvent` with synthetic click gives clientX=0,clientY=0
 - **Next steps**:
-  - Consider skip-filtered-blocks during segment navigation (arrow keys land on hidden blocks)
-  - Incremental parsing/rendering for large sessions (roadmap items)
-  - Explore cost estimation from token usage metadata
+  - Convert search modal to a side-view (`ItemView` in right split) — eliminates modal height issues, allows keeping results visible while navigating sessions
+  - Skip filtered blocks during segment navigation (arrow keys land on hidden blocks)
+  - Incremental parsing/rendering for large sessions
+  - Cost estimation from token usage metadata
 - **Blockers**: None
 - **Branch**: main
-- **Uncommitted**: Minor .gitignore and CLAUDE.md metadata changes only
+- **Uncommitted**: CLAUDE.md session state + minor .gitignore changes
