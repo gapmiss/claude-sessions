@@ -26,22 +26,11 @@ export function getStandaloneScript(): string {
       return;
     }
 
-    /* All other collapsibles use "open" class on the nearest container.
-     * Walk up from the header to find the right parent. */
-    var containers = [
-      '.agent-sessions-summary',
-      '.agent-sessions-tool-block',
-      '.agent-sessions-tool-group',
-      '.agent-sessions-thinking-block',
-      '.agent-sessions-slash-command-block',
-      '.agent-sessions-subagent-prompt',
-    ];
-    for (var i = 0; i < containers.length; i++) {
-      var container = header.closest(containers[i]);
-      if (container) {
-        container.classList.toggle('open', !expanded);
-        return;
-      }
+    /* All other collapsibles: header is always a direct child of its container.
+     * Toggle "open" class on the parent element. */
+    var parent = header.parentElement;
+    if (parent) {
+      parent.classList.toggle('open', !expanded);
     }
   }
 
@@ -184,42 +173,52 @@ export function getStandaloneScript(): string {
   function applyFilters(state) {
     var root = document.getElementById('as-export-root');
     if (!root) return;
+    var FC = 'agent-sessions-filtered';
 
-    /* User turns */
-    root.querySelectorAll('.agent-sessions-turn-role-user').forEach(function(turn) {
-      turn.style.display = state.user === false ? 'none' : '';
-      if (state.user !== false) {
-        turn.querySelectorAll('.agent-sessions-text-block').forEach(function(b) {
-          if (b.closest('.agent-sessions-turn-role-assistant')) return;
-          b.style.display = state.userText === false ? 'none' : '';
-        });
-        turn.querySelectorAll('.agent-sessions-image-thumbnail').forEach(function(b) {
-          b.style.display = state.userImages === false ? 'none' : '';
-        });
-      }
-    });
+    function toggleFiltered(el, hidden) {
+      if (hidden) el.classList.add(FC); else el.classList.remove(FC);
+    }
 
-    /* Assistant turns */
-    root.querySelectorAll('.agent-sessions-turn-role-assistant').forEach(function(turn) {
-      turn.style.display = state.assistant === false ? 'none' : '';
-      if (state.assistant !== false) {
-        turn.querySelectorAll('.agent-sessions-text-block').forEach(function(b) {
-          b.style.display = state.assistantText === false ? 'none' : '';
-        });
-        turn.querySelectorAll('.agent-sessions-thinking-block').forEach(function(b) {
-          b.style.display = state.thinking === false ? 'none' : '';
-        });
-        turn.querySelectorAll('.agent-sessions-tool-block').forEach(function(b) {
-          b.style.display = state.toolCalls === false ? 'none' : '';
-        });
-        turn.querySelectorAll('.agent-sessions-tool-group').forEach(function(b) {
-          b.style.display = state.toolCalls === false ? 'none' : '';
-        });
-        turn.querySelectorAll('.agent-sessions-tool-result').forEach(function(b) {
-          b.style.display = state.toolResults === false ? 'none' : '';
-        });
-      }
+    /* User role sections */
+    root.querySelectorAll('.agent-sessions-role-user').forEach(function(el) {
+      toggleFiltered(el, state.user === false);
     });
+    if (state.user !== false) {
+      root.querySelectorAll('.agent-sessions-user-text').forEach(function(el) {
+        var wrapper = el.closest('.agent-sessions-block-wrapper');
+        if (wrapper) toggleFiltered(wrapper, state.userText === false);
+      });
+      root.querySelectorAll('.agent-sessions-slash-command-block').forEach(function(el) {
+        var wrapper = el.closest('.agent-sessions-block-wrapper');
+        if (wrapper) toggleFiltered(wrapper, state.userText === false);
+      });
+      root.querySelectorAll('.agent-sessions-image-thumbnail').forEach(function(el) {
+        var wrapper = el.closest('.agent-sessions-block-wrapper');
+        if (wrapper) toggleFiltered(wrapper, state.userImages === false);
+      });
+    }
+
+    /* Assistant role sections */
+    root.querySelectorAll('.agent-sessions-role-assistant').forEach(function(el) {
+      toggleFiltered(el, state.assistant === false);
+    });
+    if (state.assistant !== false) {
+      root.querySelectorAll('.agent-sessions-assistant-text').forEach(function(el) {
+        var wrapper = el.closest('.agent-sessions-block-wrapper');
+        if (wrapper) toggleFiltered(wrapper, state.assistantText === false);
+      });
+      root.querySelectorAll('.agent-sessions-thinking-block').forEach(function(el) {
+        var wrapper = el.closest('.agent-sessions-block-wrapper');
+        if (wrapper) toggleFiltered(wrapper, state.thinking === false);
+      });
+      root.querySelectorAll('.agent-sessions-tool-block, .agent-sessions-tool-group').forEach(function(el) {
+        var wrapper = el.closest('.agent-sessions-block-wrapper');
+        if (wrapper) toggleFiltered(wrapper, state.toolCalls === false);
+      });
+      root.querySelectorAll('.agent-sessions-tool-result').forEach(function(el) {
+        toggleFiltered(el, state.toolResults === false);
+      });
+    }
   }
 
   /* ── Event delegation ── */
@@ -242,7 +241,7 @@ export function getStandaloneScript(): string {
     }
 
     /* Copy buttons */
-    var copyBtn = target.closest('.agent-sessions-copy-btn, .agent-sessions-summary-copy, .copy-code-button');
+    var copyBtn = target.closest('.agent-sessions-copy-btn, .agent-sessions-text-copy, .agent-sessions-summary-copy, .copy-code-button');
     if (copyBtn) {
       e.preventDefault();
       var text = copyBtn.getAttribute('data-copy-text');

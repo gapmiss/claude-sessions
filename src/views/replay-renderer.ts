@@ -249,7 +249,7 @@ export class ReplayRenderer {
 		const wrapEl = container.createDiv({ cls: 'agent-sessions-text-block' });
 
 		const copyBtn = wrapEl.createEl('button', {
-			cls: 'agent-sessions-text-copy',
+			cls: 'agent-sessions-text-copy clickable-icon',
 			attr: { 'aria-label': 'Copy to clipboard', 'data-tooltip-position': 'top' },
 		});
 		setIcon(copyBtn, 'copy');

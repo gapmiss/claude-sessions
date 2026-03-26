@@ -322,6 +322,16 @@
 	background: var(--background-modifier-hover);
 }
 
+/* Style Obsidian's copy-code-button as clickable-icon within our views */
+.agent-sessions-replay-container .copy-code-button {
+	background-color: transparent;
+	border: 0;
+	padding: var(--size-2-2) var(--size-2-3);
+	border-radius: var(--clickable-icon-radius);
+	color: var(--icon-color);
+	height: auto;
+}
+
 .agent-sessions-user-text {
 	color: var(--text-normal);
 	word-break: break-word;
@@ -620,11 +630,13 @@
 	background: var(--background-secondary);
 }
 
-.agent-sessions-tool-input pre {
+.agent-sessions-tool-input pre,
+.agent-sessions-tool-result pre {
 	margin: 0;
 	background: none;
 	border: none;
 	padding: 0;
+	padding-right: 40px;
 	overflow: visible;
 	font-size: inherit;
 	line-height: inherit;

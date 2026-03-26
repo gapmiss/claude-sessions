@@ -252,7 +252,11 @@ function processCopyButtons(clone: HTMLElement, original: HTMLElement): void {
 	clone.querySelectorAll('.agent-sessions-text-copy').forEach(btn => {
 		const wrapper = btn.closest('.agent-sessions-text-block');
 		if (wrapper) {
-			const contentEl = wrapper.querySelector('.agent-sessions-text-content, .agent-sessions-collapsible-wrap');
+			// Short text: content div has .agent-sessions-user-text or .agent-sessions-assistant-text
+			// Long text: content is inside .agent-sessions-collapsible-content
+			const contentEl = wrapper.querySelector(
+				'.agent-sessions-collapsible-content, .agent-sessions-user-text, .agent-sessions-assistant-text',
+			);
 			if (contentEl) {
 				(btn as HTMLElement).setAttribute('data-copy-text', contentEl.textContent ?? '');
 				(btn as HTMLElement).classList.add('agent-sessions-copy-btn');

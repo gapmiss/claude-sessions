@@ -95,7 +95,7 @@ export function formatElapsed(ms: number): string {
 /** Add a copy-to-clipboard button with icon swap feedback. */
 export function addCopyButton(container: HTMLElement, text: string, label: string): void {
 	const btn = container.createEl('button', {
-		cls: 'agent-sessions-summary-copy',
+		cls: 'agent-sessions-summary-copy clickable-icon',
 		attr: { 'aria-label': label, 'data-tooltip-position': 'top' },
 	});
 	setIcon(btn, 'copy');
