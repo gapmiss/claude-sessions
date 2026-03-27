@@ -582,6 +582,7 @@ export class TimelineView extends ItemView {
 		collapsedTurns: Set<number>;
 		summaryOpen: boolean;
 		openTools: Set<string>;
+		openToolGroups: Set<string>;
 		expandedText: Set<string>;
 		scrollTop: number;
 	} {
@@ -606,6 +607,17 @@ export class TimelineView extends ItemView {
 			}
 		}
 
+		// Expanded tool groups: keyed by "turnIndex-groupIndex"
+		const openToolGroups = new Set<string>();
+		for (let t = 0; t < turnEls.length; t++) {
+			const groups = turnEls[t].querySelectorAll('.claude-sessions-tool-group');
+			for (let g = 0; g < groups.length; g++) {
+				if (groups[g].hasClass('open')) {
+					openToolGroups.add(`${t}-${g}`);
+				}
+			}
+		}
+
 		// Expanded "show more" blocks: keyed by "turnIndex-wrapIndex"
 		const expandedText = new Set<string>();
 		for (let t = 0; t < turnEls.length; t++) {
@@ -619,7 +631,7 @@ export class TimelineView extends ItemView {
 
 		const scrollTop = this.timelineEl?.scrollTop ?? 0;
 
-		return { collapsedTurns, summaryOpen, openTools, expandedText, scrollTop };
+		return { collapsedTurns, summaryOpen, openTools, openToolGroups, expandedText, scrollTop };
 	}
 
 	/** Restore full UI state after re-render. */
@@ -651,6 +663,19 @@ export class TimelineView extends ItemView {
 				if (b < toolBlocks.length) {
 					toolBlocks[b].addClass('open');
 					const header = toolBlocks[b].querySelector('.claude-sessions-tool-header');
+					header?.setAttribute('aria-expanded', 'true');
+				}
+			}
+		}
+
+		// Restore expanded tool groups
+		for (const key of state.openToolGroups) {
+			const [t, g] = key.split('-').map(Number);
+			if (t < turnEls.length) {
+				const groups = turnEls[t].querySelectorAll('.claude-sessions-tool-group');
+				if (g < groups.length) {
+					groups[g].addClass('open');
+					const header = groups[g].querySelector('.claude-sessions-tool-group-header');
 					header?.setAttribute('aria-expanded', 'true');
 				}
 			}
