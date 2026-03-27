@@ -94,21 +94,21 @@ export default class ClaudeSessionsPlugin extends Plugin {
 			callback: () => this.exportActiveSessionHTML(),
 		});
 
-		this.addCommand({
-			id: 'next-turn',
-			name: 'Go to next turn',
+this.addCommand({
+			id: 'expand-all',
+			name: 'Expand all turns',
 			callback: () => {
 				const view = this.getActiveTimelineView();
-				if (view) view.nextTurn();
+				if (view) view.expandAll();
 			},
 		});
 
 		this.addCommand({
-			id: 'prev-turn',
-			name: 'Go to previous turn',
+			id: 'collapse-all',
+			name: 'Collapse all turns',
 			callback: () => {
 				const view = this.getActiveTimelineView();
-				if (view) view.prevTurn();
+				if (view) view.collapseAll();
 			},
 		});
 

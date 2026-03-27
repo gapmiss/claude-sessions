@@ -375,17 +375,21 @@ export class TimelineView extends ItemView {
 		this.updateControls();
 	}
 
-	nextTurn(): void {
-		if (!this.session) return;
-		if (this.activeTurnIndex < this.session.turns.length - 1) {
-			this.scrollToTurn(this.activeTurnIndex + 1);
+expandAll(): void {
+		if (!this.timelineEl) return;
+		for (const el of Array.from(this.timelineEl.querySelectorAll('.claude-sessions-turn.collapsed'))) {
+			(el as HTMLElement).removeClass('collapsed');
+			const h = el.querySelector('.claude-sessions-turn-header');
+			if (h) h.setAttribute('aria-expanded', 'true');
 		}
 	}
 
-	prevTurn(): void {
-		if (!this.session) return;
-		if (this.activeTurnIndex > 0) {
-			this.scrollToTurn(this.activeTurnIndex - 1);
+	collapseAll(): void {
+		if (!this.timelineEl) return;
+		for (const el of Array.from(this.timelineEl.querySelectorAll('.claude-sessions-turn:not(.collapsed)'))) {
+			(el as HTMLElement).addClass('collapsed');
+			const h = el.querySelector('.claude-sessions-turn-header');
+			if (h) h.setAttribute('aria-expanded', 'false');
 		}
 	}
 
@@ -908,31 +912,6 @@ export class TimelineView extends ItemView {
 			this.scrollToTurn(this.turnFromPct(pct));
 		});
 
-		// Keyboard shortcuts
-		this.registerDomEvent(container.doc, 'keydown', (e: KeyboardEvent) => {
-			if (!this.session) return;
-			const activeView = this.app.workspace.getActiveViewOfType(TimelineView);
-			if (activeView !== this) return;
-
-			// Skip if focus is inside an input, textarea, or contentEditable element
-			const target = e.target as HTMLElement;
-			if (target.tagName === 'INPUT'
-				|| target.tagName === 'TEXTAREA'
-				|| target.isContentEditable) {
-				return;
-			}
-
-			switch (e.key) {
-				case 'ArrowLeft':
-					e.preventDefault();
-					this.prevTurn();
-					break;
-				case 'ArrowRight':
-					e.preventDefault();
-					this.nextTurn();
-					break;
-			}
-		});
 
 	}
 
