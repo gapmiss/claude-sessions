@@ -44,7 +44,9 @@ Working features:
 - Click-to-seek on progress bar targets specific segment (turn + block)
 - Keyboard shortcuts: Arrow keys (segment nav), Space (play/pause), `[`/`]` (speed)
 - **Content filter menu** (⋯ button): hierarchical toggles for User (text, images) and Assistant (text, thinking, tool calls, tool results)
-- Tool calls as compact bars: status dot (blue/red/orange), bold name, arg preview, hook icon (fish) with tooltip, expand chevron
+- Tool calls as compact bars: status dot (blue/red/orange), bold name, arg preview, hook icon (fish) with tooltip, expand chevron; empty input (`{}`) hides both preview and INPUT section
+- **MCP tool names** displayed as `server / tool_name` — server in dimmed text, tool name in accent color; raw `mcp__server__tool` format parsed by `parseMcpToolName()`
+- **Tool result images** — base64 image content in tool results rendered as clickable thumbnails with full-size modal (same as user images); note: Claude Code downscales images ~25x before JSONL embedding
 - **Bash tool input** rendered as `` ```bash `` code block with description next to INPUT label
 - **Bash diff detection**: results from commands containing `diff` render as `` ```diff `` code block when output matches unified diff format
 - **Edit tool** renders as diff view (red/green lines); success messages hidden (errors only)
@@ -59,6 +61,7 @@ Working features:
 - **Live watch** with file watcher — auto-reloads session on file change
   - **UI state preservation** across re-renders: expanded tool blocks, "show more" sections, scroll position, turn collapse, and summary panel state all persist
   - **Auto-scroll setting** — toggle whether live updates scroll to bottom or preserve position
+  - **Pending tool notification** — optional Obsidian Notice + system `Notification` when a live-watched session has a tool call waiting for permission; deduped by tool ID
 - **Cached session index** — persists metadata to `session-index.json`; only new/modified files re-read on browse
 - **Async line-by-line metadata extraction** — skips large record types (file-history-snapshot, queue-operation, progress) by prefix check; reads up to 100 lines
 - **Empty session filtering** — sessions with zero user/assistant records are hidden from the browser
@@ -82,7 +85,7 @@ Working features:
   - Electron save dialog with fallback to session directory
   - All images inline as base64 data URIs
   - All interactive features preserved: turn/tool/thinking/summary collapse, tool groups, sub-agent sessions, show-more, code copy buttons
-- Settings tab: session directories, export preferences, display toggles (thinking, tool calls, tool results, hook icons), tool group threshold, auto-scroll on update
+- Settings tab: session directories, export preferences, display toggles (thinking, tool calls, tool results, hook icons), tool group threshold, auto-scroll on update, pending tool notification
 - ESLint with `eslint-plugin-obsidianmd` recommended rules
 - **Keyboard accessible**: all collapsible headers (turns, summary, tools, tool groups, thinking, sub-agent prompts) have `tabindex`, `role="button"`, `aria-expanded`, and Enter/Space handlers via `makeClickable()` helper; image thumbnails keyboard-activatable; show-more buttons track `aria-expanded`; document-level arrow key handler guards against input/textarea/contentEditable; `restoreUIState()` syncs ARIA attributes after live reload re-renders
 - **Progress bar**: `role="progressbar"` with live `aria-valuetext` (e.g. "Turn 5 of 42 · 3:21 / 15:00"); read-only (not keyboard-interactive) since scroll-driven position conflicts with arrow key navigation
@@ -179,7 +182,10 @@ Computed during parsing and stored on `Session.stats`:
 
 **`views/tool-renderer.ts`** (~495 lines) — All tool-specific rendering:
 - `renderToolCall()`, `renderToolGroup()`, `toolPreview()` — public API
-- `ToolRendererDelegate` interface — callbacks (`renderAssistantBlocks`, `renderTextContent`) to avoid circular deps with main renderer
+- `ToolRendererDelegate` interface — callbacks (`renderAssistantBlocks`, `renderTextContent`, `openImageModal`) to avoid circular deps with main renderer
+- `parseMcpToolName()` — splits `mcp__server__tool` into `{ server, tool }` for cleaner display
+- `compactInputPreview()` — formats input as `key=value` pairs for header preview (replaces raw JSON for MCP/unknown tools)
+- `renderToolResultImages()` — renders base64 images from `ToolResultBlock.images[]` as clickable thumbnails
 - **Tool-specific input**: `renderBashInput()` (```bash), `renderDiffView()` (Edit diffs), `renderWriteView()` (syntax-highlighted)
 - **Tool-specific results**: `Read` (language-specific highlighting), `Bash` diff detection (`isBashDiffResult()`)
 - **Sub-agent rendering**: `renderSubAgentSession()` with collapsible PROMPT, flattened tool groups, and OUTPUT
@@ -327,6 +333,10 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 - Copy buttons in the live view capture text via JS closures in `addEventListener`. The HTML export must extract text into `data-copy-text` attributes since closures don't survive DOM serialization.
 - `navigator.clipboard.writeText()` requires HTTPS or localhost — exported HTML opened via `file://` needs `document.execCommand('copy')` fallback.
 - The session being exported may contain its own source code (meta/self-referential sessions) — grep for script content must distinguish the actual `<script>` block from rendered code blocks in the DOM.
+- MCP tool names follow the pattern `mcp__<server>__<tool>` — `parseMcpToolName()` splits on double underscores. Display as `server / tool_name` to reduce visual noise.
+- Tool result content arrays can contain `{type: "image", source: {type: "base64", data: "..."}}` items alongside text items. The parser must handle both; images stored in `ToolResultBlock.images[]`.
+- Claude Code downscales images to ~25x smaller (489KB PNG → 19.5KB JPEG) before embedding as base64 in tool result JSONL records. The original file path is in the tool_use input but may be a temp file that's already cleaned up.
+- Pending tool notifications must be deduped by tool ID (`lastNotifiedToolId`) — the live watcher fires `reloadSession()` on every file change, and the same pending tool persists across multiple reloads until the user grants permission.
 
 ## Roadmap
 
@@ -337,6 +347,7 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 - [x] ~~Search/filter sessions by project, date range, or model~~ — cross-session keyword search implemented
 - [ ] Semantic search — embeddings-based search for concept-level queries
 - [ ] Skip filtered blocks during segment-level navigation (arrow keys currently land on hidden blocks)
+- [ ] Full-resolution tool result images — Read tool image results are downscaled by Claude Code (~25x) before JSONL embedding; try loading from original `file_path` on disk with base64 fallback
 
 ### Medium-term
 - [ ] Linked mentions — link tool_use file paths to vault files when they exist

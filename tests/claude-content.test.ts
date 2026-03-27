@@ -151,6 +151,76 @@ describe('extractToolResultBlocks', () => {
 		);
 		expect(results[0].content).toBe('line 1\nline 2');
 	});
+
+	it('extracts base64 image content from tool results', () => {
+		const names = new Map([['tu_img', 'Read']]);
+		const results = extractToolResultBlocks(
+			{
+				content: [{
+					type: 'tool_result',
+					tool_use_id: 'tu_img',
+					content: [
+						{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'abc123' } },
+					],
+				}],
+			},
+			names,
+		);
+		expect(results).toHaveLength(1);
+		expect(results[0].content).toBe('');
+		expect(results[0].images).toHaveLength(1);
+		expect(results[0].images![0].mediaType).toBe('image/jpeg');
+		expect(results[0].images![0].data).toBe('abc123');
+	});
+
+	it('extracts mixed text and image content from tool results', () => {
+		const results = extractToolResultBlocks(
+			{
+				content: [{
+					type: 'tool_result',
+					tool_use_id: 'tu_mix',
+					content: [
+						{ type: 'text', text: 'file path here' },
+						{ type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'xyz789' } },
+					],
+				}],
+			},
+			new Map(),
+		);
+		expect(results[0].content).toBe('file path here');
+		expect(results[0].images).toHaveLength(1);
+		expect(results[0].images![0].mediaType).toBe('image/png');
+	});
+
+	it('defaults image mediaType to image/png when missing', () => {
+		const results = extractToolResultBlocks(
+			{
+				content: [{
+					type: 'tool_result',
+					tool_use_id: 'tu_nomt',
+					content: [
+						{ type: 'image', source: { type: 'base64', data: 'data' } },
+					],
+				}],
+			},
+			new Map(),
+		);
+		expect(results[0].images![0].mediaType).toBe('image/png');
+	});
+
+	it('omits images field when no image content present', () => {
+		const results = extractToolResultBlocks(
+			{
+				content: [{
+					type: 'tool_result',
+					tool_use_id: 'tu_text',
+					content: [{ type: 'text', text: 'just text' }],
+				}],
+			},
+			new Map(),
+		);
+		expect(results[0].images).toBeUndefined();
+	});
 });
 
 // ─── isInterruptionMessage ─────────────────────────────────────

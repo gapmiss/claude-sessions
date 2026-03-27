@@ -140,6 +140,16 @@ export class SettingsTab extends PluginSettingTab {
 					this.plugin.settings.autoScrollOnUpdate = value;
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName('Notify on pending tool')
+			.setDesc('Show a system notification when a live-watched session has a tool call waiting for permission.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.notifyOnPendingTool)
+				.onChange(async (value) => {
+					this.plugin.settings.notifyOnPendingTool = value;
+					await this.plugin.saveSettings();
+				}));
 	}
 
 	private renderDirsList(container: HTMLElement): void {

@@ -464,6 +464,17 @@
 	background: var(--color-red);
 }
 
+.claude-sessions-tool-mcp-server {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	margin-right: 4px;
+}
+
+.claude-sessions-tool-mcp-server::after {
+	content: '/';
+	margin-left: 4px;
+}
+
 .claude-sessions-tool-name {
 	color: var(--color-cyan);
 	font-weight: 600;

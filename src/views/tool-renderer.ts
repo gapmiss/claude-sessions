@@ -1,6 +1,6 @@
 import { MarkdownRenderer, setIcon } from 'obsidian';
 import { diffLines } from 'diff';
-import type { ContentBlock, ToolUseBlock, ToolResultBlock, SubAgentSession } from '../types';
+import type { ContentBlock, ToolUseBlock, ToolResultBlock, ToolResultImage, SubAgentSession } from '../types';
 import { TASK_TOOL_NAMES } from '../constants';
 import {
 	type RenderContext, COLLAPSE_THRESHOLD,
@@ -19,6 +19,7 @@ export interface ToolRendererDelegate {
 	renderAssistantBlocks(blocks: ContentBlock[], container: HTMLElement, startBlockIdx: number, groupThreshold?: number): void;
 	renderTextContent(text: string, container: HTMLElement, cls: string): void;
 	buildAnsiDom(text: string, parent: HTMLElement): void;
+	openImageModal(dataUri: string, mediaType: string): void;
 	taskState: Map<string, TaskState>;
 }
 
@@ -88,7 +89,13 @@ export function renderToolCall(
 		? 'claude-sessions-tool-indicator claude-sessions-tool-orphaned'
 		: `claude-sessions-tool-indicator ${isError ? 'claude-sessions-tool-error' : ''}`;
 	header.createSpan({ cls: indicatorCls });
-	header.createSpan({ cls: 'claude-sessions-tool-name', text: block.name });
+	const mcpParts = parseMcpToolName(block.name);
+	if (mcpParts) {
+		header.createSpan({ cls: 'claude-sessions-tool-mcp-server', text: mcpParts.server });
+		header.createSpan({ cls: 'claude-sessions-tool-name', text: mcpParts.tool });
+	} else {
+		header.createSpan({ cls: 'claude-sessions-tool-name', text: block.name });
+	}
 	header.createSpan({ cls: 'claude-sessions-tool-preview', text: toolPreview(block) });
 	if (block.isPending) {
 		header.createSpan({ cls: 'claude-sessions-tool-duration claude-sessions-tool-orphaned-label', text: 'in progress' });
@@ -122,7 +129,7 @@ export function renderToolCall(
 		renderWriteView(block, result, body, ctx);
 	} else if (block.name === 'Bash') {
 		renderBashInput(block, body, ctx);
-	} else {
+	} else if (Object.keys(block.input).length > 0) {
 		const inputEl = body.createDiv({ cls: 'claude-sessions-tool-input' });
 		inputEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'INPUT' });
 		const inputText = formatInput(block.input);
@@ -169,6 +176,13 @@ function renderToolResult(
 
 	if (TASK_TOOL_NAMES.has(block.name) && !isError && result.enrichedResult) {
 		renderTaskResult(block, result.enrichedResult, resultEl, delegate);
+	} else if (result.images && result.images.length > 0) {
+		renderToolResultImages(result.images, resultEl, delegate);
+		if (resultText) {
+			const md = fence(resultText);
+			const mdContainer = resultEl.createDiv({ cls: 'claude-sessions-tool-result-code' });
+			MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
+		}
 	} else if (block.name === 'Read' && !isError) {
 		const filePath = String(block.input['file_path'] || '');
 		const lang = langFromPath(filePath);
@@ -212,6 +226,24 @@ function renderToolResult(
 			const stderrContainer = resultEl.createDiv({ cls: 'claude-sessions-tool-result-code claude-sessions-tool-result-error' });
 			MarkdownRenderer.render(ctx.app, stderrMd, stderrContainer, '', ctx.component);
 		}
+	}
+}
+
+function renderToolResultImages(
+	images: ToolResultImage[],
+	container: HTMLElement,
+	delegate: ToolRendererDelegate,
+): void {
+	for (const image of images) {
+		const dataUri = `data:${image.mediaType};base64,${image.data}`;
+		const img = container.createEl('img', {
+			cls: 'claude-sessions-image-thumbnail',
+			attr: { src: dataUri, alt: 'Tool result image' },
+		});
+		makeClickable(img, { label: 'View tool result image' });
+		img.addEventListener('click', () => {
+			delegate.openImageModal(dataUri, image.mediaType);
+		});
 	}
 }
 
@@ -557,10 +589,10 @@ export function toolPreview(block: ToolUseBlock): string {
 			return query ? `"${truncate(query, 40)}"` : '';
 		}
 		default: {
+			if (Object.keys(input).length === 0) return '';
 			const nameField = input['name'] ?? input['path'] ?? input['file'] ?? input['query'] ?? input['command'];
 			if (typeof nameField === 'string') return truncate(nameField, 50);
-			const s = JSON.stringify(input);
-			return s.length > 60 ? s.substring(0, 60) + '...' : s;
+			return compactInputPreview(input, 55);
 		}
 	}
 }
@@ -580,4 +612,30 @@ function formatInput(input: Record<string, unknown>): string {
 	} catch {
 		return String(input);
 	}
+}
+
+/** Parse MCP tool names like `mcp__server-name__tool_name` into parts. */
+function parseMcpToolName(name: string): { server: string; tool: string } | null {
+	if (!name.startsWith('mcp__')) return null;
+	const rest = name.slice(5); // strip "mcp__"
+	const sep = rest.indexOf('__');
+	if (sep < 0) return null;
+	return { server: rest.slice(0, sep), tool: rest.slice(sep + 2) };
+}
+
+/** Format input as compact key=value pairs for header preview. */
+function compactInputPreview(input: Record<string, unknown>, max: number): string {
+	const parts: string[] = [];
+	let len = 0;
+	for (const [k, v] of Object.entries(input)) {
+		const val = typeof v === 'string' ? v : JSON.stringify(v);
+		const part = `${k}=${val}`;
+		if (len + part.length > max && parts.length > 0) {
+			parts.push('...');
+			break;
+		}
+		parts.push(part);
+		len += part.length + 1;
+	}
+	return parts.join(' ');
 }

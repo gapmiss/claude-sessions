@@ -92,6 +92,11 @@ export interface SubAgentSession {
 	isBackground?: boolean;
 }
 
+export interface ToolResultImage {
+	mediaType: string;
+	data: string;
+}
+
 export interface ToolResultBlock {
 	type: 'tool_result';
 	toolUseId: string;
@@ -100,6 +105,7 @@ export interface ToolResultBlock {
 	isError: boolean;
 	timestamp?: string;
 	enrichedResult?: Record<string, unknown>;
+	images?: ToolResultImage[];
 }
 
 export interface ImageBlock {
@@ -139,6 +145,7 @@ export interface PluginSettings {
 	showToolResults: boolean;
 	showHookIcons: boolean;
 	autoScrollOnUpdate: boolean;
+	notifyOnPendingTool: boolean;
 	toolGroupThreshold: number;
 }
 
@@ -150,6 +157,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	showToolResults: true,
 	showHookIcons: true,
 	autoScrollOnUpdate: true,
+	notifyOnPendingTool: false,
 	toolGroupThreshold: 4,
 };
 

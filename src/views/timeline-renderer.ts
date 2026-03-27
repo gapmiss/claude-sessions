@@ -28,6 +28,7 @@ export class TimelineRenderer {
 			renderAssistantBlocks: this.renderAssistantBlocks.bind(this),
 			renderTextContent: this.renderTextContent.bind(this),
 			buildAnsiDom: this.buildAnsiDom.bind(this),
+			openImageModal: this.openImageModal.bind(this),
 			taskState: new Map(),
 		};
 	}

@@ -1,4 +1,4 @@
-import type { ContentBlock, TextBlock, ThinkingBlock, ToolUseBlock, ToolResultBlock } from '../types';
+import type { ContentBlock, TextBlock, ThinkingBlock, ToolUseBlock, ToolResultBlock, ToolResultImage } from '../types';
 import { BT_TEXT, BT_THINKING, BT_TOOL_USE, BT_TOOL_RESULT, PREFIX_INTERRUPTION } from '../constants';
 
 interface ClaudeContentBlock {
@@ -18,6 +18,7 @@ interface ToolResultContent {
 	type: string;
 	text?: string;
 	content?: string;
+	source?: { type?: string; media_type?: string; data?: string };
 }
 
 interface RecordMessage {
@@ -78,23 +79,38 @@ export function extractToolResultBlocks(
 	if (Array.isArray(msg.content)) {
 		for (const block of msg.content as ClaudeContentBlock[]) {
 			if (block.type === BT_TOOL_RESULT && block.tool_use_id) {
-				const resultContent = typeof block.content === 'string'
-					? block.content
-					: Array.isArray(block.content)
-						? (block.content as ToolResultContent[])
-							.map(c => c.text ?? c.content ?? '')
-							.filter(s => s)
-							.join('\n')
-						: '';
+				let resultContent = '';
+				let images: ToolResultImage[] | undefined;
 
-				results.push({
+				if (typeof block.content === 'string') {
+					resultContent = block.content;
+				} else if (Array.isArray(block.content)) {
+					const texts: string[] = [];
+					for (const c of block.content as ToolResultContent[]) {
+						if (c.type === 'image' && c.source?.data) {
+							if (!images) images = [];
+							images.push({
+								mediaType: c.source.media_type ?? 'image/png',
+								data: c.source.data,
+							});
+						} else {
+							const t = c.text ?? c.content ?? '';
+							if (t) texts.push(t);
+						}
+					}
+					resultContent = texts.join('\n');
+				}
+
+				const result: ToolResultBlock = {
 					type: 'tool_result',
 					toolUseId: block.tool_use_id,
 					toolName: toolUseNames.get(block.tool_use_id),
 					content: resultContent,
 					isError: block.is_error || false,
 					timestamp,
-				});
+				};
+				if (images) result.images = images;
+				results.push(result);
 			}
 		}
 	}

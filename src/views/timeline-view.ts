@@ -57,6 +57,9 @@ export class TimelineView extends ItemView {
 	private activeHighlight: HTMLElement | null = null;
 	private highlightTimer: number | null = null;
 
+	// Pending tool notification dedup
+	private lastNotifiedToolId: string | null = null;
+
 	// Content filters
 	private filters: FilterState = {
 		user: true,
@@ -212,10 +215,51 @@ export class TimelineView extends ItemView {
 			const session = parser.parse(content, filePath);
 			await resolveSubAgentSessions(session, readFileContent);
 			this.loadSession(session, { scrollToEnd: this.settings.autoScrollOnUpdate });
+			this.checkPendingToolNotification(session);
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			new Notice(`Failed to reload session: ${msg}`);
 			this.stopWatching();
+		}
+	}
+
+	private checkPendingToolNotification(session: Session): void {
+		if (!this.isWatching || !this.settings.notifyOnPendingTool) return;
+
+		const turns = session.turns;
+		if (turns.length === 0) return;
+
+		const lastTurn = turns[turns.length - 1];
+		if (lastTurn.role !== 'assistant') {
+			this.lastNotifiedToolId = null;
+			return;
+		}
+
+		const pendingTool = lastTurn.contentBlocks.find(
+			b => b.type === 'tool_use' && b.isPending,
+		);
+		if (!pendingTool || pendingTool.type !== 'tool_use') {
+			this.lastNotifiedToolId = null;
+			return;
+		}
+
+		if (pendingTool.id === this.lastNotifiedToolId) return;
+		this.lastNotifiedToolId = pendingTool.id;
+
+		const project = session.metadata.project || 'Claude session';
+		const toolName = pendingTool.name;
+		const body = `${toolName} is waiting for permission`;
+
+		new Notice(`${project}: ${body}`, 8000);
+
+		if ('Notification' in window && Notification.permission === 'granted') {
+			new Notification(project, { body, icon: undefined });
+		} else if ('Notification' in window && Notification.permission !== 'denied') {
+			Notification.requestPermission().then(perm => {
+				if (perm === 'granted') {
+					new Notification(project, { body, icon: undefined });
+				}
+			});
 		}
 	}
 
