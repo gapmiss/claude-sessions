@@ -353,20 +353,20 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 ## Session State
 <!-- DO NOT edit this section manually. It is managed exclusively by /wrap SKILL. -->
 <!-- auto-updated by /wrap -->
-- **Last session**: 2026-03-26 19:05
+- **Last session**: 2026-03-26 19:10
 - **Goal**: Remove "replay" terminology — the play/forward/backward interface was removed long ago
-- **Summary**: Renamed all "replay" references to "timeline" across the codebase (`bd39b51`). Files renamed (`replay-view.ts` → `timeline-view.ts`, `replay-renderer.ts` → `timeline-renderer.ts`), classes/constants/CSS updated (`ReplayView` → `TimelineView`, `VIEW_TYPE_REPLAY` → `VIEW_TYPE_TIMELINE`, `.claude-sessions-replay-container` → `.claude-sessions-timeline-container`), and user-facing description rewritten. 94 tests pass.
+- **Summary**: Renamed all "replay" references to "timeline" across the codebase (`bd39b51`) — files, classes, CSS, view type, user-facing descriptions. Then updated CLAUDE.md documentation (section headings, file tree, feature descriptions) to match. Working tree is now clean. 94 tests pass.
 - **Decisions**:
   - Used "timeline" over "session" for view/renderer names — describes the UI (scrollable timeline), avoids `SessionView` ambiguity with Obsidian's own view types
   - User-facing description changed to "Browse, search, and analyze Claude Code sessions with live watch and rich tool rendering" — no mention of replay/playback
   - Settings descriptions changed "in replay" to "in session view" — more natural for end users
   - View type string changed to `claude-sessions-timeline` — breaks existing workspace tab restore, acceptable for pre-release
+  - Origin section reworded — kept claude-replay link (upstream project credit) but removed "replay" from our own description
 - **Next steps**:
-  - Update CLAUDE.md documentation to reflect timeline rename (references to ReplayView, replay-view.ts, etc.)
   - Test HTML export in browser via `file://` protocol (clipboard fallback, image modal)
   - Skip filtered blocks during segment navigation (arrow keys land on hidden blocks)
   - Incremental parsing/rendering for large sessions
   - Roadmap: mark "Cost estimation from token usage metadata" as done (completed in `daad049`)
 - **Blockers**: None
 - **Branch**: main
-- **Uncommitted**: CLAUDE.md session state update
+- **Uncommitted**: CLAUDE.md session state + doc updates
