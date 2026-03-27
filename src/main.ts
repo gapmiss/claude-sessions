@@ -1,4 +1,4 @@
-import { Notice, Plugin, WorkspaceLeaf } from 'obsidian';
+import { addIcon, Notice, Plugin, WorkspaceLeaf } from 'obsidian';
 import { SettingsTab } from './settings';
 import { PluginSettings, DEFAULT_SETTINGS, Session } from './types';
 import { TimelineView, VIEW_TYPE_TIMELINE } from './views/timeline-view';
@@ -18,6 +18,8 @@ export default class ClaudeSessionsPlugin extends Plugin {
 	sessionIndex!: SessionIndex;
 
 	async onload(): Promise<void> {
+		addIcon('claude-sparkle', '<g transform="translate(50,50)" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"><line y1="-12" y2="-44"/><line y1="-12" y2="-44" transform="rotate(45)"/><line y1="-12" y2="-44" transform="rotate(90)"/><line y1="-12" y2="-44" transform="rotate(135)"/><line y1="-12" y2="-44" transform="rotate(180)"/><line y1="-12" y2="-44" transform="rotate(225)"/><line y1="-12" y2="-44" transform="rotate(270)"/><line y1="-12" y2="-44" transform="rotate(315)"/></g>');
+
 		await this.loadSettings();
 
 		const adapter = this.app.vault.adapter as unknown as { basePath: string };

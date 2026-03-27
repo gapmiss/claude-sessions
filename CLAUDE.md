@@ -34,6 +34,8 @@ Working features:
   - Tool usage breakdown sorted by count descending
   - User/assistant/total turn counts
 - **Obsidian protocol handler**: `obsidian://claude-sessions?session=/path/to/session.jsonl` opens session directly
+- **Custom tab icon** — Claude starburst (8-ray) registered via `addIcon('claude-sparkle', ...)` using `currentColor`
+- **Project name from cwd** — tab title and view header show `basename(cwd)` from session metadata; falls back to lossy `extractProjectName()` from encoded directory name; view header updated directly via `.view-header-title` DOM element since `updateHeader()` doesn't reliably refresh it
 - Timeline view — all turns visible and scrollable from the start
 - Segment-level navigation: arrow keys step through segments (text, thinking, tool run) within turns
 - Segment-level playback: reveals segments with real timestamp-based delays (clamped 600ms–10s)
@@ -61,7 +63,7 @@ Working features:
 - **Live watch** with file watcher — auto-reloads session on file change
   - **UI state preservation** across re-renders: expanded tool blocks, "show more" sections, scroll position, turn collapse, and summary panel state all persist
   - **Auto-scroll setting** — toggle whether live updates scroll to bottom or preserve position
-  - **Pending tool notification** — optional Obsidian Notice + system `Notification` when a live-watched session has a tool call waiting for permission; deduped by tool ID
+  - **Pending tool notification** — optional Obsidian Notice + system `Notification` when a live-watched session has a tool call waiting for permission; deduped by tool ID; Claude starburst icon (orange `#da7756`) in system notification; `requireInteraction: true` keeps notification visible; click focuses Obsidian window
 - **Cached session index** — persists metadata to `session-index.json`; only new/modified files re-read on browse
 - **Async line-by-line metadata extraction** — skips large record types (file-history-snapshot, queue-operation, progress) by prefix check; reads up to 100 lines
 - **Empty session filtering** — sessions with zero user/assistant records are hidden from the browser
@@ -337,6 +339,9 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 - Tool result content arrays can contain `{type: "image", source: {type: "base64", data: "..."}}` items alongside text items. The parser must handle both; images stored in `ToolResultBlock.images[]`.
 - Claude Code downscales images to ~25x smaller (489KB PNG → 19.5KB JPEG) before embedding as base64 in tool result JSONL records. The original file path is in the tool_use input but may be a temp file that's already cleaned up.
 - Pending tool notifications must be deduped by tool ID (`lastNotifiedToolId`) — the live watcher fires `reloadSession()` on every file change, and the same pending tool persists across multiple reloads until the user grants permission.
+- macOS ignores the `Notification.icon` property for the app icon (always shows Obsidian) but renders it as a secondary badge icon on the right side of the notification. SVG data URIs work.
+- Claude session directory encoding (`-Users-gm-claude-sessions`) is lossy — hyphens in directory names are indistinguishable from path separators. Prefer `cwd` from session metadata (`record.cwd`) for project name; `extractProjectName()` is fallback only.
+- `WorkspaceLeaf.updateHeader()` updates tab title but does not reliably refresh the inline view header title. Must also set `.view-header-title` textContent directly.
 
 ## Roadmap
 
@@ -364,20 +369,22 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 ## Session State
 <!-- DO NOT edit this section manually. It is managed exclusively by /wrap SKILL. -->
 <!-- auto-updated by /wrap -->
-- **Last session**: 2026-03-26 19:10
-- **Goal**: Remove "replay" terminology — the play/forward/backward interface was removed long ago
-- **Summary**: Renamed all "replay" references to "timeline" across the codebase (`bd39b51`) — files, classes, CSS, view type, user-facing descriptions. Then updated CLAUDE.md documentation (section headings, file tree, feature descriptions) to match. Working tree is now clean. 94 tests pass.
+- **Last session**: 2026-03-26 20:35
+- **Goal**: Improve MCP tool display, handle tool result images, and add pending tool notifications
+- **Summary**: Added three features: (1) MCP tool names now display as `server / tool_name` with compact key=value previews instead of raw JSON, (2) base64 image content in tool results is parsed and rendered as clickable thumbnails with modal preview, (3) optional system notification when a live-watched session has a pending tool call. Also fixed tool group expand/collapse state not persisting across live reload. 98 tests pass across 2 commits (`c74354b`, `328c085`).
 - **Decisions**:
-  - Used "timeline" over "session" for view/renderer names — describes the UI (scrollable timeline), avoids `SessionView` ambiguity with Obsidian's own view types
-  - User-facing description changed to "Browse, search, and analyze Claude Code sessions with live watch and rich tool rendering" — no mention of replay/playback
-  - Settings descriptions changed "in replay" to "in session view" — more natural for end users
-  - View type string changed to `claude-sessions-timeline` — breaks existing workspace tab restore, acceptable for pre-release
-  - Origin section reworded — kept claude-replay link (upstream project credit) but removed "replay" from our own description
+  - MCP name split on `mcp__` prefix + double underscore separator — server shown dimmed with `/` divider, tool name in accent color
+  - Images stored on `ToolResultBlock.images[]` rather than as separate `ImageBlock` entries — keeps them associated with their tool result
+  - Empty tool input (`{}`) hides both the header preview text and the INPUT section entirely — cleaner than showing `{}`
+  - Pending tool notification uses both Obsidian `Notice` (8s) and system `Notification` — deduped by tool ID to avoid spam on repeated reloads
+  - Tool result images use existing `ImagePreviewModal` via new `openImageModal` delegate method — no new modal code needed
+  - Did NOT attempt full-resolution image loading from disk — Claude Code downscales ~25x before JSONL embedding; added to roadmap instead (temp files may be cleaned up)
 - **Next steps**:
-  - Test HTML export in browser via `file://` protocol (clipboard fallback, image modal)
+  - Test pending tool notification with a real live-watched session waiting for permission
+  - Test HTML export with tool result images and MCP tool formatting
   - Skip filtered blocks during segment navigation (arrow keys land on hidden blocks)
   - Incremental parsing/rendering for large sessions
   - Roadmap: mark "Cost estimation from token usage metadata" as done (completed in `daad049`)
 - **Blockers**: None
 - **Branch**: main
-- **Uncommitted**: CLAUDE.md session state + doc updates
+- **Uncommitted**: Clean

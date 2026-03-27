@@ -82,14 +82,11 @@ export class TimelineView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		if (this.session) {
-			return `Session: ${this.session.metadata.project}`;
-		}
-		return 'Claude session';
+		return this.session?.metadata.project || 'Claude sessions';
 	}
 
 	getIcon(): string {
-		return 'message-square';
+		return 'claude-sparkle';
 	}
 
 	async onOpen(): Promise<void> {
@@ -162,6 +159,8 @@ export class TimelineView extends ItemView {
 		this.computeTiming();
 
 		(this.leaf as unknown as { updateHeader?(): void }).updateHeader?.();
+		const titleEl = this.containerEl.parentElement?.querySelector('.view-header-title') as HTMLElement | null;
+		if (titleEl) titleEl.textContent = this.getDisplayText();
 
 		this.renderFullTimeline();
 		this.renderTurnDots();
@@ -246,19 +245,32 @@ export class TimelineView extends ItemView {
 		if (pendingTool.id === this.lastNotifiedToolId) return;
 		this.lastNotifiedToolId = pendingTool.id;
 
-		const project = session.metadata.project || 'Claude session';
+		const project = session.metadata.project || 'Claude sessions';
 		const toolName = pendingTool.name;
-		const body = `${toolName} is waiting for permission`;
+		const title = `✦ ${project}`;
+		const body = `"${toolName}" is waiting for permission`;
 
-		new Notice(`${project}: ${body}`, 8000);
+		new Notice(`${title}: ${body}`, 8000);
+
+		const icon = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDEwMCAxMDAiPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiByeD0iMjAiIGZpbGw9IiNkYTc3NTYiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1MCw1MCkiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iNyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIj48bGluZSB5MT0iLTEyIiB5Mj0iLTM4Ii8+PGxpbmUgeTE9Ii0xMiIgeTI9Ii0zOCIgdHJhbnNmb3JtPSJyb3RhdGUoNDUpIi8+PGxpbmUgeTE9Ii0xMiIgeTI9Ii0zOCIgdHJhbnNmb3JtPSJyb3RhdGUoOTApIi8+PGxpbmUgeTE9Ii0xMiIgeTI9Ii0zOCIgdHJhbnNmb3JtPSJyb3RhdGUoMTM1KSIvPjxsaW5lIHkxPSItMTIiIHkyPSItMzgiIHRyYW5zZm9ybT0icm90YXRlKDE4MCkiLz48bGluZSB5MT0iLTEyIiB5Mj0iLTM4IiB0cmFuc2Zvcm09InJvdGF0ZSgyMjUpIi8+PGxpbmUgeTE9Ii0xMiIgeTI9Ii0zOCIgdHJhbnNmb3JtPSJyb3RhdGUoMjcwKSIvPjxsaW5lIHkxPSItMTIiIHkyPSItMzgiIHRyYW5zZm9ybT0icm90YXRlKDMxNSkiLz48L2c+PC9zdmc+';
+		const sendNotification = () => {
+			const n = new Notification(title, {
+				body,
+				icon,
+				tag: 'claude-sessions-pending',
+				requireInteraction: true,
+			});
+			n.onclick = () => {
+				window.focus();
+				n.close();
+			};
+		};
 
 		if ('Notification' in window && Notification.permission === 'granted') {
-			new Notification(project, { body, icon: undefined });
+			sendNotification();
 		} else if ('Notification' in window && Notification.permission !== 'denied') {
 			Notification.requestPermission().then(perm => {
-				if (perm === 'granted') {
-					new Notification(project, { body, icon: undefined });
-				}
+				if (perm === 'granted') sendNotification();
 			});
 		}
 	}

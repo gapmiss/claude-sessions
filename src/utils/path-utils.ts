@@ -46,7 +46,9 @@ export function projectFromCwd(cwd: string): string {
 
 export function extractProjectName(dirPath: string): string {
 	const parts = dirPath.replace(/\\/g, '/').split('/').filter(Boolean);
-	// Claude projects dirs are encoded like -Users-gm-myproject
+	// Claude session dirs encode cwd as e.g. -Users-gm-claude-sessions
+	// This is lossy: hyphens in dir names are indistinguishable from path separators
+	// Prefer projectFromCwd() with the real cwd when available
 	const last = parts[parts.length - 1] || 'unknown';
 	if (last.startsWith('-')) {
 		const decoded = last.split('-').filter(Boolean);

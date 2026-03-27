@@ -4,7 +4,7 @@ import {
 	ToolUseBlock, ToolResultBlock, ImageBlock, AnsiBlock, CompactionBlock, SlashCommandBlock,
 	HookEvent, SessionStats, SubAgentSession,
 } from '../types';
-import { extractProjectName, dirname } from '../utils/path-utils';
+import { extractProjectName, projectFromCwd, dirname } from '../utils/path-utils';
 import {
 	RT_USER, RT_ASSISTANT, RT_PROGRESS, RT_QUEUE_OPERATION, RT_FILE_HISTORY, RT_SUMMARY, RT_SYSTEM,
 	SKIP_RECORD_TYPES,
@@ -374,7 +374,7 @@ export class ClaudeParser extends BaseParser {
 			}
 		}
 
-		const project = extractProjectName(dirname(filePath));
+		const project = cwd ? projectFromCwd(cwd) : extractProjectName(dirname(filePath));
 
 		// Compute stats
 		const toolUseCounts: Record<string, number> = {};
