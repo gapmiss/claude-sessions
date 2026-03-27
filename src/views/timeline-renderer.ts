@@ -14,7 +14,7 @@ const SAFE_IMAGE_TYPES = new Set([
 	'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp', 'image/tiff',
 ]);
 
-export class ReplayRenderer {
+export class TimelineRenderer {
 	private container: HTMLElement;
 	private ctx: RenderContext;
 	private turnEls: HTMLElement[] = [];
@@ -404,7 +404,7 @@ export class ReplayRenderer {
 					closeTo('fg');
 					const idx = code >= 90 ? (code - 90 + 8) : (code - 30);
 					const span = current.createSpan({ cls: 'ansi-fg' });
-					span.style.color = ReplayRenderer.ANSI_COLORS[idx];
+					span.style.color = TimelineRenderer.ANSI_COLORS[idx];
 					stack.push({ tag: 'fg', el: span });
 					current = span;
 				} else if (code === 38 && params[i + 1] === 2 && i + 4 < params.length) {
@@ -421,7 +421,7 @@ export class ReplayRenderer {
 					closeTo('bg');
 					const idx = code >= 100 ? (code - 100 + 8) : (code - 40);
 					const span = current.createSpan({ cls: 'ansi-bg' });
-					span.style.backgroundColor = ReplayRenderer.ANSI_COLORS[idx];
+					span.style.backgroundColor = TimelineRenderer.ANSI_COLORS[idx];
 					stack.push({ tag: 'bg', el: span });
 					current = span;
 				} else if (code === 48 && params[i + 1] === 2 && i + 4 < params.length) {

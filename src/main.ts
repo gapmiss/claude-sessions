@@ -1,7 +1,7 @@
 import { Notice, Plugin, WorkspaceLeaf } from 'obsidian';
 import { SettingsTab } from './settings';
 import { PluginSettings, DEFAULT_SETTINGS, Session } from './types';
-import { ReplayView, VIEW_TYPE_REPLAY } from './views/replay-view';
+import { TimelineView, VIEW_TYPE_TIMELINE } from './views/timeline-view';
 import { SearchView, VIEW_TYPE_SEARCH } from './views/search-view';
 import { SessionBrowserModal, scanSessionDirs } from './views/session-browser-modal';
 import { FilePickerModal } from './views/file-picker-modal';
@@ -23,8 +23,8 @@ export default class ClaudeSessionsPlugin extends Plugin {
 		const adapter = this.app.vault.adapter as unknown as { basePath: string };
 		this.sessionIndex = new SessionIndex(adapter.basePath, this.app.vault.configDir);
 
-		this.registerView(VIEW_TYPE_REPLAY, (leaf: WorkspaceLeaf) => {
-			return new ReplayView(leaf, this.settings);
+		this.registerView(VIEW_TYPE_TIMELINE, (leaf: WorkspaceLeaf) => {
+			return new TimelineView(leaf, this.settings);
 		});
 
 		this.registerView(VIEW_TYPE_SEARCH, (leaf: WorkspaceLeaf) => {
@@ -96,7 +96,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 			id: 'next-turn',
 			name: 'Go to next turn',
 			callback: () => {
-				const view = this.getActiveReplayView();
+				const view = this.getActiveTimelineView();
 				if (view) view.nextTurn();
 			},
 		});
@@ -105,7 +105,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 			id: 'prev-turn',
 			name: 'Go to previous turn',
 			callback: () => {
-				const view = this.getActiveReplayView();
+				const view = this.getActiveTimelineView();
 				if (view) view.prevTurn();
 			},
 		});
@@ -114,7 +114,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 			id: 'refresh-session',
 			name: 'Refresh session',
 			callback: async () => {
-				const view = this.getActiveReplayView();
+				const view = this.getActiveTimelineView();
 				if (view) await view.reloadSession();
 			},
 		});
@@ -123,7 +123,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 			id: 'toggle-live-watch',
 			name: 'Toggle live watch',
 			callback: () => {
-				const view = this.getActiveReplayView();
+				const view = this.getActiveTimelineView();
 				if (view) view.toggleWatch();
 			},
 		});
@@ -132,7 +132,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 			id: 'search-in-session',
 			name: 'Search in session',
 			checkCallback: (checking: boolean) => {
-				const view = this.getActiveReplayView();
+				const view = this.getActiveTimelineView();
 				const session = view?.getSession();
 				if (!view || !session?.rawPath) return false;
 				if (checking) return true;
@@ -175,9 +175,9 @@ export default class ClaudeSessionsPlugin extends Plugin {
 
 	async onunload(): Promise<void> {
 		// Stop all active file watchers before plugin unloads
-		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_REPLAY);
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TIMELINE);
 		for (const leaf of leaves) {
-			if (leaf.view instanceof ReplayView) {
+			if (leaf.view instanceof TimelineView) {
 				leaf.view.stopWatching();
 			}
 		}
@@ -194,12 +194,12 @@ export default class ClaudeSessionsPlugin extends Plugin {
 	async openSession(session: Session, turnIndex?: number, highlightQuery?: string): Promise<void> {
 		const leaf = this.app.workspace.getLeaf('tab');
 		await leaf.setViewState({
-			type: VIEW_TYPE_REPLAY,
+			type: VIEW_TYPE_TIMELINE,
 			active: true,
 		});
 
 		const view = leaf.view;
-		if (view instanceof ReplayView) {
+		if (view instanceof TimelineView) {
 			view.loadSession(session);
 			if (turnIndex !== undefined) {
 				requestAnimationFrame(() => {
@@ -227,23 +227,23 @@ export default class ClaudeSessionsPlugin extends Plugin {
 		return view;
 	}
 
-	updateReplayViews(): void {
-		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_REPLAY);
+	updateTimelineViews(): void {
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TIMELINE);
 		for (const leaf of leaves) {
 			const view = leaf.view;
-			if (view instanceof ReplayView) {
+			if (view instanceof TimelineView) {
 				view.updateSettings(this.settings);
 			}
 		}
 	}
 
-	private getActiveReplayView(): ReplayView | null {
-		const leaf = this.app.workspace.getActiveViewOfType(ReplayView);
+	private getActiveTimelineView(): TimelineView | null {
+		const leaf = this.app.workspace.getActiveViewOfType(TimelineView);
 		return leaf;
 	}
 
 	private async exportActiveSessionHTML(): Promise<void> {
-		const view = this.getActiveReplayView();
+		const view = this.getActiveTimelineView();
 		if (!view) {
 			new Notice('No active session to export.');
 			return;
@@ -263,7 +263,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 	}
 
 	private async exportActiveSession(): Promise<void> {
-		const view = this.getActiveReplayView();
+		const view = this.getActiveTimelineView();
 		if (!view) {
 			new Notice('No active session to export.');
 			return;

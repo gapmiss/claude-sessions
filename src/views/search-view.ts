@@ -9,7 +9,7 @@ import { resolveSubAgentSessions } from '../parsers/claude-subagent';
 import { makeClickable } from './render-helpers';
 import { shortenPath } from '../utils/path-utils';
 import { scanSessionDirs } from './session-browser-modal';
-import { ReplayView } from './replay-view';
+import { TimelineView } from './timeline-view';
 
 export const VIEW_TYPE_SEARCH = 'claude-sessions-search';
 
@@ -37,7 +37,7 @@ export class SearchView extends ItemView {
 	private entriesLoaded = false;
 
 	// In-session state
-	private trackedReplayLeaf: WorkspaceLeaf | null = null;
+	private trackedTimelineLeaf: WorkspaceLeaf | null = null;
 	private trackedSession: Session | null = null;
 	private trackedFilePath: string | null = null;
 
@@ -225,10 +225,10 @@ export class SearchView extends ItemView {
 
 		if (this.mode !== 'in-session') return;
 
-		if (leaf?.view instanceof ReplayView) {
-			const session = (leaf.view as ReplayView).getSession();
+		if (leaf?.view instanceof TimelineView) {
+			const session = (leaf.view as TimelineView).getSession();
 			if (session?.rawPath && session.rawPath !== this.trackedFilePath) {
-				this.trackedReplayLeaf = leaf;
+				this.trackedTimelineLeaf = leaf;
 				this.trackedSession = session;
 				this.trackedFilePath = session.rawPath;
 				this.updateScopeLabel();
@@ -256,25 +256,25 @@ export class SearchView extends ItemView {
 
 	private resolveTrackedSession(): void {
 		if (this.mode !== 'in-session') return;
-		// Find the active replay view
-		const replayView = this.app.workspace.getActiveViewOfType(ReplayView);
-		if (replayView) {
-			const session = replayView.getSession();
+		// Find the active timeline view
+		const timelineView = this.app.workspace.getActiveViewOfType(TimelineView);
+		if (timelineView) {
+			const session = timelineView.getSession();
 			if (session?.rawPath) {
-				this.trackedReplayLeaf = replayView.leaf;
+				this.trackedTimelineLeaf = timelineView.leaf;
 				this.trackedSession = session;
 				this.trackedFilePath = session.rawPath;
 				return;
 			}
 		}
-		// Fallback: search all replay leaves for one with a session
+		// Fallback: search all timeline leaves for one with a session
 		if (!this.trackedSession) {
-			const leaves = this.app.workspace.getLeavesOfType('claude-sessions-replay');
+			const leaves = this.app.workspace.getLeavesOfType('claude-sessions-timeline');
 			for (const l of leaves) {
-				if (l.view instanceof ReplayView) {
-					const s = (l.view as ReplayView).getSession();
+				if (l.view instanceof TimelineView) {
+					const s = (l.view as TimelineView).getSession();
 					if (s?.rawPath) {
-						this.trackedReplayLeaf = l;
+						this.trackedTimelineLeaf = l;
 						this.trackedSession = s;
 						this.trackedFilePath = s.rawPath;
 						return;
@@ -432,11 +432,11 @@ export class SearchView extends ItemView {
 	}
 
 	private navigateToInSessionMatch(turnIndex: number, query: string): void {
-		if (!this.trackedReplayLeaf) return;
-		const view = this.trackedReplayLeaf.view;
-		if (view instanceof ReplayView) {
-			// Reveal the replay leaf so the user sees the result
-			this.app.workspace.revealLeaf(this.trackedReplayLeaf);
+		if (!this.trackedTimelineLeaf) return;
+		const view = this.trackedTimelineLeaf.view;
+		if (view instanceof TimelineView) {
+			// Reveal the timeline leaf so the user sees the result
+			this.app.workspace.revealLeaf(this.trackedTimelineLeaf);
 			view.navigateToMatch(turnIndex, query);
 		}
 	}

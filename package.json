@@ -1,7 +1,7 @@
 {
   "name": "claude-sessions",
   "version": "0.1.0",
-  "description": "Interactive replay, live watch, search, and analysis for Claude Code sessions.",
+  "description": "Browse, search, and analyze Claude Code sessions with live watch and rich tool rendering.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",

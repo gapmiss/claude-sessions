@@ -1,13 +1,13 @@
 import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon } from 'obsidian';
 import { Session, PluginSettings } from '../types';
-import { ReplayRenderer } from './replay-renderer';
+import { TimelineRenderer } from './timeline-renderer';
 import { readFileContent } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
 import { resolveSubAgentSessions } from '../parsers/claude-subagent';
 
-export const VIEW_TYPE_REPLAY = 'claude-sessions-replay';
+export const VIEW_TYPE_TIMELINE = 'claude-sessions-timeline';
 
-interface ReplayViewState {
+interface TimelineViewState {
 	sessionPath?: string;
 	turnIndex?: number;
 }
@@ -26,9 +26,9 @@ interface FilterState {
 	toolResults: boolean;
 }
 
-export class ReplayView extends ItemView {
+export class TimelineView extends ItemView {
 	private session: Session | null = null;
-	private renderer: ReplayRenderer | null = null;
+	private renderer: TimelineRenderer | null = null;
 	private settings: PluginSettings;
 	private controlsEl: HTMLElement | null = null;
 	private timelineEl: HTMLElement | null = null;
@@ -75,7 +75,7 @@ export class ReplayView extends ItemView {
 	}
 
 	getViewType(): string {
-		return VIEW_TYPE_REPLAY;
+		return VIEW_TYPE_TIMELINE;
 	}
 
 	getDisplayText(): string {
@@ -92,11 +92,11 @@ export class ReplayView extends ItemView {
 	async onOpen(): Promise<void> {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.addClass('claude-sessions-replay-container');
+		contentEl.addClass('claude-sessions-timeline-container');
 
 		// Timeline area (scrollable)
 		this.timelineEl = contentEl.createDiv({ cls: 'claude-sessions-timeline markdown-rendered' });
-		this.renderer = new ReplayRenderer(this.timelineEl, this.app, this, this.settings);
+		this.renderer = new TimelineRenderer(this.timelineEl, this.app, this, this.settings);
 
 		// Controls bar (fixed at bottom)
 		this.controlsEl = contentEl.createDiv({ cls: 'claude-sessions-controls' });
@@ -123,7 +123,7 @@ export class ReplayView extends ItemView {
 		};
 	}
 
-	async setState(state: ReplayViewState): Promise<void> {
+	async setState(state: TimelineViewState): Promise<void> {
 		if (state.sessionPath && !this.session) {
 			try {
 				const content = await readFileContent(state.sessionPath);
@@ -579,7 +579,7 @@ export class ReplayView extends ItemView {
 	}
 
 	/** Restore full UI state after re-render. */
-	private restoreUIState(state: ReturnType<typeof ReplayView.prototype.captureUIState>): void {
+	private restoreUIState(state: ReturnType<typeof TimelineView.prototype.captureUIState>): void {
 		const turnEls = this.renderer?.getTurnElements() || [];
 		for (const idx of state.collapsedTurns) {
 			if (idx < turnEls.length) {
@@ -830,7 +830,7 @@ export class ReplayView extends ItemView {
 		// Keyboard shortcuts
 		this.registerDomEvent(container.doc, 'keydown', (e: KeyboardEvent) => {
 			if (!this.session) return;
-			const activeView = this.app.workspace.getActiveViewOfType(ReplayView);
+			const activeView = this.app.workspace.getActiveViewOfType(TimelineView);
 			if (activeView !== this) return;
 
 			// Skip if focus is inside an input, textarea, or contentEditable element

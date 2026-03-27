@@ -4,7 +4,7 @@
    Container layout
    ═══════════════════════════════════════════ */
 
-.claude-sessions-replay-container {
+.claude-sessions-timeline-container {
 	display: flex;
 	flex-direction: column;
 	height: 100%;
@@ -321,7 +321,7 @@
 }
 
 /* Style Obsidian's copy-code-button as clickable-icon within our views */
-.claude-sessions-replay-container .copy-code-button {
+.claude-sessions-timeline-container .copy-code-button {
 	background-color: transparent;
 	border: 0;
 	padding: var(--size-2-2) var(--size-2-3);
@@ -1484,9 +1484,9 @@
 }
 
 /* Focus indicators for all interactive elements */
-.claude-sessions-replay-container button:focus-visible,
-.claude-sessions-replay-container input:focus-visible,
-.claude-sessions-replay-container summary:focus-visible {
+.claude-sessions-timeline-container button:focus-visible,
+.claude-sessions-timeline-container input:focus-visible,
+.claude-sessions-timeline-container summary:focus-visible {
 	box-shadow: 0 0 0 3px var(--background-modifier-border-focus);
 }
 

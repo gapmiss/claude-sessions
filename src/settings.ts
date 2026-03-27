@@ -71,35 +71,35 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Show thinking blocks')
-			.setDesc('Display assistant thinking/reasoning blocks in replay.')
+			.setDesc('Display assistant thinking/reasoning blocks in session view.')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showThinkingBlocks)
 				.onChange(async (value) => {
 					this.plugin.settings.showThinkingBlocks = value;
 					await this.plugin.saveSettings();
-					this.plugin.updateReplayViews();
+					this.plugin.updateTimelineViews();
 				}));
 
 		new Setting(containerEl)
 			.setName('Show tool calls')
-			.setDesc('Display tool use blocks (read, bash, etc.) in replay.')
+			.setDesc('Display tool use blocks (read, bash, etc.) in session view.')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showToolCalls)
 				.onChange(async (value) => {
 					this.plugin.settings.showToolCalls = value;
 					await this.plugin.saveSettings();
-					this.plugin.updateReplayViews();
+					this.plugin.updateTimelineViews();
 				}));
 
 		new Setting(containerEl)
 			.setName('Show tool results')
-			.setDesc('Display tool result output in replay.')
+			.setDesc('Display tool result output in session view.')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showToolResults)
 				.onChange(async (value) => {
 					this.plugin.settings.showToolResults = value;
 					await this.plugin.saveSettings();
-					this.plugin.updateReplayViews();
+					this.plugin.updateTimelineViews();
 				}));
 
 		new Setting(containerEl)
@@ -110,7 +110,7 @@ export class SettingsTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.showHookIcons = value;
 					await this.plugin.saveSettings();
-					this.plugin.updateReplayViews();
+					this.plugin.updateTimelineViews();
 				}));
 
 		new Setting(containerEl)
@@ -123,7 +123,7 @@ export class SettingsTab extends PluginSettingTab {
 					if (!isNaN(n) && n >= 1) {
 						this.plugin.settings.toolGroupThreshold = n;
 						await this.plugin.saveSettings();
-						this.plugin.updateReplayViews();
+						this.plugin.updateTimelineViews();
 					}
 				}));
 

@@ -1,6 +1,6 @@
 /**
  * HTML exporter — produces a standalone, zero-dependency HTML file
- * by snapshotting the live replay view DOM and bundling captured CSS + JS.
+ * by snapshotting the live timeline view DOM and bundling captured CSS + JS.
  */
 
 import { Notice } from 'obsidian';
@@ -21,7 +21,7 @@ html, body {
 }
 
 /* Remove Obsidian viewport constraints — fill the browser window */
-.claude-sessions-replay-container {
+.claude-sessions-timeline-container {
   height: auto;
   min-height: 100vh;
 }
@@ -344,7 +344,7 @@ ${EXPORT_OVERRIDES}
 <body class="${themeClass}">
 <div id="as-export-root" data-filters='{}'>
 ${headerHTML}
-<div class="claude-sessions-replay-container">
+<div class="claude-sessions-timeline-container">
 <div class="claude-sessions-timeline markdown-rendered">
 ${timelineHTML}
 </div>
