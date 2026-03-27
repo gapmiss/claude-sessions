@@ -2,11 +2,11 @@
 
 ## Origin
 
-Inspired by [claude-replay](https://github.com/es617/claude-replay), this plugin brings AI coding agent session replay natively into Obsidian. Rather than a standalone web app, sessions live alongside your notes — importable, replayable, and exportable as markdown or self-contained HTML.
+This plugin brings Claude Code session viewing natively into Obsidian. Rather than a standalone web app, sessions live alongside your notes — importable, browsable, and exportable as markdown or self-contained HTML.
 
 ## Status
 
-**v0.1.0 — Desktop-only. Claude Code session replay with summary panel, deep linking, and rich tool rendering.**
+**v0.1.0 — Desktop-only. Claude Code session viewer with summary panel, deep linking, and rich tool rendering.**
 
 Working features:
 - **Claude Code only** — focused exclusively on Claude Code JSONL session format (Codex/Cursor parsers removed)
@@ -34,7 +34,7 @@ Working features:
   - Tool usage breakdown sorted by count descending
   - User/assistant/total turn counts
 - **Obsidian protocol handler**: `obsidian://claude-sessions?session=/path/to/session.jsonl` opens session directly
-- Timeline replay view — all turns visible and scrollable from the start
+- Timeline view — all turns visible and scrollable from the start
 - Segment-level navigation: arrow keys step through segments (text, thinking, tool run) within turns
 - Segment-level playback: reveals segments with real timestamp-based delays (clamped 600ms–10s)
 - Active segment highlighted with accent left border + spinner on tool/thinking blocks
@@ -64,7 +64,7 @@ Working features:
 - **Empty session filtering** — sessions with zero user/assistant records are hidden from the browser
 - **Search side panel** (`ItemView` in right split) — dual-mode search with persistent results
   - **Cross-session mode** ("All sessions"): keyword search across all JSONL files with progressive results
-  - **In-session mode** ("Current session"): scoped to active replay view's session with timestamp-based turn resolution and DOM highlighting
+  - **In-session mode** ("Current session"): scoped to active timeline view's session with timestamp-based turn resolution and DOM highlighting
   - Mode toggle buttons, scope label showing active session path
   - On-demand line-by-line grep using Node.js `readline` (no persistent index)
   - Role filter (all/user/assistant), debounced input, `AbortController` cancellation
@@ -76,7 +76,7 @@ Working features:
 - File picker modal with drag-and-drop, path input, and session directory path resolution fallback
 - Markdown export with frontmatter and Obsidian callouts
 - **HTML export** as self-contained, zero-dependency HTML file via DOM snapshot
-  - Captures live replay view DOM (all markdown already rendered by Obsidian)
+  - Captures live timeline view DOM (all markdown already rendered by Obsidian)
   - CSS captured at export time: theme variables (822 `--*` properties), relevant `app.css` rules (markdown rendering, PrismJS syntax highlighting, SVG icons), plugin `styles.css`
   - Standalone JS (~4KB) handles collapsibles, copy-to-clipboard, show-more, image zoom modal, content filter menu via event delegation
   - Electron save dialog with fallback to session directory
@@ -144,9 +144,9 @@ Computed during parsing and stored on `Session.stats`:
 - `userTurns` / `assistantTurns` — role-based turn counts
 - `durationMs` — elapsed time from first to last timestamp
 
-### Replay View (`views/replay-view.ts`)
+### Timeline View (`views/timeline-view.ts`)
 
-- Extends `ItemView` with type `claude-sessions-replay`
+- Extends `ItemView` with type `claude-sessions-timeline`
 - **All turns rendered immediately** into a scrollable timeline — content is never hidden
 - `IntersectionObserver` on the timeline container watches each turn element; turns in viewport get `visible` class (opacity 1.0), others dim to 0.3
 - **Segment-level navigation**: arrow keys move a highlight cursor (`block-active`) through segments within turns, then across turns. A segment is: one text block, one thinking block, or one run of consecutive tool calls.
@@ -157,7 +157,7 @@ Computed during parsing and stored on `Session.stats`:
 - **UI state preservation**: `captureUIState()` / `restoreUIState()` save and restore collapsed turns, summary panel, expanded tool blocks (by turn+block index), expanded "show more" sections (by turn+wrap index), scroll position, and ARIA `aria-expanded` attributes across full re-renders
 - **Content filters**: `FilterState` tracks 8 toggles in two groups — User (text, images) and Assistant (text, thinking, tool calls, tool results). Parent toggles hide entire role sections; children toggle individual block types.
 
-### Replay Renderer (decomposed across 4 files)
+### Timeline Renderer (decomposed across 4 files)
 
 **`views/render-helpers.ts`** — Shared utilities used by all renderer modules:
 - `RenderContext` interface (`{ app, component, settings }`) threaded through all render functions
@@ -165,7 +165,7 @@ Computed during parsing and stored on `Session.stats`:
 - `fence()`, `langFromPath()`, `stripLineNumbers()`, `formatElapsed()`, `addCopyButton()`
 - `COLLAPSE_THRESHOLD` (10 lines), `EXT_TO_LANG` map
 
-**`views/replay-renderer.ts`** (~444 lines) — Core timeline orchestrator:
+**`views/timeline-renderer.ts`** (~444 lines) — Core timeline orchestrator:
 - `renderTimeline(turns, sessionStartMs, session?)` — renders summary panel (if session provided) + all turns, returns array of turn elements
 - `renderTurn()`, `renderAssistantBlocks()`, `renderSingleBlock()` — turn structure and block routing
 - `renderTextContent()`, `renderThinkingBlock()`, `renderSlashCommandBlock()`, `renderCompactionBlock()`, `renderAnsiBlock()` + `buildAnsiDom()` — programmatic DOM construction (no innerHTML)
@@ -187,7 +187,7 @@ Computed during parsing and stored on `Session.stats`:
 
 ### HTML Export Pipeline (`exporters/`)
 
-**DOM snapshot approach** — rather than rebuilding a separate renderer, the exporter captures the already-rendered replay view:
+**DOM snapshot approach** — rather than rebuilding a separate renderer, the exporter captures the already-rendered timeline view:
 
 1. **`css-capture.ts`** — at export time, scrapes CSS from the live Obsidian document:
    - `captureThemeVariables()` — iterates all stylesheets to find `--*` property names, resolves via `getComputedStyle()` to bake the user's current theme into concrete values
@@ -235,8 +235,8 @@ src/
     claude-subagent.ts             # Task notification parsing, sub-agent JSONL resolution
     detect.ts                      # Parser detection (Claude-only)
   views/
-    replay-view.ts                 # ItemView — scrollable timeline with IntersectionObserver
-    replay-renderer.ts             # Core timeline, turns, text, thinking, ANSI, images (~444 lines)
+    timeline-view.ts               # ItemView — scrollable timeline with IntersectionObserver
+    timeline-renderer.ts           # Core timeline, turns, text, thinking, ANSI, images (~444 lines)
     render-helpers.ts              # Shared utilities: RenderContext, makeClickable, fence, langFromPath, etc.
     summary-renderer.ts            # Collapsible summary panel with metadata grid, token stats, tool breakdown
     tool-renderer.ts               # All tool-specific rendering: Bash, Edit, Write, Read, sub-agents, tool groups
@@ -353,23 +353,20 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 ## Session State
 <!-- DO NOT edit this section manually. It is managed exclusively by /wrap SKILL. -->
 <!-- auto-updated by /wrap -->
-- **Last session**: 2026-03-26 16:10
-- **Goal**: Fix HTML export bugs and add context window / cost estimation to session summary
-- **Summary**: Fixed three HTML export bugs (filters, text copy, sub-agent collapsibles) plus copy button styling issues (`824d179`). Then investigated token count discrepancy with claude-devtools — confirmed our cumulative calculations are identical, but we were showing cumulative API throughput (12.8M) while devtools showed context window size (138.7k). Added context window tracking, model-aware cost estimation (Opus/Sonnet/Haiku pricing), and restructured summary display to show both metrics (`daad049`). 94 tests pass.
+- **Last session**: 2026-03-26 19:05
+- **Goal**: Remove "replay" terminology — the play/forward/backward interface was removed long ago
+- **Summary**: Renamed all "replay" references to "timeline" across the codebase (`bd39b51`). Files renamed (`replay-view.ts` → `timeline-view.ts`, `replay-renderer.ts` → `timeline-renderer.ts`), classes/constants/CSS updated (`ReplayView` → `TimelineView`, `VIEW_TYPE_REPLAY` → `VIEW_TYPE_TIMELINE`, `.claude-sessions-replay-container` → `.claude-sessions-timeline-container`), and user-facing description rewritten. 94 tests pass.
 - **Decisions**:
-  - Filter logic rewritten to match live view — `claude-sessions-filtered` class on role sections and block wrappers, not `style.display` on label spans
-  - Sub-agent collapsible toggle uses `parentElement` — the container-array `.closest()` matched outer Agent tool-block before inner tool-group
-  - Code block copy button styled via CSS — `MarkdownRenderer.render()` is async so programmatic class addition is unreliable; CSS captured by `capturePluginStyles()` for exports
-  - Exported HTML needs explicit `border: 0` — Obsidian's base `button { border: 0 }` rule isn't in the captured selector whitelist
-  - Context window = last API call's `input + cache_read + cache_creation` — matches claude-devtools' "Visible Context: Total" metric
-  - Cost estimation uses per-model pricing (Opus $15/$75/$1.50/$18.75 per MTok) — model family detected by name substring matching, defaults to Sonnet
-  - Summary header shows context size + cost + turns (not cumulative total) — context window is more meaningful at a glance than cumulative throughput
-  - Cumulative tokens section renamed "API usage (cumulative)" — makes clear these are summed across all API calls, not current window size
+  - Used "timeline" over "session" for view/renderer names — describes the UI (scrollable timeline), avoids `SessionView` ambiguity with Obsidian's own view types
+  - User-facing description changed to "Browse, search, and analyze Claude Code sessions with live watch and rich tool rendering" — no mention of replay/playback
+  - Settings descriptions changed "in replay" to "in session view" — more natural for end users
+  - View type string changed to `claude-sessions-timeline` — breaks existing workspace tab restore, acceptable for pre-release
 - **Next steps**:
+  - Update CLAUDE.md documentation to reflect timeline rename (references to ReplayView, replay-view.ts, etc.)
   - Test HTML export in browser via `file://` protocol (clipboard fallback, image modal)
-  - Update `tmp/README.md` (woefully behind)
   - Skip filtered blocks during segment navigation (arrow keys land on hidden blocks)
   - Incremental parsing/rendering for large sessions
+  - Roadmap: mark "Cost estimation from token usage metadata" as done (completed in `daad049`)
 - **Blockers**: None
 - **Branch**: main
 - **Uncommitted**: CLAUDE.md session state update
