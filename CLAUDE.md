@@ -370,18 +370,20 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 ## Session State
 <!-- DO NOT edit this section manually. It is managed exclusively by /wrap SKILL. -->
 <!-- auto-updated by /wrap -->
-- **Last session**: 2026-03-27 20:30
-- **Goal**: Create README.md for GitHub publishing
-- **Summary**: Wrote comprehensive README covering features, BRAT + manual installation, usage, commands, settings, parser overview, dev guide, and roadmap. Removed stale playback/speed/seek references from README and html-exporter comment. Confirmed playback code was already removed — only documentation remnants remained. Committed as `1b8181a`.
+- **Last session**: 2026-03-27 22:15
+- **Goal**: Add mermaid diagram rendering support with constrained preview and modal viewer
+- **Summary**: Implemented mermaid diagram detection via MutationObserver on rendered timeline content. Diagrams scale to 100% parent width inline, with click-to-expand modal featuring full-size SVG, Download SVG, and Copy SVG buttons. Fixed SVG ID collision (duplicate IDs caused cloned SVG to lose internal styles), added `markdown-rendered` class context for dark theme CSS, stripped mermaid's inline `max-width`, and fixed flex layout shrink-wrapping in modal. Committed as `0f392b9` and `4938725`.
 - **Decisions**:
-  - BRAT listed as primary install method — not yet in community plugins registry
-  - "How it works" section gives brief parser overview without exposing internal architecture — full details stay in CLAUDE.md
-  - Screenshot placeholders commented out — to be added once captures are finalized
-  - Kept "replay" in tagline ("Browse, replay, search, and export") — still accurate for segment playback even without keyboard shortcuts
+  - Scale-to-fit over max-height clipping — max-height + overflow caused jank with show-more collapsibles and horizontal scroll; `width: 100%; height: auto` is simpler and cleaner
+  - Always wrap mermaid blocks (no height threshold) — every diagram gets the clickable container for consistent modal access to download/copy
+  - SVG ID remapping via `split().join()` — mermaid's internal `<style>` uses ID-scoped selectors; duplicate IDs in DOM cause cloned SVG to inherit original's styles instead of its own
+  - Obsidian renders mermaid as `div.mermaid` not `.block-language-mermaid` — discovered via live DOM inspection
+  - `XMLSerializer` for SVG serialization — more correct than `outerHTML` for SVG elements
 - **Next steps**:
-  - Capture screenshots (dark + light mode) of session timeline, summary dashboard, tool rendering, search panel, session browser for README
+  - Update HTML exporter `standalone-player.ts` to handle mermaid modal in exported HTML
+  - Update CLAUDE.md status/features sections with mermaid support details
+  - Capture screenshots for README
   - Test HTML export with dashboard layout
-  - Review dashboard visual polish at narrow widths
   - Incremental parsing/rendering for large sessions
 - **Blockers**: None
 - **Branch**: main
