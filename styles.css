@@ -1776,14 +1776,15 @@
 	min-height: 0;
 	overflow: auto;
 	padding: 16px;
-	display: flex;
-	justify-content: center;
-	align-items: flex-start;
+}
+
+.claude-sessions-mermaid-preview-scroll .mermaid {
+	width: 100%;
 }
 
 .claude-sessions-mermaid-preview-scroll svg {
-	max-width: none;
-	max-height: none;
+	width: 100%;
+	height: auto;
 }
 
 .claude-sessions-mermaid-preview-actions {

@@ -612,7 +612,9 @@ class MermaidPreviewModal extends Modal {
 			svgString = svgString.split(origId).join('mermaid-preview-' + Date.now());
 		}
 		const doc = new DOMParser().parseFromString(svgString, 'image/svg+xml');
-		const svgNode = document.importNode(doc.documentElement, true);
+		const svgNode = document.importNode(doc.documentElement, true) as unknown as HTMLElement;
+		// Mermaid sets an inline max-width that caps the SVG size — remove it so it fills the modal
+		svgNode.style.removeProperty('max-width');
 
 		const mermaidWrap = scrollWrap.createDiv({ cls: 'mermaid' });
 		mermaidWrap.appendChild(svgNode);
