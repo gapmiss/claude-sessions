@@ -1,5 +1,5 @@
 import { setIcon } from 'obsidian';
-import type { Session } from '../types';
+import type { Session, SessionStats } from '../types';
 import { type RenderContext, makeClickable, addCopyButton } from './render-helpers';
 
 /** Render the session summary panel (collapsible) above the timeline. */
@@ -44,104 +44,196 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 		header.setAttribute('aria-expanded', String(willOpen));
 	});
 
-	// --- Session ID ---
-	const idSection = body.createDiv({ cls: 'claude-sessions-summary-section' });
-	idSection.createDiv({ cls: 'claude-sessions-summary-label', text: 'Session ID' });
-	const idRow = idSection.createDiv({ cls: 'claude-sessions-summary-id-row' });
-	idRow.createSpan({ cls: 'claude-sessions-summary-value claude-sessions-summary-mono', text: metadata.id });
+	// ═══════════════════════════════════════
+	// Hero stat cards
+	// ═══════════════════════════════════════
+	const heroes = body.createDiv({ cls: 'claude-sessions-dash-heroes' });
+
+	if (stats.costUSD > 0) {
+		addHeroCard(heroes, formatCost(stats.costUSD), 'Cost', 'receipt');
+	}
+	if (stats.contextWindowTokens > 0) {
+		addHeroCard(heroes, formatTokens(stats.contextWindowTokens), 'Context', 'layers');
+	}
+	if (metadata.totalTurns > 0) {
+		addHeroCard(heroes, String(metadata.totalTurns), 'Turns', 'message-circle');
+	}
+	if (stats.durationMs > 0) {
+		addHeroCard(heroes, formatDuration(stats.durationMs), 'Duration', 'clock');
+	}
+
+	// ═══════════════════════════════════════
+	// Two-column layout for charts
+	// ═══════════════════════════════════════
+	const charts = body.createDiv({ cls: 'claude-sessions-dash-charts' });
+
+	// --- Token usage chart ---
+	const totalInput = stats.inputTokens + stats.cacheReadTokens + stats.cacheCreationTokens;
+	if (totalInput > 0 || stats.outputTokens > 0) {
+		const tokenCard = charts.createDiv({ cls: 'claude-sessions-dash-card' });
+		tokenCard.createDiv({ cls: 'claude-sessions-dash-card-title', text: 'Token usage' });
+
+		// Input stacked bar
+		if (totalInput > 0) {
+			const inputRow = tokenCard.createDiv({ cls: 'claude-sessions-dash-bar-row' });
+			inputRow.createSpan({ cls: 'claude-sessions-dash-bar-label', text: 'Input' });
+			inputRow.createSpan({ cls: 'claude-sessions-dash-bar-value', text: formatTokens(totalInput) });
+
+			const barTrack = tokenCard.createDiv({ cls: 'claude-sessions-dash-stacked-track' });
+			const segments: { value: number; cls: string; label: string }[] = [];
+			if (stats.cacheReadTokens > 0) {
+				segments.push({ value: stats.cacheReadTokens, cls: 'cache-read', label: `Cache read ${formatTokens(stats.cacheReadTokens)}` });
+			}
+			if (stats.cacheCreationTokens > 0) {
+				segments.push({ value: stats.cacheCreationTokens, cls: 'cache-write', label: `Cache write ${formatTokens(stats.cacheCreationTokens)}` });
+			}
+			if (stats.inputTokens > 0) {
+				segments.push({ value: stats.inputTokens, cls: 'uncached', label: `Uncached ${formatTokens(stats.inputTokens)}` });
+			}
+			for (const seg of segments) {
+				const pct = (seg.value / totalInput) * 100;
+				const segEl = barTrack.createDiv({ cls: `claude-sessions-dash-stacked-seg ${seg.cls}` });
+				segEl.style.width = `${Math.max(pct, 1)}%`;
+				segEl.setAttribute('aria-label', seg.label);
+				segEl.setAttribute('data-tooltip-position', 'top');
+			}
+
+			// Legend
+			const legend = tokenCard.createDiv({ cls: 'claude-sessions-dash-legend' });
+			if (stats.cacheReadTokens > 0) addLegendItem(legend, 'cache-read', 'Cache read', formatTokens(stats.cacheReadTokens));
+			if (stats.cacheCreationTokens > 0) addLegendItem(legend, 'cache-write', 'Cache write', formatTokens(stats.cacheCreationTokens));
+			if (stats.inputTokens > 0) addLegendItem(legend, 'uncached', 'Uncached', formatTokens(stats.inputTokens));
+		}
+
+		// Output row
+		if (stats.outputTokens > 0) {
+			const outputRow = tokenCard.createDiv({ cls: 'claude-sessions-dash-bar-row claude-sessions-dash-output-row' });
+			outputRow.createSpan({ cls: 'claude-sessions-dash-bar-label', text: 'Output' });
+			outputRow.createSpan({ cls: 'claude-sessions-dash-bar-value', text: formatTokens(stats.outputTokens) });
+
+			// Output bar (relative to total input for visual comparison)
+			if (totalInput > 0) {
+				const outTrack = tokenCard.createDiv({ cls: 'claude-sessions-dash-stacked-track' });
+				const outPct = Math.min((stats.outputTokens / totalInput) * 100, 100);
+				const outSeg = outTrack.createDiv({ cls: 'claude-sessions-dash-stacked-seg output' });
+				outSeg.style.width = `${Math.max(outPct, 1)}%`;
+			}
+		}
+	}
+
+	// --- Tool usage chart ---
+	renderToolChart(stats, charts);
+
+	// ═══════════════════════════════════════
+	// Metadata card
+	// ═══════════════════════════════════════
+	const metaCard = body.createDiv({ cls: 'claude-sessions-dash-card claude-sessions-dash-meta' });
+	metaCard.createDiv({ cls: 'claude-sessions-dash-card-title', text: 'Session details' });
+
+	const metaGrid = metaCard.createDiv({ cls: 'claude-sessions-dash-meta-grid' });
+
+	if (metadata.project) addMetaItem(metaGrid, 'Project', metadata.project);
+	if (metadata.model) addMetaItem(metaGrid, 'Model', metadata.model);
+	if (metadata.version) addMetaItem(metaGrid, 'Version', metadata.version);
+	if (metadata.branch) addMetaItem(metaGrid, 'Branch', metadata.branch);
+	if (metadata.startTime) {
+		const d = new Date(metadata.startTime);
+		addMetaItem(metaGrid, 'Started', d.toLocaleString());
+	}
+	if (stats.durationMs > 0) addMetaItem(metaGrid, 'Duration', formatDuration(stats.durationMs));
+	if (metadata.cwd) addMetaItem(metaGrid, 'Working dir', metadata.cwd, true);
+
+	// Turn breakdown
+	if (stats.userTurns > 0 || stats.assistantTurns > 0) {
+		const turnRow = metaCard.createDiv({ cls: 'claude-sessions-dash-turn-breakdown' });
+		turnRow.createSpan({ cls: 'claude-sessions-dash-turn-item', text: `${stats.userTurns} user` });
+		turnRow.createSpan({ cls: 'claude-sessions-dash-turn-sep', text: '/' });
+		turnRow.createSpan({ cls: 'claude-sessions-dash-turn-item', text: `${stats.assistantTurns} assistant` });
+		turnRow.createSpan({ cls: 'claude-sessions-dash-turn-sep', text: '=' });
+		turnRow.createSpan({ cls: 'claude-sessions-dash-turn-item claude-sessions-dash-turn-total', text: `${metadata.totalTurns} turns` });
+	}
+
+	// ═══════════════════════════════════════
+	// Session ID & URI (compact, at bottom)
+	// ═══════════════════════════════════════
+	const idSection = body.createDiv({ cls: 'claude-sessions-dash-ids' });
+
+	const idRow = idSection.createDiv({ cls: 'claude-sessions-dash-id-row' });
+	idRow.createSpan({ cls: 'claude-sessions-dash-id-label', text: 'ID' });
+	idRow.createSpan({ cls: 'claude-sessions-dash-id-value', text: metadata.id });
 	addCopyButton(idRow, metadata.id, 'Copy session ID');
 	addCopyButton(idRow, session.rawPath, 'Copy file path');
 
-	// --- Obsidian URI ---
 	const obsidianUri = `obsidian://claude-sessions?session=${encodeURIComponent(session.rawPath)}`;
 	const mdLink = `[${metadata.project} session](${obsidianUri})`;
-
-	const uriSection = body.createDiv({ cls: 'claude-sessions-summary-section' });
-	uriSection.createDiv({ cls: 'claude-sessions-summary-label', text: 'Obsidian URI' });
-	const uriRow = uriSection.createDiv({ cls: 'claude-sessions-summary-id-row' });
-	const uriPreview = obsidianUri.length > 60
-		? obsidianUri.substring(0, 60) + '...'
+	const uriRow = idSection.createDiv({ cls: 'claude-sessions-dash-id-row' });
+	uriRow.createSpan({ cls: 'claude-sessions-dash-id-label', text: 'URI' });
+	const uriPreview = obsidianUri.length > 50
+		? obsidianUri.substring(0, 50) + '\u2026'
 		: obsidianUri;
-	uriRow.createSpan({ cls: 'claude-sessions-summary-value claude-sessions-summary-mono', text: uriPreview });
+	uriRow.createSpan({ cls: 'claude-sessions-dash-id-value', text: uriPreview });
 	addCopyButton(uriRow, obsidianUri, 'Copy URI');
 	addCopyButton(uriRow, mdLink, 'Copy markdown link');
 
-	// --- Metadata grid ---
-	const grid = body.createDiv({ cls: 'claude-sessions-summary-grid' });
+	void ctx; // ctx reserved for future use
+}
 
-	if (metadata.project) addGridItem(grid, 'Project', metadata.project);
-	if (metadata.model) addGridItem(grid, 'Model', metadata.model);
-	if (metadata.version) addGridItem(grid, 'Version', metadata.version);
-	if (metadata.branch) addGridItem(grid, 'Branch', metadata.branch);
-	if (metadata.cwd) addGridItem(grid, 'Working dir', metadata.cwd);
-	if (metadata.startTime) {
-		const d = new Date(metadata.startTime);
-		addGridItem(grid, 'Started', d.toLocaleString());
-	}
-	if (stats.durationMs > 0) {
-		addGridItem(grid, 'Duration', formatDuration(stats.durationMs));
-	}
+// ═══════════════════════════════════════
+// Component helpers
+// ═══════════════════════════════════════
 
-	// --- Turns ---
-	const turnsSection = body.createDiv({ cls: 'claude-sessions-summary-section' });
-	turnsSection.createDiv({ cls: 'claude-sessions-summary-label', text: 'Turns' });
-	const turnsGrid = turnsSection.createDiv({ cls: 'claude-sessions-summary-grid' });
-	addGridItem(turnsGrid, 'User', String(stats.userTurns));
-	addGridItem(turnsGrid, 'Assistant', String(stats.assistantTurns));
-	addGridItem(turnsGrid, 'Total', String(metadata.totalTurns));
+function addHeroCard(container: HTMLElement, value: string, label: string, iconName: string): void {
+	const card = container.createDiv({ cls: 'claude-sessions-dash-hero' });
+	const iconEl = card.createDiv({ cls: 'claude-sessions-dash-hero-icon' });
+	setIcon(iconEl, iconName);
+	card.createDiv({ cls: 'claude-sessions-dash-hero-value', text: value });
+	card.createDiv({ cls: 'claude-sessions-dash-hero-label', text: label });
+}
 
-	// --- Context & Cost ---
-	if (stats.contextWindowTokens > 0 || stats.costUSD > 0) {
-		const ctxSection = body.createDiv({ cls: 'claude-sessions-summary-section' });
-		ctxSection.createDiv({ cls: 'claude-sessions-summary-label', text: 'Context & cost' });
-		const ctxGrid = ctxSection.createDiv({ cls: 'claude-sessions-summary-grid' });
-		if (stats.contextWindowTokens > 0) {
-			addGridItem(ctxGrid, 'Context window', formatTokens(stats.contextWindowTokens));
-		}
-		if (stats.costUSD > 0) {
-			addGridItem(ctxGrid, 'Estimated cost', formatCost(stats.costUSD));
-		}
-	}
+function addLegendItem(container: HTMLElement, cls: string, label: string, value: string): void {
+	const item = container.createDiv({ cls: 'claude-sessions-dash-legend-item' });
+	item.createSpan({ cls: `claude-sessions-dash-legend-dot ${cls}` });
+	item.createSpan({ text: label });
+	item.createSpan({ cls: 'claude-sessions-dash-legend-value', text: value });
+}
 
-	// --- Token usage (cumulative) ---
-	const totalInput = stats.inputTokens + stats.cacheReadTokens + stats.cacheCreationTokens;
-	if (totalInput > 0 || stats.outputTokens > 0) {
-		const tokenSection = body.createDiv({ cls: 'claude-sessions-summary-section' });
-		tokenSection.createDiv({ cls: 'claude-sessions-summary-label', text: 'API usage (cumulative)' });
-		const tokenGrid = tokenSection.createDiv({ cls: 'claude-sessions-summary-grid' });
-		addGridItem(tokenGrid, 'Input (total)', formatTokens(totalInput));
-		addGridItem(tokenGrid, 'Output', formatTokens(stats.outputTokens));
-		if (stats.cacheReadTokens > 0) {
-			addGridItem(tokenGrid, 'Cache read', formatTokens(stats.cacheReadTokens));
-		}
-		if (stats.cacheCreationTokens > 0) {
-			addGridItem(tokenGrid, 'Cache write', formatTokens(stats.cacheCreationTokens));
-		}
-		if (stats.inputTokens > 0) {
-			addGridItem(tokenGrid, 'Uncached', formatTokens(stats.inputTokens));
-		}
-	}
+function addMetaItem(grid: HTMLElement, label: string, value: string, fullWidth?: boolean): void {
+	const item = grid.createDiv({ cls: 'claude-sessions-dash-meta-item' + (fullWidth ? ' full-width' : '') });
+	item.createSpan({ cls: 'claude-sessions-dash-meta-label', text: label });
+	item.createSpan({ cls: 'claude-sessions-dash-meta-value', text: value });
+}
 
-	// --- Tool usage ---
+function renderToolChart(stats: SessionStats, container: HTMLElement): void {
 	const toolNames = Object.keys(stats.toolUseCounts);
-	if (toolNames.length > 0) {
-		const toolSection = body.createDiv({ cls: 'claude-sessions-summary-section' });
-		toolSection.createDiv({ cls: 'claude-sessions-summary-label', text: 'Tool usage' });
-		const toolGrid = toolSection.createDiv({ cls: 'claude-sessions-summary-grid' });
-		toolNames
-			.sort((a, b) => stats.toolUseCounts[b] - stats.toolUseCounts[a])
-			.forEach(name => {
-				addGridItem(toolGrid, name, String(stats.toolUseCounts[name]));
-			});
+	if (toolNames.length === 0) return;
+
+	const toolCard = container.createDiv({ cls: 'claude-sessions-dash-card' });
+	toolCard.createDiv({ cls: 'claude-sessions-dash-card-title', text: 'Tool usage' });
+
+	const sorted = toolNames.sort((a, b) => stats.toolUseCounts[b] - stats.toolUseCounts[a]);
+	const maxCount = stats.toolUseCounts[sorted[0]];
+	const totalCalls = sorted.reduce((sum, n) => sum + stats.toolUseCounts[n], 0);
+
+	// Total count
+	toolCard.createDiv({ cls: 'claude-sessions-dash-tool-total', text: `${totalCalls} total calls` });
+
+	const bars = toolCard.createDiv({ cls: 'claude-sessions-dash-tool-bars' });
+	for (const name of sorted) {
+		const count = stats.toolUseCounts[name];
+		const pct = (count / maxCount) * 100;
+
+		const row = bars.createDiv({ cls: 'claude-sessions-dash-tool-row' });
+		row.createSpan({ cls: 'claude-sessions-dash-tool-name', text: name });
+		const barWrap = row.createDiv({ cls: 'claude-sessions-dash-tool-bar-wrap' });
+		const bar = barWrap.createDiv({ cls: 'claude-sessions-dash-tool-bar' });
+		bar.style.width = `${Math.max(pct, 2)}%`;
+		row.createSpan({ cls: 'claude-sessions-dash-tool-count', text: String(count) });
 	}
-
-	void ctx; // ctx reserved for future use (e.g. markdown rendering in summary)
 }
 
-function addGridItem(grid: HTMLElement, label: string, value: string): void {
-	grid.createSpan({ cls: 'claude-sessions-summary-grid-label', text: label });
-	grid.createSpan({ cls: 'claude-sessions-summary-grid-value', text: value });
-}
+// ═══════════════════════════════════════
+// Formatters
+// ═══════════════════════════════════════
 
 function formatTokens(n: number): string {
 	if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';

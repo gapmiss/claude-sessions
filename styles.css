@@ -55,6 +55,8 @@
    Session summary panel
    ═══════════════════════════════════════════ */
 
+/* --- Summary container & header (unchanged collapse mechanics) --- */
+
 .claude-sessions-summary {
 	margin: 8px 12px 12px;
 	border: 1px solid var(--background-modifier-border);
@@ -117,7 +119,7 @@
 
 .claude-sessions-summary-body {
 	display: none;
-	padding: 4px 16px 12px;
+	padding: 8px 12px 14px;
 	border-top: 1px solid var(--background-modifier-border);
 }
 
@@ -125,40 +127,7 @@
 	display: block;
 }
 
-.claude-sessions-summary-section {
-	margin-top: 10px;
-}
-
-.claude-sessions-summary-section:first-child {
-	margin-top: 4px;
-}
-
-.claude-sessions-summary-label {
-	font-size: 10px;
-	text-transform: uppercase;
-	letter-spacing: 0.5px;
-	color: var(--text-muted);
-	margin-bottom: 4px;
-	font-weight: 600;
-}
-
-.claude-sessions-summary-id-row {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	flex-wrap: wrap;
-}
-
-.claude-sessions-summary-value {
-	font-size: 12px;
-	color: var(--text-normal);
-	word-break: break-all;
-}
-
-.claude-sessions-summary-mono {
-	font-family: var(--font-monospace);
-	font-size: 11px;
-}
+/* Copy buttons (used in ID/URI rows) */
 
 .claude-sessions-summary-copy {
 	background: none;
@@ -182,19 +151,327 @@
 	height: 12px;
 }
 
-.claude-sessions-summary-grid {
-	display: grid;
-	grid-template-columns: auto 1fr;
-	gap: 2px 12px;
-	font-size: 12px;
+/* --- Dashboard: Hero stat cards --- */
+
+.claude-sessions-dash-heroes {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 10px;
 }
 
-.claude-sessions-summary-grid-label {
+.claude-sessions-dash-hero {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	padding: 10px 6px 8px;
+	border-radius: var(--radius-m);
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	min-width: 0;
+}
+
+.claude-sessions-dash-hero-icon {
+	color: var(--text-faint);
+	display: flex;
+	margin-bottom: 2px;
+}
+
+.claude-sessions-dash-hero-icon .svg-icon {
+	width: 16px;
+	height: 16px;
+}
+
+.claude-sessions-dash-hero-value {
+	font-size: 18px;
+	font-weight: 700;
+	color: var(--text-normal);
+	line-height: 1.1;
+}
+
+.claude-sessions-dash-hero-label {
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--text-faint);
+	font-weight: 500;
+}
+
+/* --- Dashboard: Chart cards --- */
+
+.claude-sessions-dash-charts {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.claude-sessions-dash-card {
+	padding: 10px 12px;
+	border-radius: var(--radius-m);
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+}
+
+.claude-sessions-dash-card-title {
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--text-muted);
+	font-weight: 600;
+	margin-bottom: 8px;
+}
+
+/* --- Token stacked bar chart --- */
+
+.claude-sessions-dash-bar-row {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	margin-bottom: 4px;
+}
+
+.claude-sessions-dash-bar-label {
+	font-size: 11px;
+	color: var(--text-muted);
+	font-weight: 500;
+}
+
+.claude-sessions-dash-bar-value {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text-normal);
+	font-variant-numeric: tabular-nums;
+}
+
+.claude-sessions-dash-stacked-track {
+	display: flex;
+	height: 10px;
+	border-radius: 5px;
+	overflow: hidden;
+	background: var(--background-modifier-border);
+	margin-bottom: 6px;
+}
+
+.claude-sessions-dash-stacked-seg {
+	height: 100%;
+	transition: width 0.3s ease;
+}
+
+.claude-sessions-dash-stacked-seg.cache-read {
+	background: var(--color-cyan);
+}
+
+.claude-sessions-dash-stacked-seg.cache-write {
+	background: var(--color-blue);
+}
+
+.claude-sessions-dash-stacked-seg.uncached {
+	background: var(--color-orange);
+}
+
+.claude-sessions-dash-stacked-seg.output {
+	background: var(--color-green);
+}
+
+.claude-sessions-dash-output-row {
+	margin-top: 4px;
+}
+
+/* Legend */
+
+.claude-sessions-dash-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 10px;
+	margin-top: 2px;
+}
+
+.claude-sessions-dash-legend-item {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 10px;
 	color: var(--text-muted);
 }
 
-.claude-sessions-summary-grid-value {
+.claude-sessions-dash-legend-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.claude-sessions-dash-legend-dot.cache-read {
+	background: var(--color-cyan);
+}
+
+.claude-sessions-dash-legend-dot.cache-write {
+	background: var(--color-blue);
+}
+
+.claude-sessions-dash-legend-dot.uncached {
+	background: var(--color-orange);
+}
+
+.claude-sessions-dash-legend-value {
+	font-variant-numeric: tabular-nums;
+	color: var(--text-faint);
+}
+
+/* --- Tool usage horizontal bar chart --- */
+
+.claude-sessions-dash-tool-total {
+	font-size: 11px;
+	color: var(--text-faint);
+	margin-bottom: 6px;
+}
+
+.claude-sessions-dash-tool-bars {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.claude-sessions-dash-tool-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.claude-sessions-dash-tool-name {
+	font-size: 11px;
+	color: var(--text-muted);
+	width: 72px;
+	flex-shrink: 0;
+	text-align: right;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.claude-sessions-dash-tool-bar-wrap {
+	flex: 1;
+	height: 8px;
+	border-radius: 4px;
+	background: var(--background-modifier-border);
+	overflow: hidden;
+}
+
+.claude-sessions-dash-tool-bar {
+	height: 100%;
+	border-radius: 4px;
+	background: var(--interactive-accent);
+	opacity: 0.75;
+	transition: width 0.3s ease;
+}
+
+.claude-sessions-dash-tool-count {
+	font-size: 11px;
+	font-weight: 600;
 	color: var(--text-normal);
+	width: 24px;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+/* --- Metadata card --- */
+
+.claude-sessions-dash-meta {
+	margin-bottom: 8px;
+}
+
+.claude-sessions-dash-meta-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 4px 16px;
+}
+
+.claude-sessions-dash-meta-item {
+	display: flex;
+	flex-direction: column;
+	padding: 3px 0;
+}
+
+.claude-sessions-dash-meta-item.full-width {
+	grid-column: 1 / -1;
+}
+
+.claude-sessions-dash-meta-label {
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.3px;
+	color: var(--text-faint);
+	font-weight: 500;
+}
+
+.claude-sessions-dash-meta-value {
+	font-size: 12px;
+	color: var(--text-normal);
+	word-break: break-all;
+}
+
+/* Turn breakdown row */
+
+.claude-sessions-dash-turn-breakdown {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 8px;
+	padding-top: 8px;
+	border-top: 1px solid var(--background-modifier-border);
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+.claude-sessions-dash-turn-item {
+	font-variant-numeric: tabular-nums;
+}
+
+.claude-sessions-dash-turn-sep {
+	color: var(--text-faint);
+}
+
+.claude-sessions-dash-turn-total {
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+/* --- Session ID & URI rows --- */
+
+.claude-sessions-dash-ids {
+	padding: 8px 0 0;
+	border-top: 1px solid var(--background-modifier-border);
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.claude-sessions-dash-id-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.claude-sessions-dash-id-label {
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.3px;
+	color: var(--text-faint);
+	font-weight: 600;
+	width: 22px;
+	flex-shrink: 0;
+}
+
+.claude-sessions-dash-id-value {
+	font-size: 11px;
+	font-family: var(--font-monospace);
+	color: var(--text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
 }
 
 /* ═══════════════════════════════════════════

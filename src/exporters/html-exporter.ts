@@ -270,9 +270,9 @@ function processCopyButtons(clone: HTMLElement, original: HTMLElement): void {
 
 	// Summary copy buttons — already have text in the adjacent value elements
 	clone.querySelectorAll('.claude-sessions-summary-copy').forEach(btn => {
-		const row = btn.closest('.claude-sessions-summary-id-row');
+		const row = btn.closest('.claude-sessions-dash-id-row');
 		if (row) {
-			const valueEl = row.querySelector('.claude-sessions-summary-value, .claude-sessions-summary-mono');
+			const valueEl = row.querySelector('.claude-sessions-dash-id-value');
 			if (valueEl && !(btn as HTMLElement).hasAttribute('data-copy-text')) {
 				(btn as HTMLElement).setAttribute('data-copy-text', valueEl.textContent ?? '');
 			}

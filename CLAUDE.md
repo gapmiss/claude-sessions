@@ -25,14 +25,13 @@ Working features:
   - **Background agents** (`run_in_background: true`) arrive via `<task-notification>` XML in `queue-operation`/`user` records; marked `isBackground: true`
   - Both types resolved from `<sessionBase>/subagents/agent-<agentId>.jsonl` via `resolveSubAgentSessions()` to recover full chain-of-thought text
 - **Orphaned tool call status**: last-turn tool calls without results show "in progress" (likely still running); mid-session orphans show "interrupted"
-- **Session summary panel** (collapsible) at top of timeline:
-  - Inline token count and turn count in collapsed header
-  - Session ID with copy buttons (ID only + full JSONL path)
-  - Obsidian URI with copy buttons (raw URI + markdown link)
-  - Metadata grid: project, model, version, branch, cwd, start time, duration
-  - Token breakdown: total input (cache read + cache write + uncached), output
-  - Tool usage breakdown sorted by count descending
-  - User/assistant/total turn counts
+- **Session summary dashboard** (collapsible) at top of timeline:
+  - Inline context, cost, and turn count in collapsed header
+  - **Hero stat cards** — cost, context window, turns, duration as large-value cards with icons
+  - **Token usage chart** — stacked horizontal bar (cache read cyan, cache write blue, uncached orange) with legend; output bar (green) for comparison
+  - **Tool usage chart** — horizontal bar chart with proportional bars, tool names, and counts
+  - **Session details card** — 2-column metadata grid (project, model, version, branch, start time, duration, working dir) with turn breakdown footer
+  - Session ID and Obsidian URI rows with copy buttons (ID, file path, URI, markdown link)
 - **Obsidian protocol handler**: `obsidian://claude-sessions?session=/path/to/session.jsonl` opens session directly
 - **Custom tab icon** — Claude starburst (8-ray) registered via `addIcon('claude-sparkle', ...)` using `currentColor`
 - **Project name from cwd** — tab title and view header show `basename(cwd)` from session metadata; falls back to lossy `extractProjectName()` from encoded directory name; view header updated directly via `.view-header-title` DOM element since `updateHeader()` doesn't reliably refresh it
@@ -178,9 +177,10 @@ Computed during parsing and stored on `Session.stats`:
 - `getBlockWrappers(turnIndex)` returns all wrapper elements within a turn
 - Constructor creates `ToolRendererDelegate` with `bind(this)` for callbacks into tool renderer
 
-**`views/summary-renderer.ts`** (~141 lines) — `renderSummary(session, container, ctx)`:
-- Collapsible panel with metadata grid, token stats, tool breakdown, copyable IDs and URIs
-- Private helpers: `addGridItem()`, `formatTokens()`, `formatDuration()`
+**`views/summary-renderer.ts`** (~210 lines) — `renderSummary(session, container, ctx)`:
+- Dashboard-style collapsible panel with hero cards, token/tool bar charts, metadata grid, copyable IDs and URIs
+- Private helpers: `addHeroCard()`, `addLegendItem()`, `addMetaItem()`, `renderToolChart()`, `formatTokens()`, `formatCost()`, `formatDuration()`
+- CSS classes prefixed `claude-sessions-dash-*` for dashboard components; original `claude-sessions-summary-*` retained for container, header, chevron, and copy buttons
 
 **`views/tool-renderer.ts`** (~495 lines) — All tool-specific rendering:
 - `renderToolCall()`, `renderToolGroup()`, `toolPreview()` — public API
@@ -342,6 +342,7 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 - macOS ignores the `Notification.icon` property for the app icon (always shows Obsidian) but renders it as a secondary badge icon on the right side of the notification. SVG data URIs work.
 - Claude session directory encoding (`-Users-gm-claude-sessions`) is lossy — hyphens in directory names are indistinguishable from path separators. Prefer `cwd` from session metadata (`record.cwd`) for project name; `extractProjectName()` is fallback only.
 - `WorkspaceLeaf.updateHeader()` updates tab title but does not reliably refresh the inline view header title. Must also set `.view-header-title` textContent directly.
+- Summary dashboard uses `claude-sessions-dash-*` CSS classes for inner components (heroes, charts, meta grid, IDs). The outer container/header/chevron/copy-button classes (`claude-sessions-summary-*`) are unchanged — HTML exporter's `standalone-player.ts` and `html-exporter.ts` reference them for collapsible toggle and copy-button wiring.
 
 ## Roadmap
 
@@ -357,7 +358,7 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 ### Medium-term
 - [ ] Linked mentions — link tool_use file paths to vault files when they exist
 - [ ] Tag/bookmark individual turns for later reference
-- [ ] Cost estimation from token usage metadata
+- [x] ~~Cost estimation from token usage metadata~~ — displayed in summary dashboard hero card and header inline stats
 - [ ] Session comparison — side-by-side diff of two sessions
 
 ### Long-term
@@ -369,22 +370,20 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 ## Session State
 <!-- DO NOT edit this section manually. It is managed exclusively by /wrap SKILL. -->
 <!-- auto-updated by /wrap -->
-- **Last session**: 2026-03-26 20:35
-- **Goal**: Improve MCP tool display, handle tool result images, and add pending tool notifications
-- **Summary**: Added three features: (1) MCP tool names now display as `server / tool_name` with compact key=value previews instead of raw JSON, (2) base64 image content in tool results is parsed and rendered as clickable thumbnails with modal preview, (3) optional system notification when a live-watched session has a pending tool call. Also fixed tool group expand/collapse state not persisting across live reload. 98 tests pass across 2 commits (`c74354b`, `328c085`).
+- **Last session**: 2026-03-26 21:42
+- **Goal**: Custom tab icon, project name from cwd, notification polish, expand/collapse commands
+- **Summary**: Added Claude starburst tab icon, fixed project name derivation from `cwd`, polished system notifications (orange badge, `requireInteraction`, click-to-focus, sparkle prefix, quoted tool names), fixed view header title via direct DOM update. Added expand-all/collapse-all commands. Removed arrow key navigation (keydown handler, `nextTurn`/`prevTurn` methods, and their commands). Committed across `3c46d58` and `9ed768b`. 98 tests pass.
 - **Decisions**:
-  - MCP name split on `mcp__` prefix + double underscore separator — server shown dimmed with `/` divider, tool name in accent color
-  - Images stored on `ToolResultBlock.images[]` rather than as separate `ImageBlock` entries — keeps them associated with their tool result
-  - Empty tool input (`{}`) hides both the header preview text and the INPUT section entirely — cleaner than showing `{}`
-  - Pending tool notification uses both Obsidian `Notice` (8s) and system `Notification` — deduped by tool ID to avoid spam on repeated reloads
-  - Tool result images use existing `ImagePreviewModal` via new `openImageModal` delegate method — no new modal code needed
-  - Did NOT attempt full-resolution image loading from disk — Claude Code downscales ~25x before JSONL embedding; added to roadmap instead (temp files may be cleaned up)
+  - Project name from `projectFromCwd(cwd)` — encoded dir names are lossy; `extractProjectName()` kept as fallback
+  - Tab title: just project name, no "Session: " prefix
+  - View header title set directly on `.view-header-title` — `updateHeader()` doesn't reliably refresh it
+  - Tab icon: 8-ray starburst via `addIcon('claude-sparkle')`, `currentColor` for theme compat
+  - Notification icon: white starburst on `#da7756` rounded-rect — macOS shows as secondary badge
+  - Arrow key navigation fully removed — was remnant of old segment-level playback
+  - Expand/collapse all operates on `.claude-sessions-turn` elements with `collapsed` class toggle
 - **Next steps**:
-  - Test pending tool notification with a real live-watched session waiting for permission
   - Test HTML export with tool result images and MCP tool formatting
-  - Skip filtered blocks during segment navigation (arrow keys land on hidden blocks)
   - Incremental parsing/rendering for large sessions
-  - Roadmap: mark "Cost estimation from token usage metadata" as done (completed in `daad049`)
 - **Blockers**: None
 - **Branch**: main
-- **Uncommitted**: Clean
+- **Uncommitted**: CLAUDE.md session state update
