@@ -114,6 +114,7 @@ export class TimelineView extends ItemView {
 		this.clearHighlight();
 		this.stopWatching();
 		this.destroyObserver();
+		this.renderer?.destroyMermaidObserver();
 	}
 
 	getState(): Record<string, unknown> {

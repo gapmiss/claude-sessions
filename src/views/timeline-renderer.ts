@@ -20,6 +20,8 @@ export class TimelineRenderer {
 	private turnEls: HTMLElement[] = [];
 	private sessionStartDate = '';  // tracks day changes across turns
 	private delegate: ToolRendererDelegate;
+	private mermaidObserver: MutationObserver | null = null;
+	private mermaidRafId = 0;
 
 	constructor(container: HTMLElement, app: App, component: Component, settings: PluginSettings) {
 		this.container = container;
@@ -61,7 +63,25 @@ export class TimelineRenderer {
 			this.turnEls.push(el);
 		}
 
+		this.setupMermaidObserver();
+		this.processMermaidBlocks(this.container);
+
 		return this.turnEls;
+	}
+
+	/**
+	 * Clean up the MutationObserver for mermaid detection.
+	 * Called by the view on close.
+	 */
+	destroyMermaidObserver(): void {
+		if (this.mermaidRafId) {
+			cancelAnimationFrame(this.mermaidRafId);
+			this.mermaidRafId = 0;
+		}
+		if (this.mermaidObserver) {
+			this.mermaidObserver.disconnect();
+			this.mermaidObserver = null;
+		}
 	}
 
 	/**
@@ -71,6 +91,44 @@ export class TimelineRenderer {
 		const turnEl = this.turnEls[turnIndex];
 		if (!turnEl) return [];
 		return Array.from(turnEl.querySelectorAll('.claude-sessions-block-wrapper')) as HTMLElement[];
+	}
+
+	private setupMermaidObserver(): void {
+		this.destroyMermaidObserver();
+		this.mermaidObserver = new MutationObserver(() => {
+			if (!this.mermaidRafId) {
+				this.mermaidRafId = requestAnimationFrame(() => {
+					this.mermaidRafId = 0;
+					this.processMermaidBlocks(this.container);
+				});
+			}
+		});
+		this.mermaidObserver.observe(this.container, { childList: true, subtree: true });
+	}
+
+	private processMermaidBlocks(root: HTMLElement): void {
+		const els = root.querySelectorAll('div.mermaid:not(.claude-sessions-mermaid-processed)');
+		for (const el of Array.from(els) as HTMLElement[]) {
+			const svg = el.querySelector('svg');
+			if (!svg) continue;
+
+			el.addClass('claude-sessions-mermaid-processed');
+
+			const parent = el.parentElement;
+			if (!parent) continue;
+
+			const wrapper = parent.createDiv({ cls: 'claude-sessions-mermaid-container' });
+			parent.insertBefore(wrapper, el);
+			wrapper.appendChild(el);
+
+			const expandIcon = wrapper.createDiv({ cls: 'claude-sessions-mermaid-expand' });
+			setIcon(expandIcon, 'maximize-2');
+
+			makeClickable(wrapper, { label: 'View full diagram' });
+			wrapper.addEventListener('click', () => {
+				new MermaidPreviewModal(this.ctx.app, svg as SVGElement).open();
+			});
+		}
 	}
 
 	private renderTurn(turn: Turn): HTMLElement {
@@ -523,6 +581,70 @@ class ImagePreviewModal extends Modal {
 			]);
 			copyBtn.setText('Copied!');
 			setTimeout(() => copyBtn.setText('Copy'), 1500);
+		});
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+}
+
+class MermaidPreviewModal extends Modal {
+	private svgEl: SVGElement;
+
+	constructor(app: App, svgEl: SVGElement) {
+		super(app);
+		this.svgEl = svgEl;
+	}
+
+	onOpen(): void {
+		const { contentEl } = this;
+		this.modalEl.addClass('claude-sessions-mermaid-preview-modal');
+		contentEl.empty();
+
+		const scrollWrap = contentEl.createDiv({ cls: 'claude-sessions-mermaid-preview-scroll markdown-rendered' });
+
+		// Remap SVG IDs to avoid collision with the original (duplicate IDs
+		// cause the clone's internal <style> to target the original instead)
+		const origId = this.svgEl.id;
+		let svgString = new XMLSerializer().serializeToString(this.svgEl);
+		if (origId) {
+			svgString = svgString.split(origId).join('mermaid-preview-' + Date.now());
+		}
+		const doc = new DOMParser().parseFromString(svgString, 'image/svg+xml');
+		const svgNode = document.importNode(doc.documentElement, true);
+
+		const mermaidWrap = scrollWrap.createDiv({ cls: 'mermaid' });
+		mermaidWrap.appendChild(svgNode);
+
+		const actions = contentEl.createDiv({ cls: 'claude-sessions-mermaid-preview-actions' });
+
+		const downloadBtn = actions.createEl('button', {
+			cls: 'mod-cta',
+			text: 'Download SVG',
+			attr: { 'aria-label': 'Download as SVG file' },
+		});
+		downloadBtn.addEventListener('click', () => {
+			const svgString = new XMLSerializer().serializeToString(this.svgEl);
+			const blob = new Blob([svgString], { type: 'image/svg+xml' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = 'diagram.svg';
+			a.click();
+			URL.revokeObjectURL(url);
+		});
+
+		const copyBtn = actions.createEl('button', {
+			cls: 'mod-cta',
+			text: 'Copy SVG',
+			attr: { 'aria-label': 'Copy SVG to clipboard' },
+		});
+		copyBtn.addEventListener('click', async () => {
+			const svgString = new XMLSerializer().serializeToString(this.svgEl);
+			await navigator.clipboard.writeText(svgString);
+			copyBtn.setText('Copied!');
+			setTimeout(() => copyBtn.setText('Copy SVG'), 1500);
 		});
 	}
 

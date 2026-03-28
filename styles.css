@@ -1713,6 +1713,88 @@
 }
 
 /* ═══════════════════════════════════════════
+   Mermaid diagram preview (constrained + modal)
+   ═══════════════════════════════════════════ */
+
+.claude-sessions-mermaid-container {
+	position: relative;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	cursor: pointer;
+	transition: border-color 0.2s;
+	margin: var(--size-4-2) 0;
+	overflow: hidden;
+}
+
+.claude-sessions-mermaid-container:hover {
+	border-color: var(--interactive-accent);
+}
+
+/* Scale SVG to fit container width */
+.claude-sessions-mermaid-container svg {
+	width: 100%;
+	height: auto;
+	display: block;
+}
+
+.claude-sessions-mermaid-expand {
+	position: absolute;
+	bottom: 8px;
+	right: 8px;
+	z-index: 1;
+	padding: var(--size-4-1);
+	border-radius: var(--radius-s);
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	opacity: 0;
+	transition: opacity 0.2s, color 0.2s;
+	pointer-events: none;
+}
+
+.claude-sessions-mermaid-container:hover .claude-sessions-mermaid-expand {
+	opacity: 1;
+	color: var(--interactive-accent);
+}
+
+/* Modal — matches image preview modal layout */
+.claude-sessions-mermaid-preview-modal {
+	width: 90vw;
+	max-width: 90vw;
+	height: 85vh;
+	max-height: 85vh;
+}
+
+.claude-sessions-mermaid-preview-modal .modal-content {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	overflow: hidden;
+}
+
+.claude-sessions-mermaid-preview-scroll {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	padding: 16px;
+	display: flex;
+	justify-content: center;
+	align-items: flex-start;
+}
+
+.claude-sessions-mermaid-preview-scroll svg {
+	max-width: none;
+	max-height: none;
+}
+
+.claude-sessions-mermaid-preview-actions {
+	display: flex;
+	justify-content: center;
+	gap: 8px;
+	padding: 12px 0 4px;
+	flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════
    Sub-agent timeline (nested within Agent tool body)
    ═══════════════════════════════════════════ */
 
@@ -1789,7 +1871,8 @@
 	box-shadow: inset 0 0 0 3px var(--background-modifier-border-focus);
 }
 
-.claude-sessions-image-thumbnail:focus-visible {
+.claude-sessions-image-thumbnail:focus-visible,
+.claude-sessions-mermaid-container:focus-visible {
 	box-shadow: 0 0 0 3px var(--background-modifier-border-focus);
 }
 
