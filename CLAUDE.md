@@ -370,19 +370,18 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 ## Session State
 <!-- DO NOT edit this section manually. It is managed exclusively by /wrap SKILL. -->
 <!-- auto-updated by /wrap -->
-- **Last session**: 2026-03-27 19:50
-- **Goal**: Redesign session summary panel as a modern dashboard with grid layout and charts
-- **Summary**: Replaced the flat key-value summary panel with a dashboard-style layout: hero stat cards (cost, context, turns, duration with icons), stacked horizontal bar chart for token usage (cache read/write/uncached with color legend), horizontal bar chart for tool usage (proportional bars sorted by count), 2-column metadata grid, and compact ID/URI rows at bottom. Updated HTML exporter class selectors to match new DOM structure. Updated CLAUDE.md documentation and marked cost estimation roadmap item as complete. Committed as `478feef`. 98 tests pass.
+- **Last session**: 2026-03-27 20:30
+- **Goal**: Create README.md for GitHub publishing
+- **Summary**: Wrote comprehensive README covering features, BRAT + manual installation, usage, commands, settings, parser overview, dev guide, and roadmap. Removed stale playback/speed/seek references from README and html-exporter comment. Confirmed playback code was already removed — only documentation remnants remained. Committed as `1b8181a`.
 - **Decisions**:
-  - Dashboard uses `claude-sessions-dash-*` CSS class prefix for new components — keeps outer container/header/copy classes (`claude-sessions-summary-*`) stable for HTML exporter compatibility
-  - Hero cards use Obsidian's Lucide icons (`receipt`, `layers`, `message-circle`, `clock`) — theme-aware via `currentColor`
-  - Token bar colors: `--color-cyan` (cache read), `--color-blue` (cache write), `--color-orange` (uncached), `--color-green` (output) — Obsidian CSS variables for theme compat
-  - Tool bars use `--interactive-accent` at 75% opacity — adapts to any theme
-  - Session ID/URI demoted to bottom — less prominent since they're utility actions, not key stats
-  - Two-column chart layout (`grid-template-columns: 1fr 1fr`) for token and tool charts side by side
+  - BRAT listed as primary install method — not yet in community plugins registry
+  - "How it works" section gives brief parser overview without exposing internal architecture — full details stay in CLAUDE.md
+  - Screenshot placeholders commented out — to be added once captures are finalized
+  - Kept "replay" in tagline ("Browse, replay, search, and export") — still accurate for segment playback even without keyboard shortcuts
 - **Next steps**:
-  - Review dashboard in Obsidian and iterate on visual polish (spacing, responsive behavior at narrow widths)
-  - Test HTML export with new dashboard layout
+  - Capture screenshots (dark + light mode) of session timeline, summary dashboard, tool rendering, search panel, session browser for README
+  - Test HTML export with dashboard layout
+  - Review dashboard visual polish at narrow widths
   - Incremental parsing/rendering for large sessions
 - **Blockers**: None
 - **Branch**: main
