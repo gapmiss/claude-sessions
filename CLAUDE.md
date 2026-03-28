@@ -370,20 +370,20 @@ Build script automatically copies `main.js`, `styles.css`, and `manifest.json` t
 ## Session State
 <!-- DO NOT edit this section manually. It is managed exclusively by /wrap SKILL. -->
 <!-- auto-updated by /wrap -->
-- **Last session**: 2026-03-26 21:42
-- **Goal**: Custom tab icon, project name from cwd, notification polish, expand/collapse commands
-- **Summary**: Added Claude starburst tab icon, fixed project name derivation from `cwd`, polished system notifications (orange badge, `requireInteraction`, click-to-focus, sparkle prefix, quoted tool names), fixed view header title via direct DOM update. Added expand-all/collapse-all commands. Removed arrow key navigation (keydown handler, `nextTurn`/`prevTurn` methods, and their commands). Committed across `3c46d58` and `9ed768b`. 98 tests pass.
+- **Last session**: 2026-03-27 19:50
+- **Goal**: Redesign session summary panel as a modern dashboard with grid layout and charts
+- **Summary**: Replaced the flat key-value summary panel with a dashboard-style layout: hero stat cards (cost, context, turns, duration with icons), stacked horizontal bar chart for token usage (cache read/write/uncached with color legend), horizontal bar chart for tool usage (proportional bars sorted by count), 2-column metadata grid, and compact ID/URI rows at bottom. Updated HTML exporter class selectors to match new DOM structure. Updated CLAUDE.md documentation and marked cost estimation roadmap item as complete. Committed as `478feef`. 98 tests pass.
 - **Decisions**:
-  - Project name from `projectFromCwd(cwd)` — encoded dir names are lossy; `extractProjectName()` kept as fallback
-  - Tab title: just project name, no "Session: " prefix
-  - View header title set directly on `.view-header-title` — `updateHeader()` doesn't reliably refresh it
-  - Tab icon: 8-ray starburst via `addIcon('claude-sparkle')`, `currentColor` for theme compat
-  - Notification icon: white starburst on `#da7756` rounded-rect — macOS shows as secondary badge
-  - Arrow key navigation fully removed — was remnant of old segment-level playback
-  - Expand/collapse all operates on `.claude-sessions-turn` elements with `collapsed` class toggle
+  - Dashboard uses `claude-sessions-dash-*` CSS class prefix for new components — keeps outer container/header/copy classes (`claude-sessions-summary-*`) stable for HTML exporter compatibility
+  - Hero cards use Obsidian's Lucide icons (`receipt`, `layers`, `message-circle`, `clock`) — theme-aware via `currentColor`
+  - Token bar colors: `--color-cyan` (cache read), `--color-blue` (cache write), `--color-orange` (uncached), `--color-green` (output) — Obsidian CSS variables for theme compat
+  - Tool bars use `--interactive-accent` at 75% opacity — adapts to any theme
+  - Session ID/URI demoted to bottom — less prominent since they're utility actions, not key stats
+  - Two-column chart layout (`grid-template-columns: 1fr 1fr`) for token and tool charts side by side
 - **Next steps**:
-  - Test HTML export with tool result images and MCP tool formatting
+  - Review dashboard in Obsidian and iterate on visual polish (spacing, responsive behavior at narrow widths)
+  - Test HTML export with new dashboard layout
   - Incremental parsing/rendering for large sessions
 - **Blockers**: None
 - **Branch**: main
-- **Uncommitted**: CLAUDE.md session state update
+- **Uncommitted**: Clean

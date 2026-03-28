@@ -167,7 +167,7 @@ html, body {
   background: var(--interactive-hover);
 }
 
-/* Hide controls bar (playback/nav) — not applicable in export */
+/* Hide controls bar — not applicable in export */
 .claude-sessions-controls {
   display: none !important;
 }
