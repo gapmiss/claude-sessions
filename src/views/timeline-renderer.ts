@@ -5,7 +5,7 @@ import type {
 } from '../types';
 import {
 	type RenderContext, COLLAPSE_THRESHOLD,
-	makeClickable, shortModelName, addCopyButton,
+	makeClickable, shortModelName, addCopyButton, normalizeMarkdown,
 } from './render-helpers';
 import { renderSummary } from './summary-renderer';
 import { renderToolGroup, type ToolRendererDelegate } from './tool-renderer';
@@ -246,6 +246,7 @@ export class TimelineRenderer {
 	}
 
 	private renderTextContent(text: string, container: HTMLElement, cls: string): void {
+		text = normalizeMarkdown(text);
 		const lines = text.split('\n').length;
 		const wrapEl = container.createDiv({ cls: 'claude-sessions-text-block' });
 

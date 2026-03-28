@@ -10,7 +10,7 @@ import {
 	SKIP_RECORD_TYPES,
 	BT_TEXT, BT_TOOL_USE, BT_TOOL_RESULT, BT_IMAGE,
 	PROGRESS_HOOK, PROGRESS_AGENT,
-	SUBAGENT_TOOL_NAMES, MODEL_SYNTHETIC, OP_ENQUEUE, SUBTYPE_LOCAL_COMMAND,
+	SUBAGENT_TOOL_NAMES, MODEL_SYNTHETIC, SUBTYPE_LOCAL_COMMAND,
 	TAG_TASK_NOTIFICATION, TAG_COMMAND_MESSAGE_OPEN,
 	RE_COMMAND_NAME, RE_COMMAND_ARGS,
 	RE_EXIT_COMMAND, RE_SLASH_COMMAND,
@@ -241,9 +241,7 @@ export class ClaudeParser extends BaseParser {
 				if (tn) taskNotifications.set(tn.toolUseId, tn);
 			}
 
-			if (record.type === RT_QUEUE_OPERATION && record.operation === OP_ENQUEUE && record.content) {
-				// Enqueue records carry user messages — let them through
-			} else if (SKIP_RECORD_TYPES.has(record.type)) continue;
+			if (SKIP_RECORD_TYPES.has(record.type)) continue;
 			if (record.isSidechain && !this.allowSidechain) continue;
 			// Keep isMeta user records — they may contain skill expansion prompts
 		if (record.isMeta && record.type !== RT_USER) continue;
@@ -497,26 +495,6 @@ export class ClaudeParser extends BaseParser {
 		};
 
 		for (const record of ordered) {
-			// Queue-operation enqueue → user turn with the queued message
-			if (record.type === RT_QUEUE_OPERATION && record.operation === OP_ENQUEUE && record.content) {
-				// Skip system-injected task notifications
-				if (record.content.startsWith(TAG_TASK_NOTIFICATION)) continue;
-				flushAssistant();
-				const ts = this.formatTimestamp(record.timestamp);
-				turns.push({
-					index: turns.length,
-					role: 'user',
-					timestamp: ts,
-					endTimestamp: ts,
-					contentBlocks: [{
-						type: 'text',
-						text: record.content,
-						timestamp: record.timestamp,
-					} as TextBlock],
-				});
-				continue;
-			}
-
 			// Summary records → compaction boundary
 			if (record.type === RT_SUMMARY) {
 				flushAssistant();
