@@ -25,11 +25,6 @@ data.json
 .env
 
 # Agent settings (local)
-.claude/settings.local.json
-.agents/settings.local.json
-
 .claude
-CLAUDE.md
 
-tmp/
 copy-to-vaults.sh
