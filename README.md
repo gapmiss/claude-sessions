@@ -111,8 +111,6 @@ npm install
 npm run build
 ```
 
-The build script copies output to the vault path configured in `esbuild.config.mjs`.
-
 ---
 
 ## Usage

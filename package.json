@@ -5,7 +5,7 @@
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
-    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production && cp main.js styles.css manifest.json ~/Vaults/Master/.obsidian/plugins/claude-sessions/ && cp main.js styles.css manifest.json ~/Vaults/live-mcp-for-obsidian/.obsidian/plugins/claude-sessions/",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "test": "vitest run",
     "test:watch": "vitest",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
