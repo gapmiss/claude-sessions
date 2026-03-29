@@ -1,6 +1,6 @@
 # Claude Sessions
 
-An [Obsidian](https://obsidian.md/) plugin for viewing [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions. Browse, replay, search, and export your coding sessions as interactive timelines — right alongside your notes.
+An [Obsidian](https://obsidian.md/) plugin for viewing [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions. Browse, search, analyze, and export your Claude Code sessions as interactive timelines with live watch and rich tool rendering — right alongside your notes.
 
 > [!WARNING]
 > **v0.1.0** — Desktop-only. Active development; expect frequent changes.

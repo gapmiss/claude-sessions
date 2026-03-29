@@ -1,9 +1,9 @@
 {
   "id": "claude-sessions",
   "name": "Claude Sessions",
-  "version": "0.1.0",
+  "version": "0.0.9",
   "minAppVersion": "0.15.0",
-  "description": "Browse, search, and analyze Claude Code sessions with live watch and rich tool rendering.",
+  "description": "View Claude Code sessions. Browse, search, analyze, and export your sessions as interactive timelines with live watch and rich tool rendering — right alongside your notes",
   "author": "@gapmiss",
   "authorUrl": "https://github.com/gapmiss",
   "isDesktopOnly": true

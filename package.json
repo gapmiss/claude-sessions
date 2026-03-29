@@ -1,14 +1,17 @@
 {
   "name": "claude-sessions",
-  "version": "0.1.0",
-  "description": "Browse, search, and analyze Claude Code sessions with live watch and rich tool rendering.",
+  "version": "0.0.9",
+  "description": "An Obsidian plugin for viewing Claude Code sessions. Browse, search, analyze, and export your sessions as interactive timelines with live watch and rich tool rendering — right alongside your notes.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "test": "vitest run",
     "test:watch": "vitest",
-    "version": "node version-bump.mjs && git add manifest.json versions.json"
+    "version": "node version-bump.mjs && git add manifest.json versions.json",
+		"release": "node release.mjs",
+		"release:minor": "node release.mjs minor",
+		"release:major": "node release.mjs major"
   },
   "keywords": [
     "obsidian",
