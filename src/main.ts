@@ -239,6 +239,17 @@ this.addCommand({
 		}
 	}
 
+	/** Update content width on all open timeline views without re-rendering. */
+	updateTimelineWidth(): void {
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TIMELINE);
+		for (const leaf of leaves) {
+			const view = leaf.view;
+			if (view instanceof TimelineView) {
+				view.applyMaxWidth();
+			}
+		}
+	}
+
 	private getActiveTimelineView(): TimelineView | null {
 		const leaf = this.app.workspace.getActiveViewOfType(TimelineView);
 		return leaf;

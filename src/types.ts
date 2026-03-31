@@ -147,6 +147,7 @@ export interface PluginSettings {
 	autoScrollOnUpdate: boolean;
 	notifyOnPendingTool: boolean;
 	toolGroupThreshold: number;
+	maxContentWidth: number;
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -159,6 +160,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	autoScrollOnUpdate: true,
 	notifyOnPendingTool: false,
 	toolGroupThreshold: 4,
+	maxContentWidth: 960,
 };
 
 export interface SessionListEntry {

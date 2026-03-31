@@ -21,6 +21,11 @@
 	scroll-behavior: smooth;
 }
 
+.claude-sessions-timeline > * {
+	max-width: var(--max-content-width, none);
+	margin-inline: auto;
+}
+
 .claude-sessions-empty {
 	display: flex;
 	align-items: center;

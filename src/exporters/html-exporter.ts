@@ -306,7 +306,7 @@ function processCopyButtons(clone: HTMLElement, original: HTMLElement): void {
 export async function exportToHTML(
 	timelineEl: HTMLElement,
 	session: Session,
-	_settings: PluginSettings,
+	settings: PluginSettings,
 ): Promise<void> {
 	const notice = new Notice('Exporting to HTML...', 0);
 
@@ -344,7 +344,7 @@ ${EXPORT_OVERRIDES}
 <body class="${themeClass}">
 <div id="as-export-root" data-filters='{}'>
 ${headerHTML}
-<div class="claude-sessions-timeline-container">
+<div class="claude-sessions-timeline-container" style="--max-content-width: ${settings.maxContentWidth > 0 ? settings.maxContentWidth + 'px' : 'none'}">
 <div class="claude-sessions-timeline markdown-rendered">
 ${timelineHTML}
 </div>

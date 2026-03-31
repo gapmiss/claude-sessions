@@ -115,6 +115,85 @@ export function getStandaloneScript(): string {
     }
   }
 
+  /* ── Mermaid diagram modal ── */
+  function openMermaidModal(svgEl) {
+    closeImageModal();
+    modalOverlay = document.createElement('div');
+    modalOverlay.className = 'claude-sessions-image-modal-overlay';
+    modalOverlay.addEventListener('click', function(e) {
+      if (e.target === modalOverlay) closeImageModal();
+    });
+
+    var container = document.createElement('div');
+    container.className = 'claude-sessions-image-modal-container';
+    container.style.width = '90vw';
+    container.style.maxHeight = '90vh';
+
+    /* Clone SVG with ID remapping to avoid style collisions */
+    var scrollWrap = document.createElement('div');
+    scrollWrap.style.overflow = 'auto';
+    scrollWrap.style.flex = '1';
+    scrollWrap.style.minHeight = '0';
+    scrollWrap.style.width = '100%';
+    scrollWrap.style.padding = '16px';
+    scrollWrap.style.boxSizing = 'border-box';
+    scrollWrap.style.background = 'var(--background-primary, #1e1e1e)';
+    scrollWrap.style.borderRadius = 'var(--radius-m, 8px)';
+    var serializer = new XMLSerializer();
+    var svgString = serializer.serializeToString(svgEl);
+    var origId = svgEl.id;
+    if (origId) {
+      svgString = svgString.split(origId).join('mermaid-preview-' + Date.now());
+    }
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(svgString, 'image/svg+xml');
+    var svgNode = document.importNode(doc.documentElement, true);
+    svgNode.style.removeProperty('max-width');
+    svgNode.removeAttribute('width');
+    svgNode.removeAttribute('height');
+    svgNode.style.width = '100%';
+    svgNode.style.height = 'auto';
+    scrollWrap.appendChild(svgNode);
+    container.appendChild(scrollWrap);
+
+    var toolbar = document.createElement('div');
+    toolbar.className = 'claude-sessions-image-modal-toolbar';
+
+    var dlBtn = document.createElement('button');
+    dlBtn.textContent = 'Download SVG';
+    dlBtn.className = 'claude-sessions-image-modal-btn';
+    dlBtn.addEventListener('click', function() {
+      var raw = serializer.serializeToString(svgEl);
+      var blob = new Blob([raw], { type: 'image/svg+xml' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'diagram.svg';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+    toolbar.appendChild(dlBtn);
+
+    var cpBtn = document.createElement('button');
+    cpBtn.textContent = 'Copy SVG';
+    cpBtn.className = 'claude-sessions-image-modal-btn';
+    cpBtn.addEventListener('click', function() {
+      var raw = serializer.serializeToString(svgEl);
+      copyText(raw, cpBtn);
+    });
+    toolbar.appendChild(cpBtn);
+
+    var closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close';
+    closeBtn.className = 'claude-sessions-image-modal-btn';
+    closeBtn.addEventListener('click', closeImageModal);
+    toolbar.appendChild(closeBtn);
+
+    container.appendChild(toolbar);
+    modalOverlay.appendChild(container);
+    document.body.appendChild(modalOverlay);
+  }
+
   /* ── Content filter menu ── */
   function buildFilterMenu() {
     var btn = document.getElementById('as-filter-btn');
@@ -225,6 +304,14 @@ export function getStandaloneScript(): string {
   document.addEventListener('click', function(e) {
     var target = e.target;
 
+    /* Mermaid diagram containers */
+    var mermaidContainer = target.closest('.claude-sessions-mermaid-container');
+    if (mermaidContainer) {
+      var svg = mermaidContainer.querySelector('svg');
+      if (svg) openMermaidModal(svg);
+      return;
+    }
+
     /* Walk up to find interactive element */
     var el = target.closest('[role="button"][aria-expanded]');
     if (el && document.getElementById('as-export-root')?.contains(el)) {
@@ -257,11 +344,11 @@ export function getStandaloneScript(): string {
       return;
     }
 
-    /* Image thumbnails */
+    /* Image thumbnails — the thumbnail element IS the <img> */
     var thumb = target.closest('.claude-sessions-image-thumbnail');
     if (thumb) {
-      var img = thumb.querySelector('img');
-      if (img) openImageModal(img.src, thumb.getAttribute('data-mime'));
+      var imgEl = thumb.tagName === 'IMG' ? thumb : thumb.querySelector('img');
+      if (imgEl) openImageModal(imgEl.src, imgEl.getAttribute('data-mime'));
       return;
     }
 

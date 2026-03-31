@@ -97,6 +97,7 @@ export class TimelineView extends ItemView {
 		// Timeline area (scrollable)
 		this.timelineEl = contentEl.createDiv({ cls: 'claude-sessions-timeline markdown-rendered' });
 		this.renderer = new TimelineRenderer(this.timelineEl, this.app, this, this.settings);
+		this.applyMaxWidth();
 
 		// Controls bar (fixed at bottom)
 		this.controlsEl = contentEl.createDiv({ cls: 'claude-sessions-controls' });
@@ -179,6 +180,7 @@ export class TimelineView extends ItemView {
 
 	updateSettings(settings: PluginSettings): void {
 		this.settings = settings;
+		this.applyMaxWidth();
 		if (this.renderer) {
 			this.renderer.updateSettings(settings);
 			if (this.session) {
@@ -189,6 +191,12 @@ export class TimelineView extends ItemView {
 				this.updateControls();
 			}
 		}
+	}
+
+	/** Update the --max-content-width CSS variable without re-rendering. */
+	applyMaxWidth(): void {
+		const w = this.settings.maxContentWidth;
+		this.contentEl.style.setProperty('--max-content-width', w > 0 ? `${w}px` : 'none');
 	}
 
 	getSession(): Session | null {

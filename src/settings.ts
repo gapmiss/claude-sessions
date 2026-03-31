@@ -1,6 +1,13 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import type ClaudeSessionsPlugin from './main';
-import { PluginSettings, DEFAULT_SETTINGS } from './types';
+
+const WIDTH_PRESETS: { label: string; value: number }[] = [
+	{ label: 'Narrow (680px)', value: 680 },
+	{ label: 'Medium (800px)', value: 800 },
+	{ label: 'Default (960px)', value: 960 },
+	{ label: 'Wide (1200px)', value: 1200 },
+	{ label: 'Full width', value: 0 },
+];
 
 export class SettingsTab extends PluginSettingTab {
 	plugin: ClaudeSessionsPlugin;
@@ -112,6 +119,21 @@ export class SettingsTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.plugin.updateTimelineViews();
 				}));
+
+		new Setting(containerEl)
+			.setName('Content width')
+			.setDesc('Maximum width of session content. Narrower widths improve readability.')
+			.addDropdown(dropdown => {
+				for (const preset of WIDTH_PRESETS) {
+					dropdown.addOption(String(preset.value), preset.label);
+				}
+				dropdown.setValue(String(this.plugin.settings.maxContentWidth));
+				dropdown.onChange(async (value) => {
+					this.plugin.settings.maxContentWidth = parseInt(value, 10);
+					await this.plugin.saveSettings();
+					this.plugin.updateTimelineWidth();
+				});
+			});
 
 		new Setting(containerEl)
 			.setName('Tool group threshold')
