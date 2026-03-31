@@ -2,7 +2,7 @@ import { BaseParser } from './base-parser';
 import {
 	Session, Turn, ContentBlock, TextBlock,
 	ToolUseBlock, ToolResultBlock, ImageBlock, AnsiBlock, CompactionBlock, SlashCommandBlock,
-	HookEvent, SessionStats, SubAgentSession,
+	BashCommandBlock, HookEvent, SessionStats, SubAgentSession,
 } from '../types';
 import { extractProjectName, projectFromCwd, dirname } from '../utils/path-utils';
 import {
@@ -15,6 +15,7 @@ import {
 	RE_COMMAND_NAME, RE_COMMAND_ARGS,
 	RE_EXIT_COMMAND, RE_SLASH_COMMAND,
 	RE_LOCAL_STDOUT, RE_LOCAL_CAVEAT, RE_LOCAL_STDERR,
+	RE_BASH_INPUT, RE_BASH_STDOUT, RE_BASH_STDERR,
 	RE_SYSTEM_REMINDER, RE_COMMAND_MESSAGE_STRIP, RE_COMMAND_ARGS_STRIP,
 	RE_IMAGE_REF, RE_LOCAL_STDOUT_TAGS,
 	TEXT_SESSION_ENDED, TEXT_INTERRUPTION,
@@ -644,6 +645,29 @@ export class ClaudeParser extends BaseParser {
 					}
 				}
 
+				// Flush orphaned bash-input if current record is not bash-stdout
+				if (this._pendingBashCommand) {
+					const rc = typeof record.message?.content === 'string' ? record.message.content : '';
+					if (!RE_BASH_STDOUT.test(rc)) {
+						flushAssistant();
+						const ts = this.formatTimestamp(this._pendingBashCommand.timestamp);
+						turns.push({
+							index: turns.length,
+							role: 'user',
+							timestamp: ts,
+							endTimestamp: ts,
+							contentBlocks: [{
+								type: 'bash_command',
+								command: this._pendingBashCommand.command,
+								stdout: '',
+								stderr: '',
+								timestamp: this._pendingBashCommand.timestamp,
+							} as BashCommandBlock],
+						});
+						this._pendingBashCommand = null;
+					}
+				}
+
 				const userBlocks = this.extractUserContent(record);
 				if (userBlocks.length > 0) {
 					// Merge command output with preceding slash command turn
@@ -782,6 +806,8 @@ export class ClaudeParser extends BaseParser {
 	private _pendingCommandResult = false;
 	/** Track slash command name so the following isMeta skill expansion can be captured. */
 	private _pendingSlashCommand: string | null = null;
+	/** Track pending bash-input awaiting bash-stdout/stderr. */
+	private _pendingBashCommand: { command: string; timestamp?: string } | null = null;
 
 	/** Extract content from system records (slash commands like /rename, /compact). */
 	private extractSystemContent(record: ClaudeRecord): ContentBlock[] {
@@ -865,6 +891,31 @@ export class ClaudeParser extends BaseParser {
 			}
 			// Skip local command caveats and stderr (usually also filtered by isMeta)
 			if (RE_LOCAL_CAVEAT.test(content) || RE_LOCAL_STDERR.test(content)) {
+				return [];
+			}
+			// Detect <bash-input> — user-typed bash command; stash and wait for stdout
+			const bashInputMatch = content.match(RE_BASH_INPUT);
+			if (bashInputMatch) {
+				this._pendingBashCommand = { command: bashInputMatch[1], timestamp };
+				return [];
+			}
+			// Detect <bash-stdout> — output from user-typed bash command
+			const bashStdoutMatch = content.match(RE_BASH_STDOUT);
+			if (bashStdoutMatch != null) {
+				const stdout = bashStdoutMatch[1] ?? '';
+				const stderrMatch = content.match(RE_BASH_STDERR);
+				const stderr = stderrMatch?.[1] ?? '';
+				if (this._pendingBashCommand) {
+					const block: BashCommandBlock = {
+						type: 'bash_command',
+						command: this._pendingBashCommand.command,
+						stdout,
+						stderr,
+						timestamp: this._pendingBashCommand.timestamp,
+					};
+					this._pendingBashCommand = null;
+					return [block];
+				}
 				return [];
 			}
 			// Skip task notification messages (system-injected, not user-typed)

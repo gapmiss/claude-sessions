@@ -124,6 +124,17 @@ function renderBlock(block: ContentBlock, settings: PluginSettings): string | nu
 		case 'compaction':
 			return '---\n*Context compacted*' + (block.summary ? `\n${block.summary}` : '') + '\n---';
 
+		case 'bash_command': {
+			const parts = ['```bash', block.command, '```'];
+			if (block.stdout.trim()) {
+				parts.push('```', block.stdout, '```');
+			}
+			if (block.stderr.trim()) {
+				parts.push('> **stderr**', ...block.stderr.split('\n').map(l => `> ${l}`));
+			}
+			return parts.join('\n');
+		}
+
 		default:
 			return null;
 	}

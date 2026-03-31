@@ -1018,6 +1018,10 @@ expandAll(): void {
 				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
 				wrapper?.toggleClass('claude-sessions-filtered', !f.userText);
 			});
+			this.timelineEl.querySelectorAll('.claude-sessions-bash-command-block').forEach(el => {
+				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
+				wrapper?.toggleClass('claude-sessions-filtered', !f.userText);
+			});
 			this.timelineEl.querySelectorAll('.claude-sessions-image-thumbnail').forEach(el => {
 				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
 				wrapper?.toggleClass('claude-sessions-filtered', !f.userImages);

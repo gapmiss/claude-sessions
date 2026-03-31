@@ -63,7 +63,7 @@
 /* --- Summary container & header (unchanged collapse mechanics) --- */
 
 .claude-sessions-summary {
-	margin: 8px 12px 12px;
+	margin-block: 8px 12px;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-m);
 	background: var(--background-secondary);
@@ -615,6 +615,28 @@
 .claude-sessions-user-text {
 	color: var(--text-normal);
 	word-break: break-word;
+}
+
+/* ═══════════════════════════════════════════
+   User bash command (direct terminal input)
+   ═══════════════════════════════════════════ */
+
+.claude-sessions-bash-command-block {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-1);
+}
+
+.claude-sessions-bash-command-block pre {
+	margin: 0;
+}
+
+.claude-sessions-bash-command-stdout {
+	opacity: 0.85;
+}
+
+.claude-sessions-bash-command-stderr pre {
+	border-left: 3px solid var(--color-red);
 }
 
 .claude-sessions-assistant-text {

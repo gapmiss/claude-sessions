@@ -1,11 +1,11 @@
 import { App, Modal, MarkdownRenderer, Component, setIcon } from 'obsidian';
 import type {
-	Turn, ContentBlock, AnsiBlock, CompactionBlock, SlashCommandBlock,
+	Turn, ContentBlock, AnsiBlock, CompactionBlock, SlashCommandBlock, BashCommandBlock,
 	PluginSettings, Session,
 } from '../types';
 import {
 	type RenderContext, COLLAPSE_THRESHOLD,
-	makeClickable, shortModelName, addCopyButton, normalizeMarkdown,
+	makeClickable, shortModelName, addCopyButton, normalizeMarkdown, fence,
 } from './render-helpers';
 import { renderSummary } from './summary-renderer';
 import { renderToolGroup, type ToolRendererDelegate } from './tool-renderer';
@@ -226,6 +226,8 @@ export class TimelineRenderer {
 					this.renderTextContent(block.text, wrapper, 'claude-sessions-user-text');
 				} else if (block.type === 'slash_command') {
 					this.renderSlashCommandBlock(block as SlashCommandBlock, wrapper);
+				} else if (block.type === 'bash_command') {
+					this.renderBashCommandBlock(block as BashCommandBlock, wrapper);
 				} else if (block.type === 'ansi') {
 					this.renderAnsiBlock(block as AnsiBlock, wrapper);
 				} else if (block.type === 'image') {
@@ -390,6 +392,29 @@ export class TimelineRenderer {
 			el.toggleClass('open', willOpen);
 			header.setAttribute('aria-expanded', String(willOpen));
 		});
+	}
+
+	private renderBashCommandBlock(block: BashCommandBlock, container: HTMLElement): void {
+		const el = container.createDiv({ cls: 'claude-sessions-bash-command-block' });
+
+		// Command as bash code block with INPUT label
+		const commandEl = el.createDiv({ cls: 'claude-sessions-bash-command-input' });
+		commandEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'INPUT' });
+		MarkdownRenderer.render(this.ctx.app, fence(block.command, 'bash'), commandEl, '', this.ctx.component);
+
+		// Result section with RESULT label (always shown, even if empty)
+		const resultEl = el.createDiv({ cls: 'claude-sessions-bash-command-stdout' });
+		resultEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'RESULT' });
+		if (block.stdout.trim()) {
+			MarkdownRenderer.render(this.ctx.app, fence(block.stdout), resultEl, '', this.ctx.component);
+		}
+
+		// Stderr (if non-empty)
+		if (block.stderr.trim()) {
+			const stderrEl = el.createDiv({ cls: 'claude-sessions-bash-command-stderr' });
+			stderrEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'STDERR' });
+			MarkdownRenderer.render(this.ctx.app, fence(block.stderr), stderrEl, '', this.ctx.component);
+		}
 	}
 
 	/**

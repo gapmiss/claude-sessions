@@ -63,6 +63,11 @@ export const RE_COMMAND_ARGS_STRIP = /<command-args>[\s\S]*?<\/command-args>/g;
 export const RE_IMAGE_REF = /\[Image:\s*source:\s*.+?\]/gi;
 export const RE_LOCAL_STDOUT_TAGS = /<\/?local-command-stdout>/g;
 
+// ── User bash command tags ──────────────────────────────────
+export const RE_BASH_INPUT = /^<bash-input>([\s\S]*?)<\/bash-input>/;
+export const RE_BASH_STDOUT = /^<bash-stdout>([\s\S]*?)<\/bash-stdout>/;
+export const RE_BASH_STDERR = /<bash-stderr>([\s\S]*?)<\/bash-stderr>/;
+
 // ── Task notification XML tag regexes ────────────────────────
 export const RE_TN_TOOL_USE_ID = /<tool-use-id>([\s\S]*?)<\/tool-use-id>/;
 export const RE_TN_TASK_ID = /<task-id>([\s\S]*?)<\/task-id>/;

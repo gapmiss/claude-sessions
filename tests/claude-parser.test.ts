@@ -5,6 +5,7 @@ import {
 	assistantToolUse, userText, userToolResult, hookProgress,
 	fileHistorySnapshot, sidechainAssistant, metaAssistant,
 	syntheticAssistant, userInterruption, userSlashCommand, metaSkillExpansion,
+	userBashInput, userBashOutput, userBashCaveat,
 } from './fixtures';
 
 function parse(content: string, filePath = '/test/session.jsonl') {
@@ -677,5 +678,103 @@ describe('slash command parsing', () => {
 		if (userBlock.type === 'text') {
 			expect(userBlock.text).toBe('/compact');
 		}
+	});
+});
+
+describe('user bash command consolidation', () => {
+	it('consolidates bash-input and bash-stdout into a single BashCommandBlock', () => {
+		const session = parse(jsonl(
+			userBashInput('./copy-to-vaults.sh'),
+			userBashOutput('Plugin copied to vaults.'),
+		));
+
+		expect(session.turns).toHaveLength(1);
+		expect(session.turns[0].role).toBe('user');
+		expect(session.turns[0].contentBlocks).toHaveLength(1);
+		const block = session.turns[0].contentBlocks[0];
+		expect(block.type).toBe('bash_command');
+		if (block.type === 'bash_command') {
+			expect(block.command).toBe('./copy-to-vaults.sh');
+			expect(block.stdout).toBe('Plugin copied to vaults.');
+			expect(block.stderr).toBe('');
+		}
+	});
+
+	it('filters isMeta caveat and still consolidates remaining records', () => {
+		const session = parse(jsonl(
+			userBashCaveat(),
+			userBashInput('./build.sh'),
+			userBashOutput('Build complete.'),
+		));
+
+		expect(session.turns).toHaveLength(1);
+		const block = session.turns[0].contentBlocks[0];
+		expect(block.type).toBe('bash_command');
+		if (block.type === 'bash_command') {
+			expect(block.command).toBe('./build.sh');
+			expect(block.stdout).toBe('Build complete.');
+		}
+	});
+
+	it('captures stderr content', () => {
+		const session = parse(jsonl(
+			userBashInput('npm test'),
+			userBashOutput('', 'Error: test failed'),
+		));
+
+		expect(session.turns).toHaveLength(1);
+		const block = session.turns[0].contentBlocks[0];
+		expect(block.type).toBe('bash_command');
+		if (block.type === 'bash_command') {
+			expect(block.stdout).toBe('');
+			expect(block.stderr).toBe('Error: test failed');
+		}
+	});
+
+	it('handles empty stdout and empty stderr', () => {
+		const session = parse(jsonl(
+			userBashInput('mkdir test'),
+			userBashOutput('', ''),
+		));
+
+		expect(session.turns).toHaveLength(1);
+		const block = session.turns[0].contentBlocks[0];
+		expect(block.type).toBe('bash_command');
+		if (block.type === 'bash_command') {
+			expect(block.command).toBe('mkdir test');
+			expect(block.stdout).toBe('');
+			expect(block.stderr).toBe('');
+		}
+	});
+
+	it('handles bash-input without subsequent bash-stdout (orphaned)', () => {
+		const session = parse(jsonl(
+			userBashInput('./orphan.sh'),
+			userText('next question'),
+			assistantText('response'),
+		));
+
+		expect(session.turns).toHaveLength(3);
+		expect(session.turns[0].contentBlocks[0].type).toBe('bash_command');
+		if (session.turns[0].contentBlocks[0].type === 'bash_command') {
+			expect(session.turns[0].contentBlocks[0].command).toBe('./orphan.sh');
+			expect(session.turns[0].contentBlocks[0].stdout).toBe('');
+		}
+		expect(session.turns[1].contentBlocks[0].type).toBe('text');
+	});
+
+	it('handles bash commands between assistant turns', () => {
+		const session = parse(jsonl(
+			assistantText('first response'),
+			userBashInput('ls'),
+			userBashOutput('file1.ts\nfile2.ts'),
+			assistantText('second response'),
+		));
+
+		expect(session.turns).toHaveLength(3);
+		expect(session.turns[0].role).toBe('assistant');
+		expect(session.turns[1].role).toBe('user');
+		expect(session.turns[1].contentBlocks[0].type).toBe('bash_command');
+		expect(session.turns[2].role).toBe('assistant');
 	});
 });

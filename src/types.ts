@@ -135,7 +135,15 @@ export interface SlashCommandBlock {
 	timestamp?: string;
 }
 
-export type ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock | ImageBlock | AnsiBlock | CompactionBlock | SlashCommandBlock;
+export interface BashCommandBlock {
+	type: 'bash_command';
+	command: string;
+	stdout: string;
+	stderr: string;
+	timestamp?: string;
+}
+
+export type ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock | ImageBlock | AnsiBlock | CompactionBlock | SlashCommandBlock | BashCommandBlock;
 
 export interface PluginSettings {
 	sessionDirs: string[];
