@@ -101,7 +101,7 @@ export function formatElapsed(ms: number): string {
 export function addCopyButton(container: HTMLElement, text: string, label: string): void {
 	const btn = container.createEl('button', {
 		cls: 'claude-sessions-summary-copy clickable-icon',
-		attr: { 'aria-label': label, 'data-tooltip-position': 'top' },
+		attr: { 'aria-label': label, 'data-tooltip-position': 'top', 'data-copy-text': text },
 	});
 	setIcon(btn, 'copy');
 	btn.addEventListener('click', (e) => {

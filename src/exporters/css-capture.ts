@@ -96,9 +96,36 @@ export function capturePluginStyles(): string {
 	return result.join('\n\n');
 }
 
+/** Capture @font-face rules with embedded (data:) sources so bundled fonts survive export. */
+export function captureFontFaces(): string {
+	const result: string[] = [];
+
+	const sheets = Array.from(document.styleSheets);
+	for (const sheet of sheets) {
+		try {
+			const rules = Array.from(sheet.cssRules);
+			for (const rule of rules) {
+				if (rule instanceof CSSFontFaceRule) {
+					const src = rule.style.getPropertyValue('src');
+					if (src.includes('data:')) {
+						result.push(rule.cssText);
+					}
+				}
+			}
+		} catch {
+			// Cross-origin stylesheet, skip
+		}
+	}
+
+	return result.join('\n\n');
+}
+
 /** Capture all CSS needed for standalone HTML export. */
 export function captureAllCSS(): string {
 	const sections = [
+		'/* === Embedded Fonts === */',
+		captureFontFaces(),
+		'',
 		'/* === Theme Variables === */',
 		captureThemeVariables(),
 		'',

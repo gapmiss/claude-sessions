@@ -233,7 +233,7 @@ export function getStandaloneScript(): string {
     }
 
     /* Show more button */
-    var showBtn = target.closest('.claude-sessions-show-more-btn');
+    var showBtn = target.closest('.claude-sessions-collapsible-toggle');
     if (showBtn) {
       e.preventDefault();
       toggleShowMore(showBtn);

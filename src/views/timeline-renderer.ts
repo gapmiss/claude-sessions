@@ -329,7 +329,7 @@ export class TimelineRenderer {
 			const toggleBtn = wrapEl.createEl('button', {
 				cls: 'claude-sessions-collapsible-toggle',
 				text: `Show more (${lines} lines)`,
-				attr: { 'aria-expanded': 'false' },
+				attr: { 'aria-expanded': 'false', 'data-line-count': String(lines) },
 			});
 			toggleBtn.addEventListener('click', () => {
 				const collapsed = wrapEl.hasClass('is-collapsed');

@@ -17,7 +17,7 @@ html, body {
   padding: 0;
   background: var(--background-primary);
   color: var(--text-normal);
-  font-family: var(--font-interface);
+  font-family: var(--font-interface, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
 }
 
 /* Remove Obsidian viewport constraints — fill the browser window */
@@ -44,7 +44,7 @@ html, body {
   padding: 12px 20px;
   background: var(--background-secondary);
   border-bottom: 1px solid var(--background-modifier-border);
-  font-family: var(--font-interface);
+  font-family: var(--font-interface, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
   font-size: 13px;
   color: var(--text-muted);
   flex-wrap: wrap;
@@ -76,7 +76,7 @@ html, body {
   border-radius: var(--radius-s);
   cursor: pointer;
   font-size: 12px;
-  font-family: var(--font-interface);
+  font-family: var(--font-interface, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
 }
 
 #as-filter-btn:hover {
@@ -160,7 +160,7 @@ html, body {
   cursor: pointer;
   font-size: 13px;
   text-decoration: none;
-  font-family: var(--font-interface);
+  font-family: var(--font-interface, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
 }
 
 .claude-sessions-image-modal-btn:hover {
