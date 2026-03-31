@@ -74,12 +74,12 @@ describe('parseContentBlock', () => {
 	});
 
 	it('tracks unknown block types', () => {
-		const unknowns = new Map<string, number>();
+		const unknowns = new Map<string, { count: number; sample?: Record<string, unknown> }>();
 		parseContentBlock({ type: 'new_block_type' }, toolUseNames, undefined, unknowns);
-		expect(unknowns.get('new_block_type')).toBe(1);
+		expect(unknowns.get('new_block_type')?.count).toBe(1);
 
 		parseContentBlock({ type: 'new_block_type' }, toolUseNames, undefined, unknowns);
-		expect(unknowns.get('new_block_type')).toBe(2);
+		expect(unknowns.get('new_block_type')?.count).toBe(2);
 	});
 
 	it('preserves timestamp on content blocks', () => {

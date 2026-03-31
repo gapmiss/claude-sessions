@@ -172,6 +172,25 @@ export class SettingsTab extends PluginSettingTab {
 					this.plugin.settings.notifyOnPendingTool = value;
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setHeading()
+			.setName('Debug');
+
+		new Setting(containerEl)
+			.setName('Debug level')
+			.setDesc('Control console logging verbosity for debugging.')
+			.addDropdown(dropdown => dropdown
+				.addOption('none', 'None')
+				.addOption('error', 'Errors only')
+				.addOption('warn', 'Warnings and errors')
+				.addOption('info', 'Info, warnings, and errors')
+				.addOption('debug', 'Debug (all logs)')
+				.setValue(this.plugin.settings.debugLevel)
+				.onChange(async (value) => {
+					this.plugin.settings.debugLevel = value as 'none' | 'error' | 'warn' | 'info' | 'debug';
+					await this.plugin.saveSettings();
+				}));
 	}
 
 	private renderDirsList(container: HTMLElement): void {

@@ -164,6 +164,12 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 	addCopyButton(idRow, metadata.id, 'Copy session ID');
 	addCopyButton(idRow, session.rawPath, 'Copy file path');
 
+	const resumeCmd = `claude --resume ${metadata.id}`;
+	const resumeRow = idSection.createDiv({ cls: 'claude-sessions-dash-id-row' });
+	resumeRow.createSpan({ cls: 'claude-sessions-dash-id-label', text: 'Resume' });
+	resumeRow.createSpan({ cls: 'claude-sessions-dash-id-value', text: resumeCmd });
+	addCopyButton(resumeRow, resumeCmd, 'Copy resume command');
+
 	const obsidianUri = `obsidian://claude-sessions?session=${encodeURIComponent(session.rawPath)}`;
 	const mdLink = `[${metadata.project} session](${obsidianUri})`;
 	const uriRow = idSection.createDiv({ cls: 'claude-sessions-dash-id-row' });

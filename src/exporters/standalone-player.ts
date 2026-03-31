@@ -312,22 +312,7 @@ export function getStandaloneScript(): string {
       return;
     }
 
-    /* Walk up to find interactive element */
-    var el = target.closest('[role="button"][aria-expanded]');
-    if (el && document.getElementById('as-export-root')?.contains(el)) {
-      toggleCollapsible(el);
-      return;
-    }
-
-    /* Show more button */
-    var showBtn = target.closest('.claude-sessions-collapsible-toggle');
-    if (showBtn) {
-      e.preventDefault();
-      toggleShowMore(showBtn);
-      return;
-    }
-
-    /* Copy buttons */
+    /* Copy buttons — check before collapsibles so copy buttons inside headers work */
     var copyBtn = target.closest('.claude-sessions-copy-btn, .claude-sessions-text-copy, .claude-sessions-summary-copy, .copy-code-button');
     if (copyBtn) {
       e.preventDefault();
@@ -341,6 +326,21 @@ export function getStandaloneScript(): string {
         }
       }
       if (text) copyText(text, copyBtn);
+      return;
+    }
+
+    /* Walk up to find interactive element */
+    var el = target.closest('[role="button"][aria-expanded]');
+    if (el && document.getElementById('as-export-root')?.contains(el)) {
+      toggleCollapsible(el);
+      return;
+    }
+
+    /* Show more button */
+    var showBtn = target.closest('.claude-sessions-collapsible-toggle');
+    if (showBtn) {
+      e.preventDefault();
+      toggleShowMore(showBtn);
       return;
     }
 

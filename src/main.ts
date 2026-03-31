@@ -12,6 +12,7 @@ import { detectParser } from './parsers/detect';
 import { resolveSubAgentSessions } from './parsers/claude-subagent';
 import { expandHome } from './utils/path-utils';
 import { SessionIndex } from './utils/session-index';
+import { Logger } from './utils/logger';
 
 export default class ClaudeSessionsPlugin extends Plugin {
 	settings: PluginSettings = DEFAULT_SETTINGS;
@@ -21,6 +22,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 		addIcon('claude-sparkle', '<g transform="translate(50,50)" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"><line y1="-12" y2="-44"/><line y1="-12" y2="-44" transform="rotate(45)"/><line y1="-12" y2="-44" transform="rotate(90)"/><line y1="-12" y2="-44" transform="rotate(135)"/><line y1="-12" y2="-44" transform="rotate(180)"/><line y1="-12" y2="-44" transform="rotate(225)"/><line y1="-12" y2="-44" transform="rotate(270)"/><line y1="-12" y2="-44" transform="rotate(315)"/></g>');
 
 		await this.loadSettings();
+		Logger.init(this.settings);
 
 		const adapter = this.app.vault.adapter as unknown as { basePath: string };
 		this.sessionIndex = new SessionIndex(adapter.basePath, this.app.vault.configDir);
@@ -139,6 +141,20 @@ this.addCommand({
 				if (!view || !session?.rawPath) return false;
 				if (checking) return true;
 				this.revealSearchView('in-session');
+				return true;
+			},
+		});
+
+		this.addCommand({
+			id: 'copy-resume-command',
+			name: 'Copy resume command',
+			checkCallback: (checking: boolean) => {
+				const view = this.getActiveTimelineView();
+				const id = view?.getSession()?.metadata.id;
+				if (!id) return false;
+				if (checking) return true;
+				navigator.clipboard.writeText(`claude --resume ${id}`);
+				new Notice('Copied resume command');
 				return true;
 			},
 		});

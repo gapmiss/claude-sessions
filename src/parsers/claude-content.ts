@@ -30,7 +30,7 @@ export function parseContentBlock(
 	block: ClaudeContentBlock,
 	toolUseNames: Map<string, string>,
 	timestamp?: string,
-	unknownBlockTypes?: Map<string, number>,
+	unknownBlockTypes?: Map<string, { count: number; sample?: Record<string, unknown> }>,
 ): ContentBlock | null {
 	switch (block.type) {
 		case BT_TEXT:
@@ -61,7 +61,13 @@ export function parseContentBlock(
 
 		default:
 			if (unknownBlockTypes && block.type) {
-				unknownBlockTypes.set(block.type, (unknownBlockTypes.get(block.type) ?? 0) + 1);
+				const existing = unknownBlockTypes.get(block.type);
+				if (existing) {
+					existing.count++;
+				} else {
+					const sample: Record<string, unknown> = { type: block.type, keys: Object.keys(block).filter(k => k !== 'type') };
+					unknownBlockTypes.set(block.type, { count: 1, sample });
+				}
 			}
 			return null;
 	}

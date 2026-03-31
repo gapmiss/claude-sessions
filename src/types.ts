@@ -156,6 +156,7 @@ export interface PluginSettings {
 	notifyOnPendingTool: boolean;
 	toolGroupThreshold: number;
 	maxContentWidth: number;
+	debugLevel: 'none' | 'error' | 'warn' | 'info' | 'debug';
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -169,6 +170,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	notifyOnPendingTool: false,
 	toolGroupThreshold: 4,
 	maxContentWidth: 960,
+	debugLevel: 'warn',
 };
 
 export interface SessionListEntry {

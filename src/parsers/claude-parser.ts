@@ -22,6 +22,7 @@ import {
 	ANSI_COMMANDS,
 } from '../constants';
 import { parseTaskNotification } from './claude-subagent';
+import { Logger } from '../utils/logger';
 import {
 	parseContentBlock, extractToolResultBlocks, isInterruptionMessage,
 	basename,
@@ -115,7 +116,6 @@ interface ToolResultContent {
 }
 
 
-const LOG_PREFIX = '[claude-sessions]';
 
 export class ClaudeParser extends BaseParser {
 	readonly format = 'claude' as const;
@@ -284,8 +284,8 @@ export class ClaudeParser extends BaseParser {
 		}
 
 		// Track unknown record types that passed through filters but weren't handled
-		const unknownRecordTypes = new Map<string, number>();
-		const unknownBlockTypes = new Map<string, number>();
+		const unknownRecordTypes = new Map<string, { count: number; sample?: Record<string, unknown> }>();
+		const unknownBlockTypes = new Map<string, { count: number; sample?: Record<string, unknown> }>();
 
 		// Second pass: build turns from deduplicated records
 		const turns = this.buildTurns(ordered, unknownRecordTypes, unknownBlockTypes);
@@ -434,12 +434,14 @@ export class ClaudeParser extends BaseParser {
 
 		// Log diagnostics for unknown record/block types (signals format changes)
 		if (unknownRecordTypes.size > 0) {
-			const entries = [...unknownRecordTypes.entries()].map(([t, n]) => `${t}(${n})`).join(', ');
-			console.warn(`${LOG_PREFIX} Skipped unknown record types: ${entries}`);
+			for (const [type, { count, sample }] of unknownRecordTypes) {
+				Logger.warn(`Skipped unknown record type "${type}" (${count}x)`, sample);
+			}
 		}
 		if (unknownBlockTypes.size > 0) {
-			const entries = [...unknownBlockTypes.entries()].map(([t, n]) => `${t}(${n})`).join(', ');
-			console.warn(`${LOG_PREFIX} Skipped unknown content block types: ${entries}`);
+			for (const [type, { count, sample }] of unknownBlockTypes) {
+				Logger.warn(`Skipped unknown block type "${type}" (${count}x)`, sample);
+			}
 		}
 
 		return {
@@ -480,8 +482,8 @@ export class ClaudeParser extends BaseParser {
 	 */
 	private buildTurns(
 		ordered: ClaudeRecord[],
-		unknownRecordTypes?: Map<string, number>,
-		unknownBlockTypes?: Map<string, number>,
+		unknownRecordTypes?: Map<string, { count: number; sample?: Record<string, unknown> }>,
+		unknownBlockTypes?: Map<string, { count: number; sample?: Record<string, unknown> }>,
 	): Turn[] {
 		const turns: Turn[] = [];
 		const toolUseNames = new Map<string, string>();
@@ -515,19 +517,22 @@ export class ClaudeParser extends BaseParser {
 			}
 
 			// System records with local_command subtype (slash commands like /rename)
-			if (record.type === RT_SYSTEM && record.subtype === SUBTYPE_LOCAL_COMMAND && record.content) {
-				const blocks = this.extractSystemContent(record);
-				if (blocks.length > 0) {
-					flushAssistant();
-					const ts = this.formatTimestamp(record.timestamp);
-					turns.push({
-						index: turns.length,
-						role: 'user',
-						timestamp: ts,
-						endTimestamp: ts,
-						contentBlocks: blocks,
-					});
+			if (record.type === RT_SYSTEM) {
+				if (record.subtype === SUBTYPE_LOCAL_COMMAND && record.content) {
+					const blocks = this.extractSystemContent(record);
+					if (blocks.length > 0) {
+						flushAssistant();
+						const ts = this.formatTimestamp(record.timestamp);
+						turns.push({
+							index: turns.length,
+							role: 'user',
+							timestamp: ts,
+							endTimestamp: ts,
+							contentBlocks: blocks,
+						});
+					}
 				}
+				// Other system records (hook results, metadata) are non-content — skip
 				continue;
 			}
 
@@ -691,7 +696,21 @@ export class ClaudeParser extends BaseParser {
 					}
 				}
 			} else if (unknownRecordTypes) {
-				unknownRecordTypes.set(record.type, (unknownRecordTypes.get(record.type) ?? 0) + 1);
+				const existing = unknownRecordTypes.get(record.type);
+				if (existing) {
+					existing.count++;
+				} else {
+					// Capture a compact sample: top-level keys + message shape
+					const sample: Record<string, unknown> = { type: record.type };
+					if (record.message) {
+						const msg = record.message;
+						sample['message.role'] = msg.role;
+						if (typeof msg.content === 'string') sample['message.content'] = msg.content.slice(0, 200);
+						else if (Array.isArray(msg.content)) sample['message.content'] = msg.content.map((b) => b.type);
+					}
+					sample['keys'] = Object.keys(record).filter(k => k !== 'type');
+					unknownRecordTypes.set(record.type, { count: 1, sample });
+				}
 			}
 		}
 
@@ -773,7 +792,7 @@ export class ClaudeParser extends BaseParser {
 	private parseAssistantBlocks(
 		record: ClaudeRecord,
 		toolUseNames: Map<string, string>,
-		unknownBlockTypes?: Map<string, number>,
+		unknownBlockTypes?: Map<string, { count: number; sample?: Record<string, unknown> }>,
 	): ContentBlock[] {
 		const msg = record.message;
 		if (!msg) return [];
