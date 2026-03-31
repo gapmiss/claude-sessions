@@ -465,10 +465,7 @@ function renderDiffView(block: ToolUseBlock, result: ToolResultBlock | undefined
 	MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
 
 	if (result?.isError) {
-		diffEl.createDiv({
-			cls: 'claude-sessions-diff-result claude-sessions-diff-result-error',
-			text: result.content,
-		});
+		renderErrorOutput(result, container, ctx);
 	}
 }
 
@@ -487,14 +484,19 @@ function renderWriteView(block: ToolUseBlock, result: ToolResultBlock | undefine
 	MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
 
 	if (result?.isError) {
-		const resultEl = container.createDiv({
-			cls: 'claude-sessions-tool-result claude-sessions-tool-result-error',
-		});
-		resultEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'RESULT' });
-		const resultMd = fence(result.content);
-		const resultMdContainer = resultEl.createDiv({ cls: 'claude-sessions-tool-result-code' });
-		MarkdownRenderer.render(ctx.app, resultMd, resultMdContainer, '', ctx.component);
+		renderErrorOutput(result, container, ctx);
 	}
+}
+
+/** Render a tool error as an OUTPUT section with error styling. */
+function renderErrorOutput(result: ToolResultBlock, container: HTMLElement, ctx: RenderContext): void {
+	const el = container.createDiv({
+		cls: 'claude-sessions-tool-result claude-sessions-tool-result-error',
+	});
+	el.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'OUTPUT' });
+	const md = fence(result.content);
+	const mdContainer = el.createDiv({ cls: 'claude-sessions-tool-result-code' });
+	MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
 }
 
 export function toolPreview(block: ToolUseBlock): string {

@@ -61,6 +61,7 @@ export const RE_SYSTEM_REMINDER = /<system-reminder>[\s\S]*?<\/system-reminder>/
 export const RE_COMMAND_MESSAGE_STRIP = /<command-message>[\s\S]*?<\/command-message>/g;
 export const RE_COMMAND_ARGS_STRIP = /<command-args>[\s\S]*?<\/command-args>/g;
 export const RE_IMAGE_REF = /\[Image:\s*source:\s*.+?\]/gi;
+export const RE_TOOL_USE_ERROR = /^<tool_use_error>([\s\S]*)<\/tool_use_error>\s*$/;
 export const RE_LOCAL_STDOUT_TAGS = /<\/?local-command-stdout>/g;
 
 // ── User bash command tags ──────────────────────────────────

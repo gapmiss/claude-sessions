@@ -1,5 +1,5 @@
 import type { ContentBlock, TextBlock, ThinkingBlock, ToolUseBlock, ToolResultBlock, ToolResultImage } from '../types';
-import { BT_TEXT, BT_THINKING, BT_TOOL_USE, BT_TOOL_RESULT, PREFIX_INTERRUPTION } from '../constants';
+import { BT_TEXT, BT_THINKING, BT_TOOL_USE, BT_TOOL_RESULT, PREFIX_INTERRUPTION, RE_TOOL_USE_ERROR } from '../constants';
 
 interface ClaudeContentBlock {
 	type: string;
@@ -99,6 +99,12 @@ export function extractToolResultBlocks(
 						}
 					}
 					resultContent = texts.join('\n');
+				}
+
+				// Strip <tool_use_error> XML wrapper — redundant with is_error flag
+				if (block.is_error) {
+					const m = RE_TOOL_USE_ERROR.exec(resultContent);
+					if (m) resultContent = m[1].trim();
 				}
 
 				const result: ToolResultBlock = {
