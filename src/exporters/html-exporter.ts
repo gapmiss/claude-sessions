@@ -241,6 +241,9 @@ function snapshotTimeline(timelineEl: HTMLElement): string {
 	// The live view uses addEventListener closures — we need data attributes for the standalone script
 	processCopyButtons(clone, timelineEl);
 
+	// Remove pinned heroes bar (live-only feature)
+	clone.querySelectorAll('.claude-sessions-pinned-heroes').forEach(el => el.remove());
+
 	// Remove progress bar dots if present
 	clone.querySelectorAll('.claude-sessions-progress-dot').forEach(el => el.remove());
 
