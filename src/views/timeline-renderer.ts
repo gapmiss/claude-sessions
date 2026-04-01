@@ -310,16 +310,24 @@ export class TimelineRenderer {
 		const lines = text.split('\n').length;
 		const wrapEl = container.createDiv({ cls: 'claude-sessions-text-block' });
 
-		const copyBtn = wrapEl.createEl('button', {
-			cls: 'claude-sessions-text-copy clickable-icon',
-			attr: { 'aria-label': 'Copy to clipboard', 'data-tooltip-position': 'top' },
-		});
-		setIcon(copyBtn, 'copy');
-		copyBtn.addEventListener('click', () => {
-			navigator.clipboard.writeText(text);
-			setIcon(copyBtn, 'check');
-			setTimeout(() => setIcon(copyBtn, 'copy'), 1500);
-		});
+		// Skip our copy button when text is just a fenced code block —
+		// Obsidian renders its own copy-code-button on the block
+		const trimmed = text.trim();
+		const isJustCodeBlock = trimmed.startsWith('```') && trimmed.endsWith('```')
+			&& (trimmed.match(/^```/gm)?.length === 2);
+
+		if (!isJustCodeBlock) {
+			const copyBtn = wrapEl.createEl('button', {
+				cls: 'claude-sessions-text-copy clickable-icon',
+				attr: { 'aria-label': 'Copy to clipboard', 'data-tooltip-position': 'top' },
+			});
+			setIcon(copyBtn, 'copy');
+			copyBtn.addEventListener('click', () => {
+				navigator.clipboard.writeText(text);
+				setIcon(copyBtn, 'check');
+				setTimeout(() => setIcon(copyBtn, 'copy'), 1500);
+			});
+		}
 
 		if (lines > COLLAPSE_THRESHOLD) {
 			wrapEl.addClass('claude-sessions-collapsible-wrap', 'is-collapsed');

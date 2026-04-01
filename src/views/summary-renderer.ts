@@ -1,11 +1,16 @@
 import { setIcon } from 'obsidian';
-import type { Session, SessionStats } from '../types';
+import type { Session, SessionMetadata, SessionStats } from '../types';
 import { type RenderContext, makeClickable, addCopyButton } from './render-helpers';
 
 /** Render the session summary panel (collapsible) above the timeline. */
 export function renderSummary(session: Session, container: HTMLElement, ctx: RenderContext): void {
-	const el = container.createDiv({ cls: 'claude-sessions-summary' });
 	const { metadata, stats } = session;
+
+	// Pinned heroes bar — direct child of scroll container for position:sticky
+	const pinnedHeroes = container.createDiv({ cls: 'claude-sessions-pinned-heroes' });
+	buildHeroCards(pinnedHeroes, stats, metadata);
+
+	const el = container.createDiv({ cls: 'claude-sessions-summary' });
 
 	// Header (click to toggle)
 	const header = el.createDiv({ cls: 'claude-sessions-summary-header' });
@@ -45,22 +50,23 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 	});
 
 	// ═══════════════════════════════════════
-	// Hero stat cards
+	// Hero stat cards (with pin button)
 	// ═══════════════════════════════════════
 	const heroes = body.createDiv({ cls: 'claude-sessions-dash-heroes' });
+	buildHeroCards(heroes, stats, metadata);
 
-	if (stats.costUSD > 0) {
-		addHeroCard(heroes, formatCost(stats.costUSD), 'Cost', 'receipt');
-	}
-	if (stats.contextWindowTokens > 0) {
-		addHeroCard(heroes, formatTokens(stats.contextWindowTokens), 'Context', 'layers');
-	}
-	if (metadata.totalTurns > 0) {
-		addHeroCard(heroes, String(metadata.totalTurns), 'Turns', 'message-circle');
-	}
-	if (stats.durationMs > 0) {
-		addHeroCard(heroes, formatDuration(stats.durationMs), 'Duration', 'clock');
-	}
+	const pinBtn = heroes.createEl('button', {
+		cls: 'claude-sessions-heroes-pin clickable-icon',
+		attr: { 'aria-label': 'Pin stats to top', 'data-tooltip-position': 'top' },
+	});
+	setIcon(pinBtn, 'pin');
+	pinBtn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		const willPin = !pinnedHeroes.hasClass('is-pinned');
+		pinnedHeroes.toggleClass('is-pinned', willPin);
+		pinBtn.toggleClass('is-active', willPin);
+		pinBtn.setAttribute('aria-label', willPin ? 'Unpin stats' : 'Pin stats to top');
+	});
 
 	// ═══════════════════════════════════════
 	// Two-column layout for charts
@@ -187,6 +193,13 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 // ═══════════════════════════════════════
 // Component helpers
 // ═══════════════════════════════════════
+
+function buildHeroCards(container: HTMLElement, stats: SessionStats, metadata: SessionMetadata): void {
+	if (stats.costUSD > 0) addHeroCard(container, formatCost(stats.costUSD), 'Cost', 'receipt');
+	if (stats.contextWindowTokens > 0) addHeroCard(container, formatTokens(stats.contextWindowTokens), 'Context', 'layers');
+	if (metadata.totalTurns > 0) addHeroCard(container, String(metadata.totalTurns), 'Turns', 'message-circle');
+	if (stats.durationMs > 0) addHeroCard(container, formatDuration(stats.durationMs), 'Duration', 'clock');
+}
 
 function addHeroCard(container: HTMLElement, value: string, label: string, iconName: string): void {
 	const card = container.createDiv({ cls: 'claude-sessions-dash-hero' });

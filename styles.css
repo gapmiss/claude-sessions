@@ -156,9 +156,58 @@
 	height: 12px;
 }
 
+/* --- Pinned heroes (sticky bar at top of timeline) --- */
+
+.claude-sessions-pinned-heroes {
+	display: none;
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	/* Break out of max-width centering */
+	max-width: none !important;
+	width: calc(100% + 2 * var(--size-4-4));
+	margin-left: calc(-1 * var(--size-4-4));
+	margin-top: calc(-1 * var(--size-4-4));
+	margin-bottom: 0;
+	padding: 8px var(--size-4-4);
+	background: var(--background-secondary);
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.claude-sessions-pinned-heroes.is-pinned {
+	display: flex;
+	gap: 8px;
+}
+
+.claude-sessions-pinned-heroes .claude-sessions-dash-hero {
+	margin-bottom: 0;
+}
+
+/* --- Pin button on in-body heroes --- */
+
+.claude-sessions-heroes-pin {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	color: var(--text-faint);
+	opacity: 0;
+	transition: opacity 0.15s;
+}
+
+.claude-sessions-dash-heroes:hover .claude-sessions-heroes-pin,
+.claude-sessions-heroes-pin:focus-visible,
+.claude-sessions-heroes-pin.is-active {
+	opacity: 1;
+}
+
+.claude-sessions-heroes-pin.is-active {
+	color: var(--interactive-accent);
+}
+
 /* --- Dashboard: Hero stat cards --- */
 
 .claude-sessions-dash-heroes {
+	position: relative;
 	display: flex;
 	gap: 8px;
 	margin-bottom: 10px;

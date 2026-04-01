@@ -606,6 +606,7 @@ expandAll(): void {
 	private captureUIState(): {
 		collapsedTurns: Set<number>;
 		summaryOpen: boolean;
+		heroesPinned: boolean;
 		openTools: Set<string>;
 		openToolGroups: Set<string>;
 		expandedText: Set<string>;
@@ -620,6 +621,8 @@ expandAll(): void {
 		}
 		const summaryEl = this.timelineEl?.querySelector('.claude-sessions-summary');
 		const summaryOpen = summaryEl?.hasClass('open') ?? false;
+		const pinnedEl = this.timelineEl?.querySelector('.claude-sessions-pinned-heroes');
+		const heroesPinned = pinnedEl?.hasClass('is-pinned') ?? false;
 
 		// Expanded tool blocks: keyed by "turnIndex-blockIndex"
 		const openTools = new Set<string>();
@@ -656,7 +659,7 @@ expandAll(): void {
 
 		const scrollTop = this.timelineEl?.scrollTop ?? 0;
 
-		return { collapsedTurns, summaryOpen, openTools, openToolGroups, expandedText, scrollTop };
+		return { collapsedTurns, summaryOpen, heroesPinned, openTools, openToolGroups, expandedText, scrollTop };
 	}
 
 	/** Restore full UI state after re-render. */
@@ -678,6 +681,12 @@ expandAll(): void {
 			if (chevron) chevron.textContent = '\u25BC';
 			const header = summaryEl?.querySelector('.claude-sessions-summary-header');
 			header?.setAttribute('aria-expanded', 'true');
+		}
+		if (state.heroesPinned) {
+			const pinnedEl = this.timelineEl?.querySelector('.claude-sessions-pinned-heroes');
+			pinnedEl?.addClass('is-pinned');
+			const pinBtn = this.timelineEl?.querySelector('.claude-sessions-heroes-pin');
+			pinBtn?.addClass('is-active');
 		}
 
 		// Restore expanded tool blocks
