@@ -87,48 +87,70 @@ export default class ClaudeSessionsPlugin extends Plugin {
 		this.addCommand({
 			id: 'export-markdown',
 			name: 'Export session to Markdown',
-			callback: () => this.exportActiveSession(),
+			checkCallback: (checking: boolean) => {
+				if (!this.getActiveTimelineView()) return false;
+				if (checking) return true;
+				this.exportActiveSession();
+				return true;
+			},
 		});
 
 		this.addCommand({
 			id: 'export-html',
 			name: 'Export session to HTML',
-			callback: () => this.exportActiveSessionHTML(),
+			checkCallback: (checking: boolean) => {
+				if (!this.getActiveTimelineView()) return false;
+				if (checking) return true;
+				this.exportActiveSessionHTML();
+				return true;
+			},
 		});
 
 		this.addCommand({
 			id: 'expand-all',
 			name: 'Expand all turns',
-			callback: () => {
+			checkCallback: (checking: boolean) => {
 				const view = this.getActiveTimelineView();
-				if (view) view.expandAll();
+				if (!view) return false;
+				if (checking) return true;
+				view.expandAll();
+				return true;
 			},
 		});
 
 		this.addCommand({
 			id: 'collapse-all',
 			name: 'Collapse all turns',
-			callback: () => {
+			checkCallback: (checking: boolean) => {
 				const view = this.getActiveTimelineView();
-				if (view) view.collapseAll();
+				if (!view) return false;
+				if (checking) return true;
+				view.collapseAll();
+				return true;
 			},
 		});
 
 		this.addCommand({
 			id: 'refresh-session',
 			name: 'Refresh session',
-			callback: async () => {
+			checkCallback: (checking: boolean) => {
 				const view = this.getActiveTimelineView();
-				if (view) await view.reloadSession();
+				if (!view) return false;
+				if (checking) return true;
+				view.reloadSession();
+				return true;
 			},
 		});
 
 		this.addCommand({
 			id: 'toggle-live-watch',
 			name: 'Toggle live watch',
-			callback: () => {
+			checkCallback: (checking: boolean) => {
 				const view = this.getActiveTimelineView();
-				if (view) view.toggleWatch();
+				if (!view) return false;
+				if (checking) return true;
+				view.toggleWatch();
+				return true;
 			},
 		});
 

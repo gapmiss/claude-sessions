@@ -125,6 +125,7 @@ export interface AnsiBlock {
 export interface CompactionBlock {
 	type: 'compaction';
 	summary?: string;
+	preTokens?: number;
 	timestamp?: string;
 }
 

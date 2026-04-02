@@ -549,9 +549,25 @@ export class TimelineRenderer {
 		const icon = divider.createSpan({ cls: 'claude-sessions-compaction-icon' });
 		setIcon(icon, 'scissors');
 		divider.createSpan({ text: 'Context compacted' });
+		if (block.preTokens) {
+			const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+			divider.createSpan({ cls: 'claude-sessions-compaction-tokens', text: fmt(block.preTokens) });
+		}
 		if (block.summary) {
+			const header = el.createDiv({ cls: 'claude-sessions-compaction-summary-header' });
+			header.createSpan({ cls: 'claude-sessions-compaction-summary-chevron', text: '\u25B6' });
+			header.createSpan({ text: 'Continuation summary' });
+			addCopyButton(header, block.summary, 'Copy continuation summary');
+
 			const summaryEl = el.createDiv({ cls: 'claude-sessions-compaction-summary' });
 			MarkdownRenderer.render(this.ctx.app, block.summary, summaryEl, '', this.ctx.component);
+
+			makeClickable(header, { label: 'Toggle continuation summary', expanded: false });
+			header.addEventListener('click', () => {
+				const willOpen = !el.hasClass('open');
+				el.toggleClass('open', willOpen);
+				header.setAttribute('aria-expanded', String(willOpen));
+			});
 		}
 	}
 

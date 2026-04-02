@@ -43,8 +43,13 @@ interface ClaudeRecord {
 	toolUseID?: string;
 	parentToolUseID?: string;
 	isCompactSummary?: boolean;
+	isVisibleInTranscriptOnly?: boolean;
 	summary?: string;
 	operation?: string;
+	compactMetadata?: {
+		trigger?: string;
+		preTokens?: number;
+	};
 	sourceToolUseID?: string;
 	toolUseResult?: Record<string, unknown>;
 	data?: {
@@ -114,7 +119,9 @@ interface ToolResultContent {
 	is_error?: boolean;
 }
 
-
+function hasAnsiCodes(text: string): boolean {
+	return /\x1b\[[\d;]*m/.test(text);
+}
 
 export class ClaudeParser extends BaseParser {
 	readonly format = 'claude' as const;
@@ -245,8 +252,7 @@ export class ClaudeParser extends BaseParser {
 			if (record.isSidechain && !this.allowSidechain) continue;
 			// Keep isMeta user records — they may contain skill expansion prompts
 		if (record.isMeta && record.type !== RT_USER) continue;
-			if (record.type === RT_ASSISTANT && record.message?.model === MODEL_SYNTHETIC
-				&& !record.isApiErrorMessage) continue;
+			if (record.type === RT_ASSISTANT && record.message?.model === MODEL_SYNTHETIC) continue;
 
 			// Let summary records through for compaction boundary rendering
 			if (record.type === RT_SUMMARY) {
@@ -487,6 +493,7 @@ export class ClaudeParser extends BaseParser {
 		const turns: Turn[] = [];
 		const toolUseNames = new Map<string, string>();
 		let currentAssistantTurn: Turn | null = null;
+		let pendingCompactMeta: { trigger?: string; preTokens?: number } | null = null;
 
 		const flushAssistant = () => {
 			if (currentAssistantTurn && currentAssistantTurn.contentBlocks.length > 0) {
@@ -515,8 +522,12 @@ export class ClaudeParser extends BaseParser {
 				continue;
 			}
 
-			// System records with local_command subtype (slash commands like /rename)
+			// System records
 			if (record.type === RT_SYSTEM) {
+				// compact_boundary → stash metadata for the isCompactSummary user record that follows
+				if (record.subtype === 'compact_boundary' && record.compactMetadata) {
+					pendingCompactMeta = record.compactMetadata;
+				}
 				if (record.subtype === SUBTYPE_LOCAL_COMMAND && record.content) {
 					const blocks = this.extractSystemContent(record);
 					if (blocks.length > 0) {
@@ -600,19 +611,37 @@ export class ClaudeParser extends BaseParser {
 				// always immediately follows the command record
 				this._pendingSlashCommand = null;
 
-				// isCompactSummary user entries → compaction boundary
+				// isCompactSummary user entries → compaction boundary with summary content
 				if (record.isCompactSummary) {
 					flushAssistant();
 					const ts = this.formatTimestamp(record.timestamp);
+					// Extract the continuation summary from message content
+					let summary: string | undefined;
+					const mc = record.message?.content;
+					if (typeof mc === 'string' && mc.trim()) {
+						summary = mc;
+					} else if (Array.isArray(mc)) {
+						const texts: string[] = [];
+						for (const b of mc as ClaudeContentBlock[]) {
+							if (b.type === BT_TEXT && b.text?.trim()) texts.push(b.text);
+						}
+						if (texts.length > 0) summary = texts.join('\n\n');
+					}
+					const block: CompactionBlock = {
+						type: 'compaction',
+						summary,
+						timestamp: record.timestamp,
+					};
+					if (pendingCompactMeta?.preTokens) {
+						block.preTokens = pendingCompactMeta.preTokens;
+					}
+					pendingCompactMeta = null;
 					turns.push({
 						index: turns.length,
 						role: 'assistant',
 						timestamp: ts,
 						endTimestamp: ts,
-						contentBlocks: [{
-							type: 'compaction',
-							timestamp: record.timestamp,
-						} as CompactionBlock],
+						contentBlocks: [block],
 					});
 					continue;
 				}
@@ -862,7 +891,7 @@ export class ClaudeParser extends BaseParser {
 				const label = this.pendingCommand;
 				this.pendingCommand = null;
 				const stdout = content.replace(RE_LOCAL_STDOUT_TAGS, '');
-				if (ANSI_COMMANDS.has(label)) {
+				if (ANSI_COMMANDS.has(label) || hasAnsiCodes(stdout)) {
 					this._pendingCommandResult = true;
 					return [{ type: 'ansi', label, text: stdout, timestamp } as AnsiBlock];
 				}
@@ -932,7 +961,8 @@ export class ClaudeParser extends BaseParser {
 				const label = this.pendingCommand;
 				this.pendingCommand = null;
 				const stdout = content.replace(RE_LOCAL_STDOUT_TAGS, '');
-				if (ANSI_COMMANDS.has(label)) {
+				if (ANSI_COMMANDS.has(label) || hasAnsiCodes(stdout)) {
+					this._pendingCommandResult = true;
 					return [{ type: 'ansi', label, text: stdout, timestamp } as AnsiBlock];
 				}
 				// Non-ANSI command result (e.g. /export) → merge with command turn
