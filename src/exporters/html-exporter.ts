@@ -396,7 +396,7 @@ ${script}
 		fs.writeFileSync(savePath, html, 'utf-8');
 
 		notice.hide();
-		new Notice(`Exported to ${savePath}`);
+		new Notice(`Exported to ${savePath}`, 5000);
 	} catch (e) {
 		notice.hide();
 		const msg = e instanceof Error ? e.message : String(e);

@@ -14,7 +14,7 @@ export async function exportToMarkdown(
 	app: App,
 	session: Session,
 	settings: PluginSettings
-): Promise<void> {
+): Promise<string> {
 	const folder = normalizePath(settings.exportFolder);
 
 	// Ensure folder exists
@@ -58,6 +58,8 @@ export async function exportToMarkdown(
 	} else {
 		await app.vault.create(fileName, content);
 	}
+
+	return fileName;
 }
 
 function base64ToBytes(base64: string): Uint8Array {

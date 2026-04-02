@@ -1,5 +1,6 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, setIcon } from 'obsidian';
 import type ClaudeSessionsPlugin from './main';
+import { FolderSuggest } from './utils/folder-suggest';
 
 const WIDTH_PRESETS: { label: string; value: number }[] = [
 	{ label: 'Narrow (680px)', value: 680 },
@@ -65,13 +66,16 @@ export class SettingsTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Export folder')
 			.setDesc('Vault folder for exported session files.')
-			.addText(text => text
-				.setPlaceholder('Claude sessions')
-				.setValue(this.plugin.settings.exportFolder)
-				.onChange(async (value) => {
-					this.plugin.settings.exportFolder = value;
-					await this.plugin.saveSettings();
-				}));
+			.addSearch(search => {
+				search
+					.setPlaceholder('Claude sessions')
+					.setValue(this.plugin.settings.exportFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.exportFolder = value;
+						await this.plugin.saveSettings();
+					});
+				new FolderSuggest(this.app, search.inputEl);
+			});
 
 		new Setting(containerEl)
 			.setHeading()
@@ -212,13 +216,13 @@ export class SettingsTab extends PluginSettingTab {
 			const row = container.createDiv({ cls: 'claude-sessions-dir-row' });
 			row.createSpan({ text: dir, cls: 'claude-sessions-dir-path' });
 			const removeBtn = row.createEl('button', {
-				cls: 'claude-sessions-btn claude-sessions-dir-remove',
-				text: '\u00D7',
+				cls: 'claude-sessions-dir-remove clickable-icon',
 				attr: {
 					'aria-label': `Remove directory ${dir}`,
 					'data-tooltip-position': 'top',
 				},
 			});
+			setIcon(removeBtn, 'trash-2');
 			removeBtn.addEventListener('click', async () => {
 				this.plugin.settings.sessionDirs.splice(i, 1);
 				await this.plugin.saveSettings();

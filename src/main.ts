@@ -342,8 +342,8 @@ export default class ClaudeSessionsPlugin extends Plugin {
 		}
 
 		try {
-			await exportToMarkdown(this.app, session, this.settings);
-			new Notice('Session exported as Markdown.');
+			const mdPath = await exportToMarkdown(this.app, session, this.settings);
+			new Notice(`Exported to ${mdPath}`, 5000);
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			new Notice(`Export failed: ${msg}`);
