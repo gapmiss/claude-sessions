@@ -156,6 +156,7 @@ export interface PluginSettings {
 	autoScrollOnUpdate: boolean;
 	notifyOnPendingTool: boolean;
 	toolGroupThreshold: number;
+	pinSummaryDashboard: boolean;
 	maxContentWidth: number;
 	debugLevel: 'none' | 'error' | 'warn' | 'info' | 'debug';
 }
@@ -170,6 +171,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	autoScrollOnUpdate: true,
 	notifyOnPendingTool: false,
 	toolGroupThreshold: 4,
+	pinSummaryDashboard: false,
 	maxContentWidth: 960,
 	debugLevel: 'warn',
 };

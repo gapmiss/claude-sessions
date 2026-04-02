@@ -3,11 +3,14 @@ import type { Session, SessionMetadata, SessionStats } from '../types';
 import { type RenderContext, makeClickable, addCopyButton } from './render-helpers';
 
 /** Render the session summary panel (collapsible) above the timeline. */
-export function renderSummary(session: Session, container: HTMLElement, _ctx: RenderContext): void {
+export function renderSummary(session: Session, container: HTMLElement, ctx: RenderContext): void {
 	const { metadata, stats } = session;
 
 	// Pinned heroes bar — direct child of scroll container for position:sticky
 	const pinnedHeroes = container.createDiv({ cls: 'claude-sessions-pinned-heroes' });
+	if (ctx.settings.pinSummaryDashboard) {
+		pinnedHeroes.addClass('is-pinned');
+	}
 	buildHeroCards(pinnedHeroes, stats, metadata);
 
 	const el = container.createDiv({ cls: 'claude-sessions-summary' });
@@ -56,8 +59,11 @@ export function renderSummary(session: Session, container: HTMLElement, _ctx: Re
 	buildHeroCards(heroes, stats, metadata);
 
 	const pinBtn = heroes.createEl('button', {
-		cls: 'claude-sessions-heroes-pin clickable-icon',
-		attr: { 'aria-label': 'Pin stats to top', 'data-tooltip-position': 'top' },
+		cls: `claude-sessions-heroes-pin clickable-icon${ctx.settings.pinSummaryDashboard ? ' is-active' : ''}`,
+		attr: {
+			'aria-label': ctx.settings.pinSummaryDashboard ? 'Unpin stats' : 'Pin stats to top',
+			'data-tooltip-position': 'top',
+		},
 	});
 	setIcon(pinBtn, 'pin');
 	pinBtn.addEventListener('click', (e) => {

@@ -1,12 +1,20 @@
 import { App, TFolder, normalizePath } from 'obsidian';
-import { Session, Turn, ContentBlock, PluginSettings } from '../types';
+import { diffLines } from 'diff';
+import { Session, Turn, ContentBlock, ToolUseBlock, ToolResultBlock, PluginSettings } from '../types';
+import { fence, langFromPath, stripLineNumbers } from '../views/render-helpers';
+
+/** Accumulated images for writing to the attachment folder. */
+interface PendingImage {
+	fileName: string;
+	data: string;  // base64
+	mediaType: string;
+}
 
 export async function exportToMarkdown(
 	app: App,
 	session: Session,
 	settings: PluginSettings
 ): Promise<void> {
-	const content = buildMarkdown(session, settings);
 	const folder = normalizePath(settings.exportFolder);
 
 	// Ensure folder exists
@@ -20,8 +28,30 @@ export async function exportToMarkdown(
 	const safeName = session.metadata.id
 		.replace(/[^a-zA-Z0-9_-]/g, '_')
 		.substring(0, 80);
-	const fileName = normalizePath(`${folder}/${safeName}.md`);
 
+	const images: PendingImage[] = [];
+	const content = buildMarkdown(session, settings, safeName, images);
+
+	// Write images to attachment subfolder if any
+	if (images.length > 0) {
+		const imgFolder = normalizePath(`${folder}/${safeName}`);
+		const imgFolderExists = app.vault.getAbstractFileByPath(imgFolder);
+		if (!imgFolderExists) {
+			await app.vault.createFolder(imgFolder);
+		}
+		for (const img of images) {
+			const imgPath = normalizePath(`${imgFolder}/${img.fileName}`);
+			const bytes = base64ToBytes(img.data);
+			const existingImg = app.vault.getAbstractFileByPath(imgPath);
+			if (existingImg) {
+				await app.vault.adapter.writeBinary(imgPath, bytes.buffer as ArrayBuffer);
+			} else {
+				await app.vault.createBinary(imgPath, bytes.buffer as ArrayBuffer);
+			}
+		}
+	}
+
+	const fileName = normalizePath(`${folder}/${safeName}.md`);
 	const existingFile = app.vault.getAbstractFileByPath(fileName);
 	if (existingFile) {
 		await app.vault.adapter.write(fileName, content);
@@ -30,7 +60,21 @@ export async function exportToMarkdown(
 	}
 }
 
-function buildMarkdown(session: Session, settings: PluginSettings): string {
+function base64ToBytes(base64: string): Uint8Array {
+	const binary = atob(base64);
+	const bytes = new Uint8Array(binary.length);
+	for (let i = 0; i < binary.length; i++) {
+		bytes[i] = binary.charCodeAt(i);
+	}
+	return bytes;
+}
+
+function buildMarkdown(
+	session: Session,
+	settings: PluginSettings,
+	safeName: string,
+	images: PendingImage[],
+): string {
 	const lines: string[] = [];
 	const meta = session.metadata;
 
@@ -52,24 +96,40 @@ function buildMarkdown(session: Session, settings: PluginSettings): string {
 	lines.push(`# Session: ${meta.project}`);
 	lines.push('');
 
+	// Build a lookup of tool_use IDs to their blocks for pairing with results
+	const toolUseMap = new Map<string, ToolUseBlock>();
 	for (const turn of session.turns) {
-		lines.push(renderTurn(turn, settings));
+		for (const block of turn.contentBlocks) {
+			if (block.type === 'tool_use') {
+				toolUseMap.set(block.id, block);
+			}
+		}
+	}
+
+	for (const turn of session.turns) {
+		lines.push(renderTurn(turn, settings, safeName, images, toolUseMap));
 		lines.push('');
 	}
 
 	return lines.join('\n');
 }
 
-function renderTurn(turn: Turn, settings: PluginSettings): string {
+function renderTurn(
+	turn: Turn,
+	settings: PluginSettings,
+	safeName: string,
+	images: PendingImage[],
+	toolUseMap: Map<string, ToolUseBlock>,
+): string {
 	const lines: string[] = [];
 	const roleLabel = turn.role === 'user' ? 'User' : 'Assistant';
 	const timeStr = turn.timestamp ? ` (${new Date(turn.timestamp).toLocaleString()})` : '';
 
-	lines.push(`## Turn ${turn.index + 1} \u2014 ${roleLabel}${timeStr}`);
+	lines.push(`## Turn ${turn.index + 1} — ${roleLabel}${timeStr}`);
 	lines.push('');
 
 	for (const block of turn.contentBlocks) {
-		const rendered = renderBlock(block, settings);
+		const rendered = renderBlock(block, settings, safeName, images, toolUseMap);
 		if (rendered) {
 			lines.push(rendered);
 			lines.push('');
@@ -79,7 +139,13 @@ function renderTurn(turn: Turn, settings: PluginSettings): string {
 	return lines.join('\n');
 }
 
-function renderBlock(block: ContentBlock, settings: PluginSettings): string | null {
+function renderBlock(
+	block: ContentBlock,
+	settings: PluginSettings,
+	safeName: string,
+	images: PendingImage[],
+	toolUseMap: Map<string, ToolUseBlock>,
+): string | null {
 	switch (block.type) {
 		case 'text':
 			return block.text;
@@ -93,29 +159,14 @@ function renderBlock(block: ContentBlock, settings: PluginSettings): string | nu
 
 		case 'tool_use':
 			if (!settings.showToolCalls) return null;
-			return [
-				`> [!example]- Tool: ${block.name}`,
-				'> ```json',
-				...JSON.stringify(block.input, null, 2).split('\n').map(l => `> ${l}`),
-				'> ```',
-			].join('\n');
+			return renderToolUse(block);
 
-		case 'tool_result': {
+		case 'tool_result':
 			if (!settings.showToolResults) return null;
-			const label = block.toolName
-				? `Result: ${block.toolName}`
-				: 'Tool result';
-			const calloutType = block.isError ? 'danger' : 'success';
-			const resultText = block.content.length > 5000
-				? block.content.substring(0, 5000) + '\n... (truncated)'
-				: block.content;
-			return [
-				`> [!${calloutType}]- ${label}`,
-				'> ```',
-				...resultText.split('\n').map(l => `> ${l}`),
-				'> ```',
-			].join('\n');
-		}
+			return renderToolResult(block, safeName, images, toolUseMap);
+
+		case 'image':
+			return renderImage(block.mediaType, block.data, safeName, images);
 
 		case 'ansi':
 			// Strip ANSI escape codes for markdown export
@@ -123,6 +174,12 @@ function renderBlock(block: ContentBlock, settings: PluginSettings): string | nu
 
 		case 'compaction':
 			return '---\n*Context compacted*' + (block.summary ? `\n${block.summary}` : '') + '\n---';
+
+		case 'slash_command':
+			return [
+				`> [!info]- Slash command: ${block.commandName}`,
+				...block.text.split('\n').map(l => `> ${l}`),
+			].join('\n');
 
 		case 'bash_command': {
 			const parts = ['```bash', block.command, '```'];
@@ -138,4 +195,105 @@ function renderBlock(block: ContentBlock, settings: PluginSettings): string | nu
 		default:
 			return null;
 	}
+}
+
+function renderToolUse(block: ToolUseBlock): string {
+	if (block.name === 'Edit') {
+		return renderEditToolUse(block);
+	}
+	return [
+		`> [!example]- Tool: ${block.name}`,
+		'> ```json',
+		...JSON.stringify(block.input, null, 2).split('\n').map(l => `> ${l}`),
+		'> ```',
+	].join('\n');
+}
+
+function renderEditToolUse(block: ToolUseBlock): string {
+	const filePath = String(block.input['file_path'] || '');
+	const oldStr = String(block.input['old_string'] || '');
+	const newStr = String(block.input['new_string'] || '');
+	const replaceAll = block.input['replace_all'] ? ' (replace all)' : '';
+
+	const changes = diffLines(oldStr, newStr);
+	const outputLines: string[] = [];
+	for (const change of changes) {
+		const lines = change.value.replace(/\n$/, '').split('\n');
+		const prefix = change.added ? '+ ' : change.removed ? '- ' : '  ';
+		for (const line of lines) {
+			outputLines.push(prefix + line);
+		}
+	}
+
+	const header = filePath ? `Edit: ${filePath}${replaceAll}` : `Edit${replaceAll}`;
+	return [
+		`> [!example]- ${header}`,
+		'> ```diff',
+		...outputLines.map(l => `> ${l}`),
+		'> ```',
+	].join('\n');
+}
+
+function renderToolResult(
+	block: ToolResultBlock,
+	safeName: string,
+	images: PendingImage[],
+	toolUseMap: Map<string, ToolUseBlock>,
+): string {
+	const toolUse = toolUseMap.get(block.toolUseId);
+	const toolName = block.toolName ?? toolUse?.name ?? '';
+	const label = toolName ? `Result: ${toolName}` : 'Tool result';
+	const calloutType = block.isError ? 'danger' : 'success';
+
+	const parts: string[] = [];
+
+	// Main text result
+	if (block.content.trim()) {
+		let resultText = block.content.length > 5000
+			? block.content.substring(0, 5000) + '\n... (truncated)'
+			: block.content;
+
+		// For Read results: strip line numbers and use file language
+		if (toolName === 'Read' && toolUse) {
+			const filePath = String(toolUse.input['file_path'] || '');
+			const lang = langFromPath(filePath);
+			resultText = stripLineNumbers(resultText);
+			parts.push(
+				`> [!${calloutType}]- ${label}`,
+				`> ${fence(resultText, lang).split('\n').join('\n> ')}`,
+			);
+		} else {
+			parts.push(
+				`> [!${calloutType}]- ${label}`,
+				'> ```',
+				...resultText.split('\n').map(l => `> ${l}`),
+				'> ```',
+			);
+		}
+	} else {
+		parts.push(`> [!${calloutType}]- ${label}`);
+	}
+
+	// Inline images from tool results
+	if (block.images && block.images.length > 0) {
+		for (const img of block.images) {
+			const ref = renderImage(img.mediaType, img.data, safeName, images);
+			if (ref) parts.push('>', `> ${ref}`);
+		}
+	}
+
+	return parts.join('\n');
+}
+
+function renderImage(
+	mediaType: string,
+	data: string,
+	safeName: string,
+	images: PendingImage[],
+): string {
+	const ext = mediaType.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+	const idx = images.length + 1;
+	const fileName = `image-${idx}.${ext}`;
+	images.push({ fileName, data, mediaType });
+	return `![image-${idx}](${safeName}/${fileName})`;
 }

@@ -232,11 +232,26 @@ export default class ClaudeSessionsPlugin extends Plugin {
 	}
 
 	async openSession(session: Session, turnIndex?: number, highlightQuery?: string): Promise<void> {
-		const leaf = this.app.workspace.getLeaf('tab');
-		await leaf.setViewState({
-			type: VIEW_TYPE_TIMELINE,
-			active: true,
-		});
+		// Reuse existing tab if this session is already open
+		let leaf: WorkspaceLeaf | undefined;
+		if (session.rawPath) {
+			for (const l of this.app.workspace.getLeavesOfType(VIEW_TYPE_TIMELINE)) {
+				if (l.view instanceof TimelineView && l.view.getSession()?.rawPath === session.rawPath) {
+					leaf = l;
+					break;
+				}
+			}
+		}
+
+		if (leaf) {
+			this.app.workspace.revealLeaf(leaf);
+		} else {
+			leaf = this.app.workspace.getLeaf('tab');
+			await leaf.setViewState({
+				type: VIEW_TYPE_TIMELINE,
+				active: true,
+			});
+		}
 
 		const view = leaf.view;
 		if (view instanceof TimelineView) {

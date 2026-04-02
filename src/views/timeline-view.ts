@@ -404,7 +404,7 @@ expandAll(): void {
 
 	// ── In-session search ──
 
-	openInSessionSearch(): void {
+	async openInSessionSearch(): Promise<void> {
 		if (!this.session?.rawPath) return;
 		// Use string constant to avoid circular import with search-view.ts
 		const SEARCH_TYPE = 'claude-sessions-search';
@@ -416,7 +416,7 @@ expandAll(): void {
 			const right = this.app.workspace.getRightLeaf(false);
 			if (!right) return;
 			leaf = right;
-			leaf.setViewState({ type: SEARCH_TYPE, active: true });
+			await leaf.setViewState({ type: SEARCH_TYPE, active: true });
 		}
 		this.app.workspace.revealLeaf(leaf);
 		const view = leaf.view;
