@@ -2,7 +2,7 @@
 
 Desktop-only Claude Code JSONL session viewer for Obsidian. Browse, search, and export sessions with rich tool rendering, live watch, and summary dashboards.
 
-**Version**: 0.1.1 | **Branch**: main
+**Version**: 0.2.1 | **Branch**: main
 
 ## Development
 
@@ -49,6 +49,21 @@ src/
     streaming-reader.ts      # File I/O (Node.js streams, metadata extraction)
     logger.ts                # Configurable log levels
 ```
+
+## Code Exploration Policy
+
+Use `cymbal` CLI for code navigation — prefer it over Read, Grep, Glob, or Bash for code exploration.
+- **New to a repo?**: `cymbal structure` — entry points, hotspots, central packages. Start here.
+- **To understand a symbol**: `cymbal investigate <symbol>` — returns source, callers, impact, or members based on what the symbol is.
+- **To understand multiple symbols**: `cymbal investigate Foo Bar Baz` — batch mode, one invocation.
+- **To trace an execution path**: `cymbal trace <symbol>` — follows the call graph downward (what does X call, what do those call).
+- **To assess change risk**: `cymbal impact <symbol>` — follows the call graph upward (what breaks if X changes).
+- Before reading a file: `cymbal outline <file>` or `cymbal show <file:L1-L2>`
+- Before searching: `cymbal search <query>` (symbols) or `cymbal search <query> --text` (grep)
+- Before exploring structure: `cymbal ls` (tree) or `cymbal ls --stats` (overview)
+- To disambiguate: `cymbal show path/to/file.go:SymbolName` or `cymbal investigate file.go:Symbol`
+- First run: `cymbal index .` to build the initial index (<1s). After that, queries auto-refresh — no manual reindexing needed.
+- All commands support `--json` for structured output.
 
 ## Conventions
 

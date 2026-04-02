@@ -767,7 +767,8 @@
 	user-select: none;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-s);
-	background: var(--background-secondary);
+	/* background: var(--background-secondary); */
+	background-color: transparent !important;
 	font-family: var(--font-ui);
 	min-height: 44px;
 	position: relative;
@@ -787,7 +788,7 @@
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-s);
 	overflow: hidden;
-	background: var(--background-secondary);
+	background: var(--background-primary);
 }
 
 .claude-sessions-tool-header {
@@ -1225,29 +1226,39 @@
 	color: var(--color-red);
 }
 
+.claude-sessions-read-md-toggle-row {
+	display: flex;
+	gap: 2px;
+	margin-bottom: 4px;
+}
+
+.claude-sessions-read-md-btn.clickable-icon {
+	color: var(--text-faint);
+	padding: 4px;
+	border-radius: var(--radius-s);
+}
+
+.claude-sessions-read-md-btn.clickable-icon.is-active {
+	color: var(--text-accent);
+	background: var(--background-modifier-hover);
+}
+
 .claude-sessions-read-md-hidden {
 	display: none;
 }
 
-/* Reset inherited monospace/green from tool result container so preview renders like normal markdown */
+/*
+ * Reset inherited tool-result/tool-input styling so markdown preview
+ * renders identically to a normal Obsidian note. Ancestors set
+ * font-size:12px, white-space:pre-wrap, font-family:monospace,
+ * line-height:1.6, color:green — all must be overridden.
+ */
 .claude-sessions-read-md-preview {
-	font-family: var(--font-text);
-	color: var(--text-normal);
-}
-
-.claude-sessions-read-md-preview p,
-.claude-sessions-read-md-preview h1,
-.claude-sessions-read-md-preview h2,
-.claude-sessions-read-md-preview h3,
-.claude-sessions-read-md-preview h4,
-.claude-sessions-read-md-preview h5,
-.claude-sessions-read-md-preview h6,
-.claude-sessions-read-md-preview hr,
-.claude-sessions-read-md-preview ul,
-.claude-sessions-read-md-preview ol,
-.claude-sessions-read-md-preview blockquote {
-	margin-top: 4px;
-	margin-bottom: 4px;
+	font-family: var(--font-text) !important;
+	font-size: var(--font-text-size) !important;
+	line-height: var(--line-height-normal) !important;
+	color: var(--text-normal) !important;
+	white-space: normal !important;
 }
 
 /* ═══════════════════════════════════════════
@@ -1675,6 +1686,32 @@
 	font-size: var(--font-ui-smaller);
 	color: var(--text-muted);
 	flex-shrink: 0;
+}
+
+.claude-sessions-suggestion-pin {
+	flex-shrink: 0;
+	opacity: 0;
+	color: var(--text-faint);
+	padding: 0 4px;
+	cursor: pointer;
+	transition: opacity 100ms ease, color 100ms ease;
+}
+
+.claude-sessions-suggestion-pin.is-active {
+	opacity: 1;
+	color: var(--text-accent);
+}
+
+.claude-sessions-suggestion-item:hover .claude-sessions-suggestion-pin {
+	opacity: 1;
+}
+
+.claude-sessions-suggestion-pin:hover {
+	color: var(--text-accent);
+}
+
+.claude-sessions-suggestion-item.is-pinned {
+	border-left: 2px solid var(--text-accent);
 }
 
 .claude-sessions-suggestion-line2 {

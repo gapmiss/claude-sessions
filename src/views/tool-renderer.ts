@@ -190,7 +190,7 @@ function renderToolResult(
 		const isMarkdownFile = /\.mdx?$/i.test(filePath);
 
 		if (isMarkdownFile) {
-			renderReadMarkdownToggle(cleaned, lang, resultEl, ctx);
+			renderMarkdownToggle(cleaned, lang, resultEl, ctx);
 		} else {
 			const md = fence(cleaned, lang);
 			const mdContainer = resultEl.createDiv({ cls: 'claude-sessions-read-result' });
@@ -324,20 +324,20 @@ function renderBashInput(block: ToolUseBlock, container: HTMLElement, ctx: Rende
 	MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
 }
 
-function renderReadMarkdownToggle(content: string, lang: string, container: HTMLElement, ctx: RenderContext): void {
+function renderMarkdownToggle(content: string, lang: string, container: HTMLElement, ctx: RenderContext): void {
 	const wrapper = container.createDiv({ cls: 'claude-sessions-read-result claude-sessions-read-md-toggle' });
 
 	const toggleRow = wrapper.createDiv({ cls: 'claude-sessions-read-md-toggle-row' });
 	const codeBtn = toggleRow.createEl('button', {
-		cls: 'claude-sessions-read-md-btn active',
-		text: 'Code',
+		cls: 'claude-sessions-read-md-btn clickable-icon is-active',
 		attr: { 'aria-label': 'Show raw code', 'aria-pressed': 'true' },
 	});
+	setIcon(codeBtn, 'code');
 	const previewBtn = toggleRow.createEl('button', {
-		cls: 'claude-sessions-read-md-btn',
-		text: 'Preview',
+		cls: 'claude-sessions-read-md-btn clickable-icon',
 		attr: { 'aria-label': 'Show rendered Markdown', 'aria-pressed': 'false' },
 	});
+	setIcon(previewBtn, 'eye');
 
 	const codeView = wrapper.createDiv({ cls: 'claude-sessions-read-md-code' });
 	const codeMd = fence(content, lang);
@@ -348,8 +348,8 @@ function renderReadMarkdownToggle(content: string, lang: string, container: HTML
 
 	const setActive = (mode: 'code' | 'preview') => {
 		const isCode = mode === 'code';
-		codeBtn.toggleClass('active', isCode);
-		previewBtn.toggleClass('active', !isCode);
+		codeBtn.toggleClass('is-active', isCode);
+		previewBtn.toggleClass('is-active', !isCode);
 		codeBtn.setAttribute('aria-pressed', String(isCode));
 		previewBtn.setAttribute('aria-pressed', String(!isCode));
 		codeView.toggleClass('claude-sessions-read-md-hidden', !isCode);
@@ -479,9 +479,15 @@ function renderWriteView(block: ToolUseBlock, result: ToolResultBlock | undefine
 
 	const content = String(block.input['content'] || '');
 	const lang = langFromPath(filePath);
-	const md = fence(content, lang);
-	const mdContainer = writeEl.createDiv({ cls: 'claude-sessions-tool-input-code' });
-	MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
+	const isMarkdownFile = /\.mdx?$/i.test(filePath);
+
+	if (isMarkdownFile) {
+		renderMarkdownToggle(content, lang, writeEl, ctx);
+	} else {
+		const md = fence(content, lang);
+		const mdContainer = writeEl.createDiv({ cls: 'claude-sessions-tool-input-code' });
+		MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
+	}
 
 	if (result?.isError) {
 		renderErrorOutput(result, container, ctx);

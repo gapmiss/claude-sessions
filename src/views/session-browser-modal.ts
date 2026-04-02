@@ -1,4 +1,4 @@
-import { App, SuggestModal, Notice, Platform } from 'obsidian';
+import { App, SuggestModal, Notice, Platform, setIcon } from 'obsidian';
 import type ClaudeSessionsPlugin from '../main';
 import { SessionListEntry } from '../types';
 import { expandHome, extractProjectName, basename, shortenPath, projectFromCwd } from '../utils/path-utils';
@@ -130,20 +130,43 @@ export class SessionBrowserModal extends SuggestModal<SessionListEntry> {
 	}
 
 	getSuggestions(query: string): SessionListEntry[] {
-		if (!query) return this.entries;
-		const q = query.toLowerCase();
-		return this.entries.filter((e) => {
-			return e.project.toLowerCase().includes(q)
-				|| (e.cwd?.toLowerCase().includes(q) ?? false)
-				|| e.id.toLowerCase().includes(q);
-		});
+		let results = this.entries;
+		if (query) {
+			const q = query.toLowerCase();
+			results = results.filter((e) => {
+				return e.project.toLowerCase().includes(q)
+					|| (e.cwd?.toLowerCase().includes(q) ?? false)
+					|| e.id.toLowerCase().includes(q);
+			});
+		}
+
+		// Sort pinned sessions to the top, preserving mtime order within each group
+		const pinned = this.plugin.settings.pinnedSessions;
+		const pinnedSet = new Set(pinned);
+		const pinnedEntries = results.filter(e => pinnedSet.has(e.path));
+		const unpinnedEntries = results.filter(e => !pinnedSet.has(e.path));
+		return [...pinnedEntries, ...unpinnedEntries];
 	}
 
 	renderSuggestion(item: SessionListEntry, el: HTMLElement): void {
 		el.addClass('claude-sessions-suggestion-item');
 
+		const isPinned = this.plugin.settings.pinnedSessions.includes(item.path);
+		if (isPinned) el.addClass('is-pinned');
+
 		const line1 = el.createDiv({ cls: 'claude-sessions-suggestion-line1' });
 		line1.createSpan({ cls: 'claude-sessions-suggestion-project', text: item.project });
+
+		// Pin toggle button
+		const pinBtn = line1.createSpan({ cls: `claude-sessions-suggestion-pin clickable-icon${isPinned ? ' is-active' : ''}` });
+		pinBtn.setAttribute('aria-label', isPinned ? 'Unpin session' : 'Pin session');
+		setIcon(pinBtn, 'pin');
+		pinBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			e.preventDefault();
+			this.togglePin(item.path);
+		});
+
 		if (item.date) {
 			line1.createSpan({ cls: 'claude-sessions-suggestion-date', text: item.date });
 		}
@@ -153,6 +176,24 @@ export class SessionBrowserModal extends SuggestModal<SessionListEntry> {
 		const line2Left = pathText ? `${pathText} · ${item.id}` : item.id;
 		line2.createSpan({ cls: 'claude-sessions-suggestion-path', text: line2Left });
 		line2.createSpan({ cls: 'claude-sessions-suggestion-format', text: item.format });
+	}
+
+	private togglePin(path: string): void {
+		const pinned = this.plugin.settings.pinnedSessions;
+		const idx = pinned.indexOf(path);
+		if (idx >= 0) {
+			pinned.splice(idx, 1);
+		} else {
+			pinned.push(path);
+		}
+		this.plugin.saveSettings();
+
+		// Re-render the suggestion list by re-triggering the query
+		// Access the internal inputEl to get current query text
+		const inputEl = this.inputEl;
+		if (inputEl) {
+			inputEl.dispatchEvent(new Event('input'));
+		}
 	}
 
 	async onChooseSuggestion(item: SessionListEntry): Promise<void> {

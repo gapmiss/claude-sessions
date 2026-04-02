@@ -159,6 +159,7 @@ export interface PluginSettings {
 	pinSummaryDashboard: boolean;
 	maxContentWidth: number;
 	debugLevel: 'none' | 'error' | 'warn' | 'info' | 'debug';
+	pinnedSessions: string[];
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -174,6 +175,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	pinSummaryDashboard: false,
 	maxContentWidth: 960,
 	debugLevel: 'warn',
+	pinnedSessions: [],
 };
 
 export interface SessionListEntry {
