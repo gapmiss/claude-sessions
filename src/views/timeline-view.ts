@@ -610,6 +610,7 @@ expandAll(): void {
 		openTools: Set<string>;
 		openToolGroups: Set<string>;
 		expandedText: Set<string>;
+		previewToggles: Set<string>;
 		scrollTop: number;
 	} {
 		const collapsedTurns = new Set<number>();
@@ -657,9 +658,21 @@ expandAll(): void {
 			}
 		}
 
+		// Markdown preview toggles in "preview" mode: keyed by "turnIndex-toggleIndex"
+		const previewToggles = new Set<string>();
+		for (let t = 0; t < turnEls.length; t++) {
+			const toggles = turnEls[t].querySelectorAll('.claude-sessions-read-md-toggle');
+			for (let m = 0; m < toggles.length; m++) {
+				const codeView = toggles[m].querySelector('.claude-sessions-read-md-code');
+				if (codeView?.hasClass('claude-sessions-read-md-hidden')) {
+					previewToggles.add(`${t}-${m}`);
+				}
+			}
+		}
+
 		const scrollTop = this.timelineEl?.scrollTop ?? 0;
 
-		return { collapsedTurns, summaryOpen, heroesPinned, openTools, openToolGroups, expandedText, scrollTop };
+		return { collapsedTurns, summaryOpen, heroesPinned, openTools, openToolGroups, expandedText, previewToggles, scrollTop };
 	}
 
 	/** Restore full UI state after re-render. */
@@ -727,6 +740,18 @@ expandAll(): void {
 						btn.textContent = 'Show less';
 						(btn as HTMLElement).setAttribute('aria-expanded', 'true');
 					}
+				}
+			}
+		}
+
+		// Restore markdown preview toggles (click the preview button to trigger lazy render)
+		for (const key of state.previewToggles) {
+			const [t, m] = key.split('-').map(Number);
+			if (t < turnEls.length) {
+				const toggles = turnEls[t].querySelectorAll('.claude-sessions-read-md-toggle');
+				if (m < toggles.length) {
+					const previewBtn = toggles[m].querySelector('.claude-sessions-read-md-btn:last-child') as HTMLElement | null;
+					previewBtn?.click();
 				}
 			}
 		}
