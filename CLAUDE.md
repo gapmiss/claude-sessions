@@ -70,18 +70,17 @@ Audit results: `@AUDIT-2026-04-01.md`
 ## Session State
 <!-- DO NOT edit this section manually. It is managed exclusively by /wrap SKILL. -->
 <!-- auto-updated by /wrap -->
-- **Last session**: 2026-04-01
-- **Goal**: Comprehensive audit + CLAUDE.md restructuring
-- **Summary**: Completed full audit (dead code, security, JSONL resilience, Obsidian rules). Found 10 unused constants, duplicate basename(), broken ESLint dep, parser state save/restore gap. Split CLAUDE.md into slim version + ARCHITECTURE.md + GOTCHAS.md + ROADMAP.md to reduce per-turn token overhead.
+- **Last session**: 2026-04-01 20:30
+- **Goal**: Fix audit items — slash command stdout display, dead code removal, doc restructuring
+- **Summary**: Implemented slash command stdout capture for system-type local commands (`/status`, `/rename`, `/doctor`, etc.) so their output displays inline. Fixed bogus "Slash output" blocks caused by `<local-command-caveat>` records being misidentified as skill expansions. Committed all audit fixes: dead code removal (duplicate `basename()`, unused constants, dead `guessFormat()`), greedy regex fix, sub-agent state save/restore, code quality improvements, and CLAUDE.md restructuring into slim version + reference docs.
 - **Decisions**:
-  - CLAUDE.md kept to ~60 lines — only conventions, commands, file tree
-  - Detailed architecture/parser docs moved to ARCHITECTURE.md (@ referenced on demand)
-  - Gotchas moved to GOTCHAS.md — not needed every turn
-  - Roadmap moved to ROADMAP.md
+  - System record stdout captured via same `pendingCommand` mechanism as user records — avoids duplicating logic
+  - Caveat filtering added to `extractSkillExpansionText` rather than the isMeta check — more precise, doesn't affect other isMeta handling
+  - All audit fixes committed together as one cohesive commit rather than split
 - **Next steps**:
-  - Fix ESLint dependency (`npm i -D @eslint/json`)
-  - Address high/medium priority audit items
-  - Incremental parsing/rendering for large sessions
+  - Verify ESLint works with new `@eslint/json` dependency
+  - Address remaining audit items (incremental parsing for large sessions)
+  - Test slash command stdout display with more command types
 - **Blockers**: None
 - **Branch**: main
 - **Uncommitted**: Clean
