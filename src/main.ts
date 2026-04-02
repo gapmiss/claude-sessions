@@ -96,7 +96,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 			callback: () => this.exportActiveSessionHTML(),
 		});
 
-this.addCommand({
+		this.addCommand({
 			id: 'expand-all',
 			name: 'Expand all turns',
 			callback: () => {
@@ -146,8 +146,8 @@ this.addCommand({
 		});
 
 		this.addCommand({
-			id: 'copy-resume-command',
-			name: 'Copy resume command',
+			id: 'copy-resume',
+			name: 'Copy resume to clipboard',
 			checkCallback: (checking: boolean) => {
 				const view = this.getActiveTimelineView();
 				const id = view?.getSession()?.metadata.id;
@@ -191,7 +191,7 @@ this.addCommand({
 		}
 	}
 
-	async onunload(): Promise<void> {
+	onunload(): void {
 		// Stop all active file watchers before plugin unloads
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TIMELINE);
 		for (const leaf of leaves) {
@@ -306,7 +306,7 @@ this.addCommand({
 
 		try {
 			await exportToMarkdown(this.app, session, this.settings);
-			new Notice('Session exported as markdown.');
+			new Notice('Session exported as Markdown.');
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			new Notice(`Export failed: ${msg}`);

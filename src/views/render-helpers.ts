@@ -11,7 +11,7 @@ export interface RenderContext {
 export const COLLAPSE_THRESHOLD = 10;
 
 /** Map file extensions to markdown fence language identifiers. */
-export const EXT_TO_LANG: Record<string, string> = {
+const EXT_TO_LANG: Record<string, string> = {
 	ts: 'typescript', tsx: 'tsx', js: 'javascript', jsx: 'jsx',
 	py: 'python', rb: 'ruby', rs: 'rust', go: 'go',
 	java: 'java', kt: 'kotlin', cs: 'csharp', cpp: 'cpp', c: 'c', h: 'c',

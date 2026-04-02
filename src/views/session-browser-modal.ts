@@ -107,7 +107,7 @@ async function buildEntry(
 		entry: {
 			id: cached.sessionId || basename(filePath).replace(/\.\w+$/, ''),
 			project,
-			format: guessFormat(filePath),
+			format: 'claude',
 			date,
 			path: filePath,
 			cwd: cached.cwd,
@@ -173,10 +173,6 @@ export class SessionBrowserModal extends SuggestModal<SessionListEntry> {
 			new Notice(`Failed to load session: ${msg}`);
 		}
 	}
-}
-
-function guessFormat(filePath: string): 'claude' {
-	return 'claude';
 }
 
 /**

@@ -145,11 +145,3 @@ export function isInterruptionMessage(msg: RecordMessage | undefined): boolean {
 	}
 	return false;
 }
-
-/** Extract the basename of a path without the .jsonl extension. */
-export function basename(path: string): string {
-	if (!path) return '';
-	const parts = path.replace(/\\/g, '/').split('/');
-	const last = parts[parts.length - 1] || '';
-	return last.replace(/\.jsonl$/, '');
-}

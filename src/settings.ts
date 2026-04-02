@@ -42,6 +42,7 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Add session directory')
+			// eslint-disable-next-line obsidianmd/ui/sentence-case -- "Claude Code" is a proper noun
 			.setDesc('Path to a directory containing Claude Code session files (supports ~ for home).')
 			.addText(text => {
 				addDirInput = text;

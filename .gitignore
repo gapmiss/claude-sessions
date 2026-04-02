@@ -28,3 +28,5 @@ data.json
 .claude
 
 copy-to-vaults.sh
+
+AUDIT-*.md

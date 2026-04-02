@@ -3,7 +3,7 @@ import type { Session, SessionMetadata, SessionStats } from '../types';
 import { type RenderContext, makeClickable, addCopyButton } from './render-helpers';
 
 /** Render the session summary panel (collapsible) above the timeline. */
-export function renderSummary(session: Session, container: HTMLElement, ctx: RenderContext): void {
+export function renderSummary(session: Session, container: HTMLElement, _ctx: RenderContext): void {
 	const { metadata, stats } = session;
 
 	// Pinned heroes bar — direct child of scroll container for position:sticky
@@ -187,7 +187,6 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 	addCopyButton(uriRow, obsidianUri, 'Copy URI');
 	addCopyButton(uriRow, mdLink, 'Copy markdown link');
 
-	void ctx; // ctx reserved for future use
 }
 
 // ═══════════════════════════════════════

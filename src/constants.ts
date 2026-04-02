@@ -28,9 +28,6 @@ export const SUBAGENT_TOOL_NAMES = new Set(['Agent', 'Task']);
 // ── Special model values ─────────────────────────────────────
 export const MODEL_SYNTHETIC = '<synthetic>';
 
-// ── Queue-operation subtypes ─────────────────────────────────
-export const OP_ENQUEUE = 'enqueue';
-
 // ── System record subtypes ───────────────────────────────────
 export const SUBTYPE_LOCAL_COMMAND = 'local_command';
 
@@ -38,20 +35,11 @@ export const SUBTYPE_LOCAL_COMMAND = 'local_command';
 // STRUCTURAL ASSUMPTION: these tags are parsed via regex (see RE_* constants below).
 // If Claude Code changes its XML schema, update both the tag strings and regexes.
 export const TAG_TASK_NOTIFICATION = '<task-notification>';
-export const TAG_COMMAND_NAME_OPEN = '<command-name>';
-export const TAG_COMMAND_NAME_CLOSE = '</command-name>';
-export const TAG_COMMAND_ARGS_OPEN = '<command-args>';
-export const TAG_COMMAND_ARGS_CLOSE = '</command-args>';
 export const TAG_COMMAND_MESSAGE_OPEN = '<command-message>';
-export const TAG_COMMAND_MESSAGE_CLOSE = '</command-message>';
-export const TAG_LOCAL_STDOUT_OPEN = '<local-command-stdout>';
-export const TAG_LOCAL_CAVEAT_OPEN = '<local-command-caveat>';
-export const TAG_LOCAL_STDERR_OPEN = '<local-command-stderr>';
 
 // ── XML tag regexes (reusable, compiled once) ────────────────
 export const RE_COMMAND_NAME = /<command-name>(\/[\w:./-]+)<\/command-name>/;
 export const RE_COMMAND_ARGS = /<command-args>([\s\S]*?)<\/command-args>/;
-export const RE_COMMAND_MESSAGE = /<command-message>([\s\S]*?)<\/command-message>/;
 export const RE_EXIT_COMMAND = /^(?:<command-message>[\s\S]*?<\/command-message>\s*)?<command-name>\/exit<\/command-name>/;
 export const RE_SLASH_COMMAND = /^(?:<command-message>[\s\S]*?<\/command-message>\s*)?<command-name>(\/[\w:./-]+)<\/command-name>/;
 export const RE_LOCAL_STDOUT = /^<local-command-stdout>/;
@@ -61,7 +49,7 @@ export const RE_SYSTEM_REMINDER = /<system-reminder>[\s\S]*?<\/system-reminder>/
 export const RE_COMMAND_MESSAGE_STRIP = /<command-message>[\s\S]*?<\/command-message>/g;
 export const RE_COMMAND_ARGS_STRIP = /<command-args>[\s\S]*?<\/command-args>/g;
 export const RE_IMAGE_REF = /\[Image:\s*source:\s*.+?\]/gi;
-export const RE_TOOL_USE_ERROR = /^<tool_use_error>([\s\S]*)<\/tool_use_error>\s*$/;
+export const RE_TOOL_USE_ERROR = /^<tool_use_error>([\s\S]*?)<\/tool_use_error>\s*$/;
 export const RE_LOCAL_STDOUT_TAGS = /<\/?local-command-stdout>/g;
 
 // ── User bash command tags ──────────────────────────────────

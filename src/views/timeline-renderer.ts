@@ -590,10 +590,11 @@ class ImagePreviewModal extends Modal {
 		});
 		downloadBtn.addEventListener('click', () => {
 			const ext = this.mediaType.split('/')[1] || 'png';
-			const a = document.createElement('a');
-			a.href = this.dataUri;
-			a.download = `attachment.${ext}`;
+			const a = contentEl.createEl('a', {
+				attr: { href: this.dataUri, download: `attachment.${ext}` },
+			});
 			a.click();
+			a.remove();
 		});
 
 		const copyBtn = actions.createEl('button', {
@@ -663,10 +664,11 @@ class MermaidPreviewModal extends Modal {
 			const svgString = new XMLSerializer().serializeToString(this.svgEl);
 			const blob = new Blob([svgString], { type: 'image/svg+xml' });
 			const url = URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = 'diagram.svg';
+			const a = contentEl.createEl('a', {
+				attr: { href: url, download: 'diagram.svg' },
+			});
 			a.click();
+			a.remove();
 			URL.revokeObjectURL(url);
 		});
 

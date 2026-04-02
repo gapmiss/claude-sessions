@@ -4,7 +4,7 @@ import {
 	ToolUseBlock, ToolResultBlock, ImageBlock, AnsiBlock, CompactionBlock, SlashCommandBlock,
 	BashCommandBlock, HookEvent, SessionStats, SubAgentSession,
 } from '../types';
-import { extractProjectName, projectFromCwd, dirname } from '../utils/path-utils';
+import { extractProjectName, projectFromCwd, dirname, basename } from '../utils/path-utils';
 import {
 	RT_USER, RT_ASSISTANT, RT_PROGRESS, RT_QUEUE_OPERATION, RT_FILE_HISTORY, RT_SUMMARY, RT_SYSTEM,
 	SKIP_RECORD_TYPES,
@@ -25,7 +25,6 @@ import { parseTaskNotification } from './claude-subagent';
 import { Logger } from '../utils/logger';
 import {
 	parseContentBlock, extractToolResultBlocks, isInterruptionMessage,
-	basename,
 } from './claude-content';
 
 interface ClaudeRecord {
@@ -446,7 +445,7 @@ export class ClaudeParser extends BaseParser {
 
 		return {
 			metadata: {
-				id: sessionId || basename(filePath),
+				id: sessionId || basename(filePath).replace(/\.jsonl$/, ''),
 				format: 'claude',
 				project,
 				cwd,
@@ -521,15 +520,25 @@ export class ClaudeParser extends BaseParser {
 				if (record.subtype === SUBTYPE_LOCAL_COMMAND && record.content) {
 					const blocks = this.extractSystemContent(record);
 					if (blocks.length > 0) {
-						flushAssistant();
-						const ts = this.formatTimestamp(record.timestamp);
-						turns.push({
-							index: turns.length,
-							role: 'user',
-							timestamp: ts,
-							endTimestamp: ts,
-							contentBlocks: blocks,
-						});
+						// Merge stdout output with preceding slash command turn
+						if (this._pendingCommandResult) {
+							this._pendingCommandResult = false;
+							const lastTurn = turns[turns.length - 1];
+							if (lastTurn?.role === 'user') {
+								for (const b of blocks) lastTurn.contentBlocks.push(b);
+								if (record.timestamp) lastTurn.endTimestamp = this.formatTimestamp(record.timestamp);
+							}
+						} else {
+							flushAssistant();
+							const ts = this.formatTimestamp(record.timestamp);
+							turns.push({
+								index: turns.length,
+								role: 'user',
+								timestamp: ts,
+								endTimestamp: ts,
+								contentBlocks: blocks,
+							});
+						}
 					}
 				}
 				// Other system records (hook results, metadata) are non-content — skip
@@ -774,11 +783,20 @@ export class ClaudeParser extends BaseParser {
 			}
 		}
 
-		// Save/restore pendingCommand state so sub-agent parsing doesn't interfere
+		// Save/restore all pending state so sub-agent parsing doesn't corrupt the parent
 		const savedPending = this.pendingCommand;
+		const savedSlash = this._pendingSlashCommand;
+		const savedBash = this._pendingBashCommand;
+		const savedResult = this._pendingCommandResult;
 		this.pendingCommand = null;
+		this._pendingSlashCommand = null;
+		this._pendingBashCommand = null;
+		this._pendingCommandResult = false;
 		const turns = this.buildTurns(ordered);
 		this.pendingCommand = savedPending;
+		this._pendingSlashCommand = savedSlash;
+		this._pendingBashCommand = savedBash;
+		this._pendingCommandResult = savedResult;
 
 		return {
 			agentId,
@@ -833,9 +851,26 @@ export class ClaudeParser extends BaseParser {
 		const content = record.content ?? '';
 		const timestamp = record.timestamp;
 
-		// Skip stdout/caveat/stderr follow-up records (they follow the command record)
-		if (RE_LOCAL_STDOUT.test(content) || RE_LOCAL_CAVEAT.test(content)
-			|| RE_LOCAL_STDERR.test(content)) {
+		// Skip caveat/stderr follow-up records
+		if (RE_LOCAL_CAVEAT.test(content) || RE_LOCAL_STDERR.test(content)) {
+			return [];
+		}
+
+		// Capture stdout from system records (follows a command record)
+		if (RE_LOCAL_STDOUT.test(content)) {
+			if (this.pendingCommand) {
+				const label = this.pendingCommand;
+				this.pendingCommand = null;
+				const stdout = content.replace(RE_LOCAL_STDOUT_TAGS, '');
+				if (ANSI_COMMANDS.has(label)) {
+					this._pendingCommandResult = true;
+					return [{ type: 'ansi', label, text: stdout, timestamp } as AnsiBlock];
+				}
+				if (stdout.trim()) {
+					this._pendingCommandResult = true;
+					return [{ type: 'text', text: stdout.trim(), timestamp } as TextBlock];
+				}
+			}
 			return [];
 		}
 
@@ -846,6 +881,9 @@ export class ClaudeParser extends BaseParser {
 		const cmd = cmdMatch[1];
 		// /exit is handled separately (consolidated into session ended message)
 		if (cmd === '/exit') return [];
+
+		// Track pending command so stdout follow-up can be captured
+		this.pendingCommand = cmd;
 
 		// Extract args if present
 		const argsMatch = content.match(RE_COMMAND_ARGS);
@@ -975,10 +1013,14 @@ export class ClaudeParser extends BaseParser {
 	/** Extract text content from an isMeta user record (skill expansion prompt). */
 	private extractSkillExpansionText(record: ClaudeRecord): string | null {
 		const content = record.message?.content;
+		// Caveat records are not skill expansions — skip them
+		if (typeof content === 'string' && RE_LOCAL_CAVEAT.test(content)) return null;
 		if (Array.isArray(content)) {
 			const texts: string[] = [];
 			for (const block of content as ClaudeContentBlock[]) {
 				if (block.type === BT_TEXT && block.text?.trim()) {
+					// Skip caveat blocks
+					if (RE_LOCAL_CAVEAT.test(block.text)) continue;
 					// Strip system-reminder tags injected by Claude Code
 					const cleaned = block.text.replace(RE_SYSTEM_REMINDER, '').trim();
 					if (cleaned) texts.push(cleaned);

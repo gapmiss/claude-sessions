@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseContentBlock, extractToolResultBlocks, isInterruptionMessage, basename } from '../src/parsers/claude-content';
+import { parseContentBlock, extractToolResultBlocks, isInterruptionMessage } from '../src/parsers/claude-content';
 
 // ─── parseContentBlock ─────────────────────────────────────────
 
@@ -248,27 +248,5 @@ describe('isInterruptionMessage', () => {
 
 	it('rejects undefined message', () => {
 		expect(isInterruptionMessage(undefined)).toBe(false);
-	});
-});
-
-// ─── basename ──────────────────────────────────────────────────
-
-describe('basename', () => {
-	it('extracts filename without .jsonl extension', () => {
-		expect(basename('/home/user/.claude/sessions/abc.jsonl')).toBe('abc');
-	});
-
-	it('handles Windows paths', () => {
-		expect(basename('C:\\Users\\dev\\.claude\\sessions\\def.jsonl')).toBe('def');
-	});
-
-	it('returns empty string for null/undefined input', () => {
-		expect(basename(null as unknown as string)).toBe('');
-		expect(basename(undefined as unknown as string)).toBe('');
-		expect(basename('')).toBe('');
-	});
-
-	it('preserves non-.jsonl extensions', () => {
-		expect(basename('/path/to/file.json')).toBe('file.json');
 	});
 });

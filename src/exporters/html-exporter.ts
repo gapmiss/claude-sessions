@@ -367,7 +367,6 @@ ${script}
 		let savePath: string | null = null;
 
 		try {
-			// eslint-disable-next-line @typescript-eslint/no-require-imports
 			const electron = require('electron');
 			const dialog = electron.remote?.dialog;
 			if (dialog) {
@@ -392,7 +391,6 @@ ${script}
 			savePath = `${dir}/${safeName}.html`;
 		}
 
-		// eslint-disable-next-line @typescript-eslint/no-require-imports
 		const fs = require('fs') as typeof import('fs');
 		fs.writeFileSync(savePath, html, 'utf-8');
 
