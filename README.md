@@ -3,7 +3,7 @@
 An [Obsidian](https://obsidian.md/) plugin for viewing [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions. Browse, search, analyze, and export your Claude Code sessions as interactive timelines with live watch and rich tool rendering — right alongside your notes.
 
 > [!WARNING]
-> **v0.1.0** — Desktop-only. Active development; expect frequent changes.
+> **v0.2.2** — Desktop-only. Active development; expect frequent changes.
 
 <!-- ![Claude Sessions — dark mode](screenshots/hero-dark.png) -->
 
@@ -15,7 +15,6 @@ An [Obsidian](https://obsidian.md/) plugin for viewing [Claude Code](https://doc
 
 - All turns rendered in a scrollable timeline — no pagination, no lazy loading
 - Collapsible turn headers with role labels (USER / CLAUDE) and colored left borders
-- Scroll-based fade-in via `IntersectionObserver`
 - Progress bar with per-turn dots positioned by real timestamps
 - Content filter menu: hierarchical toggles for User (text, images) and Assistant (text, thinking, tool calls, tool results)
 
@@ -133,34 +132,34 @@ With a session open, run **Export session to Markdown** or **Export session to H
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| Browse sessions | Open a session from the fuzzy search modal |
-| Search sessions | Open the cross-session search panel |
-| Search in session | Search within the active session |
-| Import session file | Open a session from file path or drag-and-drop |
-| Export session to Markdown | Export as Markdown with frontmatter |
-| Export session to HTML | Export as self-contained HTML |
-| Expand all | Expand all collapsed turns |
-| Collapse all | Collapse all turns |
-| Refresh session | Re-read and re-render the current session |
-| Toggle live watch | Start/stop watching the session file for changes |
+| Command                    | Description                                      |
+| -------------------------- | ------------------------------------------------ |
+| Browse sessions            | Open a session from the fuzzy search modal       |
+| Search sessions            | Open the cross-session search panel              |
+| Search in session          | Search within the active session                 |
+| Import session file        | Open a session from file path or drag-and-drop   |
+| Export session to Markdown | Export as Markdown with frontmatter              |
+| Export session to HTML     | Export as self-contained HTML                    |
+| Expand all                 | Expand all collapsed turns                       |
+| Collapse all               | Collapse all turns                               |
+| Refresh session            | Re-read and re-render the current session        |
+| Toggle live watch          | Start/stop watching the session file for changes |
 
 ---
 
 ## Settings
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Session directories | `~/.claude/projects` | Directories to scan for JSONL files (supports `~`) |
-| Export folder | `Claude sessions` | Vault folder for exported files |
-| Show thinking blocks | On | Display thinking/reasoning blocks |
-| Show tool calls | On | Display tool use blocks |
-| Show tool results | On | Display tool result output |
-| Show hook icons | On | Display hook indicators on tool calls |
-| Tool group threshold | 4 | Consecutive tool calls above this collapse into a group |
-| Auto-scroll on update | On | Scroll to bottom on live watch changes |
-| Notify on pending tool | Off | System notification when a tool call awaits permission |
+| Setting                | Default              | Description                                             |
+| ---------------------- | -------------------- | ------------------------------------------------------- |
+| Session directories    | `~/.claude/projects` | Directories to scan for JSONL files (supports `~`)      |
+| Export folder          | `Claude sessions`    | Vault folder for exported files                         |
+| Show thinking blocks   | On                   | Display thinking/reasoning blocks                       |
+| Show tool calls        | On                   | Display tool use blocks                                 |
+| Show tool results      | On                   | Display tool result output                              |
+| Show hook icons        | On                   | Display hook indicators on tool calls                   |
+| Tool group threshold   | 4                    | Consecutive tool calls above this collapse into a group |
+| Auto-scroll on update  | On                   | Scroll to bottom on live watch changes                  |
+| Notify on pending tool | Off                  | System notification when a tool call awaits permission  |
 
 ---
 
@@ -197,21 +196,6 @@ npx eslint .         # lint with eslint-plugin-obsidianmd
 - [eslint-plugin-obsidianmd](https://www.npmjs.com/package/eslint-plugin-obsidianmd) for Obsidian-specific linting
 - Vitest for testing
 - Obsidian API (desktop only — requires Node.js `fs` access)
-
----
-
-## Roadmap
-
-- [ ] Incremental parsing — only parse new lines on reload
-- [ ] Incremental DOM rendering — append new turns instead of full re-render
-- [ ] Progress indicator for large file imports (10MB+)
-- [ ] Skip filtered blocks during navigation
-- [ ] Full-resolution tool result images (load from disk instead of downscaled base64)
-- [ ] Linked mentions — link tool file paths to vault files
-- [ ] Tag/bookmark individual turns
-- [ ] Session comparison — side-by-side diff
-- [ ] Semantic search via embeddings
-- [ ] Mobile support
 
 ---
 
