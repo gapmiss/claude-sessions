@@ -223,6 +223,59 @@ export class TimelineView extends ItemView {
 			}
 			const session = parser.parse(content, filePath);
 			await resolveSubAgentSessions(session, readFileContent);
+
+			const prevCount = this.session?.turns.length ?? 0;
+			const newCount = session.turns.length;
+
+			// Incremental DOM path: if the session only grew (append-only),
+			// update just what changed instead of tearing down the whole DOM.
+			if (this.renderer && this.observer && prevCount > 0 && newCount >= prevCount) {
+				// Refresh the last existing turn — it may have gained content
+				// (streaming completion) since the previous render.
+				this.renderer.refreshLastTurn(session.turns[prevCount - 1]);
+				// Re-observe the replaced element (the old DOM node was auto-unobserved on removal)
+				const refreshedEls = this.renderer.getTurnElements();
+				this.observer.observe(refreshedEls[prevCount - 1]);
+
+				// Append genuinely new turns
+				if (newCount > prevCount) {
+					const appended = this.renderer.appendTurns(session.turns.slice(prevCount));
+
+					// Observe new elements for scroll tracking
+					for (const el of appended) {
+						this.observer.observe(el);
+					}
+
+					// Apply current filter state to new turns only
+					for (const el of appended) {
+						this.applyFilters(el);
+					}
+				}
+
+				// Update session reference and stats
+				this.session = session;
+				this.computeTiming();
+				if (newCount > prevCount) {
+					this.activeTurnIndex = session.turns.length - 1;
+				}
+				this.renderer.refreshSummary(session);
+				this.renderTurnDots();
+				this.updateControls();
+
+				// Auto-scroll to bottom (matches loadSession behavior)
+				if (this.settings.autoScrollOnUpdate && this.timelineEl) {
+					requestAnimationFrame(() => {
+						if (this.timelineEl) {
+							this.timelineEl.scrollTop = this.timelineEl.scrollHeight;
+						}
+					});
+				}
+
+				this.checkPendingToolNotification(session);
+				return;
+			}
+
+			// Fallback: full re-render (session shrank, first load, etc.)
 			this.loadSession(session, { scrollToEnd: this.settings.autoScrollOnUpdate });
 			this.checkPendingToolNotification(session);
 		} catch (e) {
@@ -1030,64 +1083,67 @@ expandAll(): void {
 		}
 	}
 
-	private applyFilters(): void {
-		if (!this.timelineEl) return;
+	private applyFilters(root?: HTMLElement): void {
+		const scope = root ?? this.timelineEl;
+		if (!scope) return;
 		const f = this.filters;
 
 		// ── User section (parent toggle) ──
-		this.timelineEl.querySelectorAll('.claude-sessions-role-user').forEach(el => {
+		scope.querySelectorAll('.claude-sessions-role-user').forEach(el => {
 			(el as HTMLElement).toggleClass('claude-sessions-filtered', !f.user);
 		});
 
 		// User children (only matter when parent is on)
 		if (f.user) {
-			this.timelineEl.querySelectorAll('.claude-sessions-user-text').forEach(el => {
+			scope.querySelectorAll('.claude-sessions-user-text').forEach(el => {
 				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
 				wrapper?.toggleClass('claude-sessions-filtered', !f.userText);
 			});
-			this.timelineEl.querySelectorAll('.claude-sessions-slash-command-block').forEach(el => {
+			scope.querySelectorAll('.claude-sessions-slash-command-block').forEach(el => {
 				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
 				wrapper?.toggleClass('claude-sessions-filtered', !f.userText);
 			});
-			this.timelineEl.querySelectorAll('.claude-sessions-bash-command-block').forEach(el => {
+			scope.querySelectorAll('.claude-sessions-bash-command-block').forEach(el => {
 				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
 				wrapper?.toggleClass('claude-sessions-filtered', !f.userText);
 			});
-			this.timelineEl.querySelectorAll('.claude-sessions-image-thumbnail').forEach(el => {
+			scope.querySelectorAll('.claude-sessions-image-thumbnail').forEach(el => {
 				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
 				wrapper?.toggleClass('claude-sessions-filtered', !f.userImages);
 			});
 		}
 
 		// ── Assistant section (parent toggle) ──
-		this.timelineEl.querySelectorAll('.claude-sessions-role-assistant').forEach(el => {
+		scope.querySelectorAll('.claude-sessions-role-assistant').forEach(el => {
 			(el as HTMLElement).toggleClass('claude-sessions-filtered', !f.assistant);
 		});
 
 		// Assistant children (only matter when parent is on)
 		if (f.assistant) {
-			this.timelineEl.querySelectorAll('.claude-sessions-assistant-text').forEach(el => {
+			scope.querySelectorAll('.claude-sessions-assistant-text').forEach(el => {
 				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
 				wrapper?.toggleClass('claude-sessions-filtered', !f.assistantText);
 			});
-			this.timelineEl.querySelectorAll('.claude-sessions-thinking-block').forEach(el => {
+			scope.querySelectorAll('.claude-sessions-thinking-block').forEach(el => {
 				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
 				wrapper?.toggleClass('claude-sessions-filtered', !f.thinking);
 			});
-			this.timelineEl.querySelectorAll('.claude-sessions-tool-block, .claude-sessions-tool-group').forEach(el => {
+			scope.querySelectorAll('.claude-sessions-tool-block, .claude-sessions-tool-group').forEach(el => {
 				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
 				wrapper?.toggleClass('claude-sessions-filtered', !f.toolCalls);
 			});
-			this.timelineEl.querySelectorAll('.claude-sessions-tool-result').forEach(el => {
+			scope.querySelectorAll('.claude-sessions-tool-result').forEach(el => {
 				(el as HTMLElement).toggleClass('claude-sessions-filtered', !f.toolResults);
 			});
 		}
 
-		// Update filter button appearance
-		const allOn = f.user && f.assistant && f.userText && f.userImages
-			&& f.assistantText && f.thinking && f.toolCalls && f.toolResults;
-		this.controlsEl?.querySelector('.claude-sessions-filter-btn')
-			?.toggleClass('claude-sessions-filter-active', !allOn);
+		// Update filter button appearance (only when running on full timeline)
+		if (!root) {
+			const allOn = f.user && f.assistant && f.userText && f.userImages
+				&& f.assistantText && f.thinking && f.toolCalls && f.toolResults;
+			this.controlsEl?.querySelector('.claude-sessions-filter-btn')
+				?.toggleClass('claude-sessions-filter-active', !allOn);
+		}
 	}
 
 	private updateControls(): void {

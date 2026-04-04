@@ -70,6 +70,63 @@ export class TimelineRenderer {
 	}
 
 	/**
+	 * Append only new turns to the existing timeline without clearing the container.
+	 * Returns the newly created DOM elements.
+	 */
+	appendTurns(newTurns: Turn[]): HTMLElement[] {
+		const appended: HTMLElement[] = [];
+		for (const turn of newTurns) {
+			const el = this.renderTurn(turn);
+			this.container.appendChild(el);
+			this.turnEls.push(el);
+			appended.push(el);
+		}
+		// MutationObserver already covers new nodes for mermaid, but process
+		// any that arrived synchronously (Obsidian's MarkdownRenderer may
+		// resolve mermaid blocks before the observer fires).
+		this.processMermaidBlocks(this.container);
+		return appended;
+	}
+
+	/**
+	 * Re-render the last turn element in place (e.g. when streaming adds content).
+	 * Preserves the rest of the timeline untouched.
+	 */
+	refreshLastTurn(turn: Turn): void {
+		const idx = this.turnEls.length - 1;
+		if (idx < 0) return;
+		const oldEl = this.turnEls[idx];
+		const newEl = this.renderTurn(turn);
+		this.container.replaceChild(newEl, oldEl);
+		this.turnEls[idx] = newEl;
+	}
+
+	/**
+	 * Rebuild just the summary/pinned-heroes panel without touching turn DOM.
+	 * Called during incremental reload when stats have changed.
+	 */
+	refreshSummary(session: Session): void {
+		// Remove existing summary elements
+		this.container.querySelector('.claude-sessions-pinned-heroes')?.remove();
+		this.container.querySelector('.claude-sessions-summary')?.remove();
+
+		// Re-render summary at the top (before the first turn element)
+		const firstTurn = this.turnEls[0];
+		if (firstTurn) {
+			// Create a temporary fragment, render into it, then insert before first turn
+			const frag = document.createDocumentFragment();
+			const tempContainer = document.createElement('div');
+			renderSummary(session, tempContainer, this.ctx);
+			while (tempContainer.firstChild) {
+				frag.appendChild(tempContainer.firstChild);
+			}
+			this.container.insertBefore(frag, firstTurn);
+		} else {
+			renderSummary(session, this.container, this.ctx);
+		}
+	}
+
+	/**
 	 * Clean up the MutationObserver for mermaid detection.
 	 * Called by the view on close.
 	 */
