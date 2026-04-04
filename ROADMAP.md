@@ -3,7 +3,7 @@
 ## Near-term
 
 - [ ] Incremental parsing — track byte/line offset, only parse new lines on reload
-- [ ] Incremental DOM rendering — append new turns instead of full re-render
+- [x] Incremental DOM rendering — append new turns instead of full re-render
 - [ ] Progress bar/notice for large file imports (10MB+)
 - [x] ~~Search/filter sessions by project, date range, or model~~ — cross-session keyword search implemented
 - [ ] Semantic search — embeddings-based search for concept-level queries
