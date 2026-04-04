@@ -90,6 +90,7 @@ export interface SubAgentSession {
 	prompt: string;
 	turns: Turn[];
 	isBackground?: boolean;
+	durationMs?: number;
 }
 
 export interface ToolResultImage {

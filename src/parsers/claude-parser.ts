@@ -176,7 +176,7 @@ export class ClaudeParser extends BaseParser {
 		const enrichedResults = new Map<string, Record<string, unknown>>();
 
 		// Collect task-notification results for background agents (keyed by tool-use-id)
-		const taskNotifications = new Map<string, { taskId: string; toolUseId: string; result: string; summary: string }>();
+		const taskNotifications = new Map<string, { taskId: string; toolUseId: string; result: string; summary: string; durationMs?: number }>();
 
 		// First pass: parse all records and extract metadata
 		for (const line of lines) {
@@ -341,6 +341,7 @@ export class ClaudeParser extends BaseParser {
 							prompt: String(block.input['prompt'] || ''),
 							turns: [],
 							isBackground: true,
+							durationMs: tn.durationMs,
 						};
 					}
 					// Replace the "Async agent launched successfully" tool_result
@@ -348,6 +349,28 @@ export class ClaudeParser extends BaseParser {
 					if (block.type === BT_TOOL_RESULT && taskNotifications.has(block.toolUseId)) {
 						block.content = taskNotifications.get(block.toolUseId)!.result;
 					}
+				}
+			}
+		}
+
+		// Ensure all Agent/Task blocks have a subAgentSession for consistent
+		// rendering (PROMPT/OUTPUT layout vs raw JSON INPUT/RESULT).
+		// Covers: background agents (run_in_background), foreground agents
+		// without agent_progress records, and any other gaps.
+		for (const turn of turns) {
+			for (const block of turn.contentBlocks) {
+				if (block.type === BT_TOOL_USE
+					&& SUBAGENT_TOOL_NAMES.has(block.name)
+					&& !block.subAgentSession) {
+					const isBg = block.input['run_in_background'] === true;
+					block.subAgentSession = {
+						agentId: '',
+						description: String(block.input['description'] || ''),
+						subagentType: String(block.input['subagent_type'] || ''),
+						prompt: String(block.input['prompt'] || ''),
+						turns: [],
+						isBackground: isBg || undefined,
+					};
 				}
 			}
 		}

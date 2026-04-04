@@ -62,6 +62,7 @@ export const RE_TN_TOOL_USE_ID = /<tool-use-id>([\s\S]*?)<\/tool-use-id>/;
 export const RE_TN_TASK_ID = /<task-id>([\s\S]*?)<\/task-id>/;
 export const RE_TN_RESULT = /<result>([\s\S]*?)<\/result>/;
 export const RE_TN_SUMMARY = /<summary>([\s\S]*?)<\/summary>/;
+export const RE_TN_DURATION = /<duration_ms>([\s\S]*?)<\/duration_ms>/;
 
 // ── Display strings ──────────────────────────────────────────
 export const TEXT_SESSION_ENDED = '*Session ended*';

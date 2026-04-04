@@ -5,6 +5,7 @@ import { TimelineRenderer } from './timeline-renderer';
 import { readFileContent } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
 import { resolveSubAgentSessions } from '../parsers/claude-subagent';
+import { BT_TOOL_USE, SUBAGENT_TOOL_NAMES } from '../constants';
 
 export const VIEW_TYPE_TIMELINE = 'claude-sessions-timeline';
 
@@ -227,9 +228,43 @@ export class TimelineView extends ItemView {
 			const prevCount = this.session?.turns.length ?? 0;
 			const newCount = session.turns.length;
 
+			// Collect pending background agent block IDs before re-parse
+			// so we can detect which ones completed during this reload.
+			const pendingBgAgents = new Set<string>();
+			if (this.session) {
+				for (const turn of this.session.turns) {
+					for (const block of turn.contentBlocks) {
+						if (block.type === BT_TOOL_USE
+							&& SUBAGENT_TOOL_NAMES.has(block.name)
+							&& block.subAgentSession?.isBackground
+							&& !block.subAgentSession.durationMs) {
+							pendingBgAgents.add(block.id);
+						}
+					}
+				}
+			}
+
 			// Incremental DOM path: if the session only grew (append-only),
 			// update just what changed instead of tearing down the whole DOM.
 			if (this.renderer && this.observer && prevCount > 0 && newCount >= prevCount) {
+				// Refresh turns containing background agents that just completed
+				if (pendingBgAgents.size > 0) {
+					for (let ti = 0; ti < prevCount - 1; ti++) {
+						const turn = session.turns[ti];
+						const hasCompleted = turn.contentBlocks.some(b =>
+							b.type === BT_TOOL_USE
+							&& pendingBgAgents.has(b.id)
+							&& b.subAgentSession?.durationMs);
+						if (hasCompleted) {
+							const oldEl = this.renderer.getTurnElements()[ti];
+							const state = oldEl ? this.captureTurnState(oldEl) : null;
+							const newEl = this.renderer.refreshTurnAt(ti, turn);
+							if (state && newEl) this.restoreTurnState(newEl, state);
+							if (newEl) this.observer.observe(newEl);
+						}
+					}
+				}
+
 				// Refresh the last existing turn — capture its UI state first
 				// so expand/collapse survives the DOM replacement.
 				const lastTurnEl = this.renderer.getTurnElements()[prevCount - 1];

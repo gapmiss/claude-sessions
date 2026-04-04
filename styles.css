@@ -869,6 +869,14 @@
 	font-style: italic;
 }
 
+.claude-sessions-tool-background-label {
+	background: var(--background-modifier-success);
+	color: var(--text-on-accent);
+	padding: 1px 6px;
+	border-radius: 4px;
+	font-size: 0.75em;
+}
+
 .claude-sessions-tool-exit-code {
 	font-size: 11px;
 	color: var(--color-red);

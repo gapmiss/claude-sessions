@@ -101,11 +101,24 @@ export function renderToolCall(
 		header.createSpan({ cls: 'claude-sessions-tool-duration claude-sessions-tool-orphaned-label', text: 'in progress' });
 	} else if (block.isOrphaned) {
 		header.createSpan({ cls: 'claude-sessions-tool-duration claude-sessions-tool-orphaned-label', text: 'interrupted' });
+	} else if (block.subAgentSession?.isBackground && block.subAgentSession.durationMs) {
+		// Completed background agent — show actual run duration, not the instant tool call time
+		header.createSpan({
+			cls: 'claude-sessions-tool-duration',
+			text: formatToolDuration(block.subAgentSession.durationMs),
+		});
 	} else if (block.timestamp && result?.timestamp) {
 		const elapsed = new Date(result.timestamp).getTime() - new Date(block.timestamp).getTime();
 		if (elapsed > 0 && !isNaN(elapsed)) {
 			header.createSpan({ cls: 'claude-sessions-tool-duration', text: formatToolDuration(elapsed) });
 		}
+	}
+	if (block.subAgentSession?.isBackground && !block.subAgentSession.durationMs) {
+		// Still running — show "background" badge
+		header.createSpan({
+			cls: 'claude-sessions-tool-duration claude-sessions-tool-background-label',
+			text: 'background',
+		});
 	}
 	if (ctx.settings.showHookIcons && block.hooks && block.hooks.length > 0) {
 		const hookNames = [...new Set(block.hooks.map(h => h.hookName))].join(', ');

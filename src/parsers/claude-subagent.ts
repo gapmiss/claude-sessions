@@ -1,20 +1,22 @@
 import { ClaudeParser } from './claude-parser';
 import type { Session } from '../types';
 import {
-	RE_TN_TOOL_USE_ID, RE_TN_TASK_ID, RE_TN_RESULT, RE_TN_SUMMARY,
+	RE_TN_TOOL_USE_ID, RE_TN_TASK_ID, RE_TN_RESULT, RE_TN_SUMMARY, RE_TN_DURATION,
 	BT_TOOL_USE,
 } from '../constants';
 
 /** Parse <task-notification> XML from queue-operation or user records. */
 export function parseTaskNotification(
 	content: string,
-): { taskId: string; toolUseId: string; result: string; summary: string } | null {
+): { taskId: string; toolUseId: string; result: string; summary: string; durationMs?: number } | null {
 	const toolUseId = content.match(RE_TN_TOOL_USE_ID)?.[1]?.trim();
 	if (!toolUseId) return null;
 	const taskId = content.match(RE_TN_TASK_ID)?.[1]?.trim() ?? '';
 	const summary = content.match(RE_TN_SUMMARY)?.[1]?.trim() ?? '';
 	const result = content.match(RE_TN_RESULT)?.[1]?.trim() ?? '';
-	return { taskId, toolUseId, result, summary };
+	const durationRaw = content.match(RE_TN_DURATION)?.[1]?.trim();
+	const durationMs = durationRaw ? parseInt(durationRaw, 10) : undefined;
+	return { taskId, toolUseId, result, summary, durationMs: (durationMs && !isNaN(durationMs)) ? durationMs : undefined };
 }
 
 /**

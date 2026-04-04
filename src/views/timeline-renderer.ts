@@ -93,12 +93,20 @@ export class TimelineRenderer {
 	 * Preserves the rest of the timeline untouched.
 	 */
 	refreshLastTurn(turn: Turn): void {
-		const idx = this.turnEls.length - 1;
-		if (idx < 0) return;
+		this.refreshTurnAt(this.turnEls.length - 1, turn);
+	}
+
+	/**
+	 * Re-render a specific turn by index.
+	 * Returns the new element, or null if the index is out of range.
+	 */
+	refreshTurnAt(idx: number, turn: Turn): HTMLElement | null {
+		if (idx < 0 || idx >= this.turnEls.length) return null;
 		const oldEl = this.turnEls[idx];
 		const newEl = this.renderTurn(turn);
 		this.container.replaceChild(newEl, oldEl);
 		this.turnEls[idx] = newEl;
+		return newEl;
 	}
 
 	/**
