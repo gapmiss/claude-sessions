@@ -230,12 +230,17 @@ export class TimelineView extends ItemView {
 			// Incremental DOM path: if the session only grew (append-only),
 			// update just what changed instead of tearing down the whole DOM.
 			if (this.renderer && this.observer && prevCount > 0 && newCount >= prevCount) {
-				// Refresh the last existing turn — it may have gained content
-				// (streaming completion) since the previous render.
+				// Refresh the last existing turn — capture its UI state first
+				// so expand/collapse survives the DOM replacement.
+				const lastTurnEl = this.renderer.getTurnElements()[prevCount - 1];
+				const lastTurnState = lastTurnEl ? this.captureTurnState(lastTurnEl) : null;
 				this.renderer.refreshLastTurn(session.turns[prevCount - 1]);
-				// Re-observe the replaced element (the old DOM node was auto-unobserved on removal)
-				const refreshedEls = this.renderer.getTurnElements();
-				this.observer.observe(refreshedEls[prevCount - 1]);
+				if (lastTurnState) {
+					const newEl = this.renderer.getTurnElements()[prevCount - 1];
+					this.restoreTurnState(newEl, lastTurnState);
+				}
+				// Re-observe the replaced element (old DOM node auto-unobserved on removal)
+				this.observer.observe(this.renderer.getTurnElements()[prevCount - 1]);
 
 				// Append genuinely new turns
 				if (newCount > prevCount) {
@@ -813,6 +818,78 @@ expandAll(): void {
 		// Restore scroll position
 		if (this.timelineEl) {
 			this.timelineEl.scrollTop = state.scrollTop;
+		}
+	}
+
+	/** Capture expand/collapse state for a single turn element. */
+	private captureTurnState(el: HTMLElement): {
+		collapsed: boolean;
+		openTools: number[];
+		openGroups: number[];
+		expandedWraps: number[];
+		previewToggles: number[];
+	} {
+		const openTools: number[] = [];
+		el.querySelectorAll('.claude-sessions-tool-block').forEach((b, i) => {
+			if (b.hasClass('open')) openTools.push(i);
+		});
+		const openGroups: number[] = [];
+		el.querySelectorAll('.claude-sessions-tool-group').forEach((g, i) => {
+			if (g.hasClass('open')) openGroups.push(i);
+		});
+		const expandedWraps: number[] = [];
+		el.querySelectorAll('.claude-sessions-collapsible-wrap').forEach((w, i) => {
+			if (!w.hasClass('is-collapsed')) expandedWraps.push(i);
+		});
+		const previewToggles: number[] = [];
+		el.querySelectorAll('.claude-sessions-read-md-toggle').forEach((t, i) => {
+			const code = t.querySelector('.claude-sessions-read-md-code');
+			if (code?.hasClass('claude-sessions-read-md-hidden')) previewToggles.push(i);
+		});
+		return {
+			collapsed: el.hasClass('collapsed'),
+			openTools, openGroups, expandedWraps, previewToggles,
+		};
+	}
+
+	/** Restore expand/collapse state onto a (re-rendered) turn element. */
+	private restoreTurnState(el: HTMLElement, state: ReturnType<typeof TimelineView.prototype.captureTurnState>): void {
+		if (state.collapsed) {
+			el.addClass('collapsed');
+			const chevron = el.querySelector('.claude-sessions-turn-chevron');
+			if (chevron) chevron.textContent = '\u25B6';
+			el.querySelector('.claude-sessions-turn-header')?.setAttribute('aria-expanded', 'false');
+		}
+		const toolBlocks = el.querySelectorAll('.claude-sessions-tool-block');
+		for (const i of state.openTools) {
+			if (i < toolBlocks.length) {
+				toolBlocks[i].addClass('open');
+				toolBlocks[i].querySelector('.claude-sessions-tool-header')?.setAttribute('aria-expanded', 'true');
+			}
+		}
+		const groups = el.querySelectorAll('.claude-sessions-tool-group');
+		for (const i of state.openGroups) {
+			if (i < groups.length) {
+				groups[i].addClass('open');
+				groups[i].querySelector('.claude-sessions-tool-group-header')?.setAttribute('aria-expanded', 'true');
+			}
+		}
+		const wraps = el.querySelectorAll('.claude-sessions-collapsible-wrap');
+		for (const i of state.expandedWraps) {
+			if (i < wraps.length) {
+				wraps[i].removeClass('is-collapsed');
+				const btn = wraps[i].querySelector('.claude-sessions-collapsible-toggle');
+				if (btn) {
+					btn.textContent = 'Show less';
+					(btn as HTMLElement).setAttribute('aria-expanded', 'true');
+				}
+			}
+		}
+		const toggles = el.querySelectorAll('.claude-sessions-read-md-toggle');
+		for (const i of state.previewToggles) {
+			if (i < toggles.length) {
+				(toggles[i].querySelector('.claude-sessions-read-md-btn:last-child') as HTMLElement | null)?.click();
+			}
 		}
 	}
 
