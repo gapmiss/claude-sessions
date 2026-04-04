@@ -1,4 +1,5 @@
 import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon } from 'obsidian';
+import { makeClickable } from './render-helpers';
 import { Session, PluginSettings } from '../types';
 import { TimelineRenderer } from './timeline-renderer';
 import { readFileContent } from '../utils/streaming-reader';
@@ -901,14 +902,9 @@ expandAll(): void {
 			attr: { 'aria-label': 'Filter content', 'data-tooltip-position': 'top' },
 			text: '\u22EF',
 		});
+		makeClickable(filterBtn, { label: 'Filter content', expanded: false });
 		filterBtn.addEventListener('click', (e: MouseEvent) => {
 			this.showFilterMenu(e);
-		});
-		filterBtn.addEventListener('keydown', (e: KeyboardEvent) => {
-			if (e.key === 'Enter' || e.key === ' ') {
-				e.preventDefault();
-				this.showFilterMenu(e);
-			}
 		});
 
 		// Watch button
@@ -919,7 +915,7 @@ expandAll(): void {
 		setIcon(this.watchBtn, 'radio');
 		this.watchBtn.addEventListener('click', () => this.toggleWatch());
 
-		// Progress bar (read-only indicator, not keyboard-interactive)
+		// Progress bar (read-only indicator — not keyboard-focusable; scroll observer updates position)
 		const progressWrap = container.createDiv({ cls: 'claude-sessions-progress-wrap' });
 		this.progressBar = progressWrap.createDiv({ cls: 'claude-sessions-progress-bar' });
 		this.progressBar.setAttribute('role', 'progressbar');
@@ -954,6 +950,7 @@ expandAll(): void {
 			const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
 			this.scrollToTurn(this.turnFromPct(pct));
 		});
+
 
 
 	}

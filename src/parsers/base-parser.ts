@@ -1,4 +1,5 @@
 import { Session, SessionFormat } from '../types';
+import { Logger } from '../utils/logger';
 
 export abstract class BaseParser {
 	abstract readonly format: SessionFormat;
@@ -14,7 +15,8 @@ export abstract class BaseParser {
 	protected tryParseJson(line: string): Record<string, unknown> | null {
 		try {
 			return JSON.parse(line) as Record<string, unknown>;
-		} catch {
+		} catch (e) {
+			Logger.debug('JSONL parse error on line: ' + line.slice(0, 80), e);
 			return null;
 		}
 	}

@@ -61,9 +61,25 @@ export function getStandaloneScript(): string {
     }
     /* Visual feedback */
     if (btn) {
-      var orig = btn.innerHTML;
-      btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-      setTimeout(function() { btn.innerHTML = orig; }, 1500);
+      var origNodes = Array.prototype.slice.call(btn.childNodes);
+      btn.textContent = '';
+      var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('width', '14');
+      svg.setAttribute('height', '14');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('fill', 'none');
+      svg.setAttribute('stroke', 'currentColor');
+      svg.setAttribute('stroke-width', '2');
+      svg.setAttribute('stroke-linecap', 'round');
+      svg.setAttribute('stroke-linejoin', 'round');
+      var poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      poly.setAttribute('points', '20 6 9 17 4 12');
+      svg.appendChild(poly);
+      btn.appendChild(svg);
+      setTimeout(function() {
+        btn.textContent = '';
+        for (var i = 0; i < origNodes.length; i++) btn.appendChild(origNodes[i]);
+      }, 1500);
     }
   }
 

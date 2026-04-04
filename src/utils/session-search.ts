@@ -48,6 +48,7 @@ interface ExtractedContent {
  * Extract searchable text from a single JSONL line without full parsing.
  * Returns null for non-content records.
  */
+/** @visibleForTesting */
 export function extractSearchableContent(line: string): ExtractedContent | null {
 	const trimmed = line.trim();
 	if (!trimmed) return null;

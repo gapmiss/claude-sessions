@@ -2,6 +2,8 @@
 
 An [Obsidian](https://obsidian.md/) plugin for viewing [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions. Browse, search, analyze, and export your Claude Code sessions as interactive timelines with live watch and rich tool rendering — right alongside your notes.
 
+**Local-first and private.** Claude Sessions reads your JSONL session files directly from disk — no uploads, no syncing, no external services. Your conversations stay on your machine.
+
 > [!WARNING]
 > **v0.2.2** — Desktop-only. Active development; expect frequent changes.
 

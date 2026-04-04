@@ -13,7 +13,7 @@ const NEEDED_SELECTORS = [
 ];
 
 /** Scrape all CSS custom properties from the document, resolved to computed values. */
-export function captureThemeVariables(): string {
+function captureThemeVariables(): string {
 	const rootStyle = getComputedStyle(document.documentElement);
 	const bodyStyle = getComputedStyle(document.body);
 
@@ -49,7 +49,7 @@ export function captureThemeVariables(): string {
 }
 
 /** Extract rules from app.css that are relevant to our rendered DOM. */
-export function captureMarkdownStyles(): string {
+function captureMarkdownStyles(): string {
 	const result: string[] = [];
 
 	const sheets = Array.from(document.styleSheets);
@@ -75,7 +75,7 @@ export function captureMarkdownStyles(): string {
 }
 
 /** Capture the plugin's own stylesheet (sheet containing claude-sessions rules). */
-export function capturePluginStyles(): string {
+function capturePluginStyles(): string {
 	const result: string[] = [];
 
 	const sheets = Array.from(document.styleSheets);
@@ -97,7 +97,7 @@ export function capturePluginStyles(): string {
 }
 
 /** Capture @font-face rules with embedded (data:) sources so bundled fonts survive export. */
-export function captureFontFaces(): string {
+function captureFontFaces(): string {
 	const result: string[] = [];
 
 	const sheets = Array.from(document.styleSheets);

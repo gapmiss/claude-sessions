@@ -505,7 +505,7 @@ function renderErrorOutput(result: ToolResultBlock, container: HTMLElement, ctx:
 	MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
 }
 
-export function toolPreview(block: ToolUseBlock): string {
+function toolPreview(block: ToolUseBlock): string {
 	const input = block.input;
 	const truncate = (s: string, max: number) =>
 		s.length > max ? s.substring(0, max) + '...' : s;

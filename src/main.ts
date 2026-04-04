@@ -7,7 +7,7 @@ import { SessionBrowserModal, scanSessionDirs } from './views/session-browser-mo
 import { FilePickerModal } from './views/file-picker-modal';
 import { exportToMarkdown } from './exporters/markdown-exporter';
 import { exportToHTML } from './exporters/html-exporter';
-import { listDirectory, listSubdirectories, readFileContent } from './utils/streaming-reader';
+import { readFileContent } from './utils/streaming-reader';
 import { detectParser } from './parsers/detect';
 import { resolveSubAgentSessions } from './parsers/claude-subagent';
 import { expandHome } from './utils/path-utils';

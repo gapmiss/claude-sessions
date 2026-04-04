@@ -207,6 +207,9 @@ export class ClaudeParser extends BaseParser {
 			if (record.type === RT_ASSISTANT && record.message?.usage) {
 				const msgId = (record.message as Record<string, unknown>)['id'] as string | undefined;
 				// Use uuid as fallback key when message.id is absent to avoid losing token data
+				if (!msgId && !record.uuid) {
+					Logger.warn('Assistant record has neither message.id nor uuid — token dedup may double-count', { uuid: record.uuid, type: record.type });
+				}
 				const key = msgId ?? record.uuid ?? `__anon_${anonymousUsageCounter++}`;
 				const u = record.message.usage;
 				const prev = usageByMsg.get(key);
