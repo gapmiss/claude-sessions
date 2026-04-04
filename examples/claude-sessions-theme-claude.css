@@ -1,0 +1,97 @@
+/*
+ * Claude Sessions — "Claude" Theme
+ *
+ * A warm terracotta theme inspired by Claude's design language.
+ * Drop this file into .obsidian/snippets/ and enable it in
+ * Settings > Appearance > CSS Snippets.
+ *
+ * Requires claude-sessions plugin v0.3.0+ (CSS custom properties support).
+ *
+ * Source: https://github.com/VoltAgent/awesome-design-md/blob/main/design-md/claude/DESIGN.md
+ */
+
+/* ─── Light mode ─── */
+
+.theme-light .claude-sessions-timeline-container {
+	/* Brand accent — terracotta */
+	--cs-accent: #c96442;
+	--cs-accent-hover: #b5593b;
+	--cs-accent-rgb: 201, 100, 66;
+	--cs-accent-subtle: rgba(201, 100, 66, 0.08);
+
+	/* Role colors */
+	--cs-role-user: #c96442;
+	--cs-role-assistant: #8b7355;
+	--cs-role-border-width: 2px;
+
+	/* Tool & component */
+	--cs-tool-indicator: #c96442;
+	--cs-tool-name: #8b7355;
+	--cs-tool-group-header: #8b7355;
+	--cs-subagent-border: #c96442;
+	--cs-progress-fill: #c96442;
+
+	/* Badges — warm-shifted */
+	--cs-badge-error-bg: rgba(181, 51, 51, 0.12);
+	--cs-badge-warning-bg: rgba(201, 100, 66, 0.12);
+	--cs-diff-del-bg: rgba(181, 51, 51, 0.08);
+	--cs-diff-add-bg: rgba(63, 150, 70, 0.08);
+	--cs-ansi-bg-text: #30302e;
+
+	/* Spacing — more breathing room */
+	--cs-turn-gap: 28px;
+	--cs-block-gap: 8px;
+	--cs-padding-header: 8px 12px;
+
+	/* Typography — Claude uses the system sans-serif family */
+	--cs-font-family-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	--cs-font-family-text: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	--cs-letter-spacing-caps: 0.3px;
+
+	/* Visual effects — lighter thinking blocks */
+	--cs-thinking-opacity: 0.45;
+	--cs-thinking-opacity-hover: 0.80;
+}
+
+/* ─── Dark mode ─── */
+
+.theme-dark .claude-sessions-timeline-container {
+	/* Brand accent — coral variant for better dark-mode contrast */
+	--cs-accent: #d97757;
+	--cs-accent-hover: #e08b6d;
+	--cs-accent-rgb: 217, 119, 87;
+	--cs-accent-subtle: rgba(217, 119, 87, 0.10);
+
+	/* Role colors */
+	--cs-role-user: #d97757;
+	--cs-role-assistant: #c4a88f;
+	--cs-role-border-width: 2px;
+
+	/* Tool & component */
+	--cs-tool-indicator: #d97757;
+	--cs-tool-name: #c4a88f;
+	--cs-tool-group-header: #c4a88f;
+	--cs-subagent-border: #d97757;
+	--cs-progress-fill: #d97757;
+
+	/* Badges */
+	--cs-badge-error-bg: rgba(181, 51, 51, 0.18);
+	--cs-badge-warning-bg: rgba(217, 119, 87, 0.15);
+	--cs-diff-del-bg: rgba(181, 51, 51, 0.12);
+	--cs-diff-add-bg: rgba(63, 185, 80, 0.10);
+	--cs-ansi-bg-text: #1a1a18;
+
+	/* Spacing */
+	--cs-turn-gap: 28px;
+	--cs-block-gap: 8px;
+	--cs-padding-header: 8px 12px;
+
+	/* Typography */
+	--cs-font-family-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	--cs-font-family-text: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	--cs-letter-spacing-caps: 0.3px;
+
+	/* Visual effects */
+	--cs-thinking-opacity: 0.45;
+	--cs-thinking-opacity-hover: 0.80;
+}

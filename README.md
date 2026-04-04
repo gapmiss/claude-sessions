@@ -72,6 +72,13 @@ Dual-mode search panel in the right sidebar:
 - **Markdown** — YAML frontmatter + Obsidian callouts
 - **HTML** — self-contained, zero-dependency file with embedded CSS (captures your current theme), inline images, and standalone JS for all interactive features
 
+### Theming
+
+- 42 CSS custom properties (`--cs-*`) for colors, spacing, typography, and dimensions
+- Create custom themes via [Obsidian CSS snippets](https://help.obsidian.md/Extending+Obsidian/CSS+snippets) — no plugin changes needed
+- Included [Claude brand theme](examples/claude-sessions-theme-claude.css) with light/dark variants
+- See [THEMING.md](THEMING.md) for the full variable reference
+
 ### Deep Linking
 
 Open sessions directly via protocol handler:
