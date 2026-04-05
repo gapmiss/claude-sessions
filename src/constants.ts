@@ -17,7 +17,6 @@ export const BT_TOOL_RESULT = 'tool_result';
 export const BT_IMAGE = 'image';
 
 // ── Progress data subtypes ───────────────────────────────────
-export const PROGRESS_HOOK = 'hook_progress';
 export const PROGRESS_AGENT = 'agent_progress';
 
 // ── Sub-agent tool names ─────────────────────────────────────

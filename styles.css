@@ -934,18 +934,6 @@
 	flex: 1;
 }
 
-.claude-sessions-hook-icon {
-	color: var(--text-faint);
-	flex-shrink: 0;
-	display: flex;
-	align-items: center;
-}
-
-.claude-sessions-hook-icon .svg-icon {
-	width: 14px;
-	height: 14px;
-}
-
 .claude-sessions-tool-duration {
 	font-size: var(--font-smallest);
 	color: var(--text-faint);

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { ClaudeParser } from '../src/parsers/claude-parser';
 import {
 	jsonl, assistantText, assistantThinking, assistantEncryptedThinking,
-	assistantToolUse, userText, userToolResult, hookProgress,
+	assistantToolUse, userText, userToolResult,
 	fileHistorySnapshot, sidechainAssistant, metaAssistant,
 	syntheticAssistant, userInterruption, userSlashCommand, metaSkillExpansion,
 	userBashInput, userBashOutput, userBashCaveat,
@@ -385,26 +385,6 @@ describe('metadata extraction', () => {
 		));
 
 		expect(session.metadata.model).toBe('claude-opus-4-20250514');
-	});
-});
-
-// ─── Hook Events ───────────────────────────────────────────────
-
-describe('hook events', () => {
-	it('attaches hook events to corresponding tool_use blocks', () => {
-		const session = parse(jsonl(
-			assistantToolUse('Bash', 'tu_1', { command: 'npm test' }),
-			hookProgress('tu_1', 'preToolUse', 'my-hook'),
-			userToolResult([{ toolUseId: 'tu_1', content: 'ok' }]),
-		));
-
-		const toolUse = session.turns[0].contentBlocks[0];
-		expect(toolUse.type).toBe('tool_use');
-		if (toolUse.type === 'tool_use') {
-			expect(toolUse.hooks).toHaveLength(1);
-			expect(toolUse.hooks![0].hookName).toBe('my-hook');
-			expect(toolUse.hooks![0].hookEvent).toBe('preToolUse');
-		}
 	});
 });
 

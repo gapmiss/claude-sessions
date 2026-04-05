@@ -31,7 +31,7 @@ Every tool type gets purpose-built rendering:
 - **MCP tools** — displayed as `server / tool_name` instead of raw `mcp__server__tool`
 - **Sub-agent sessions** — inline with collapsible prompt, tool groups, and output
 - **Tool grouping** — consecutive calls above a configurable threshold (default 4) collapse into a summary bar
-- **Hook indicators** — fish icon with tooltip on hook-triggered tool calls
+
 - **Orphan detection** — tool calls without results show "in progress" (last turn) or "interrupted" (mid-session)
 - Tool result images rendered as clickable thumbnails with full-size modal
 
@@ -165,7 +165,6 @@ With a session open, run **Export session to Markdown** or **Export session to H
 | Show thinking blocks   | On                   | Display thinking/reasoning blocks                       |
 | Show tool calls        | On                   | Display tool use blocks                                 |
 | Show tool results      | On                   | Display tool result output                              |
-| Show hook icons        | On                   | Display hook indicators on tool calls                   |
 | Tool group threshold   | 4                    | Consecutive tool calls above this collapse into a group |
 | Auto-scroll on update  | On                   | Scroll to bottom on live watch changes                  |
 | Notify on pending tool | Off                  | System notification when a tool call awaits permission  |

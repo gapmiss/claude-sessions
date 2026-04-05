@@ -65,19 +65,12 @@ export interface ThinkingBlock {
 	timestamp?: string;
 }
 
-export interface HookEvent {
-	hookEvent: string;
-	hookName: string;
-	timestamp?: string;
-}
-
 export interface ToolUseBlock {
 	type: 'tool_use';
 	id: string;
 	name: string;
 	input: Record<string, unknown>;
 	timestamp?: string;
-	hooks?: HookEvent[];
 	subAgentSession?: SubAgentSession;
 	isOrphaned?: boolean;
 	isPending?: boolean;
@@ -153,7 +146,7 @@ export interface PluginSettings {
 	showThinkingBlocks: boolean;
 	showToolCalls: boolean;
 	showToolResults: boolean;
-	showHookIcons: boolean;
+
 	autoScrollOnUpdate: boolean;
 	notifyOnPendingTool: boolean;
 	toolGroupThreshold: number;
@@ -170,7 +163,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	showThinkingBlocks: true,
 	showToolCalls: true,
 	showToolResults: true,
-	showHookIcons: true,
+
 	autoScrollOnUpdate: true,
 	notifyOnPendingTool: false,
 	toolGroupThreshold: 4,

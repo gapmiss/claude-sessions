@@ -124,22 +124,6 @@ export function userToolResult(results: { toolUseId: string; content: string; is
 	};
 }
 
-/** Progress record with hook_progress data. */
-export function hookProgress(toolUseID: string, hookEvent: string, hookName: string, opts?: {
-	timestamp?: string;
-}): Record<string, unknown> {
-	return {
-		type: 'progress',
-		toolUseID,
-		timestamp: opts?.timestamp ?? '2026-01-01T00:00:15.000Z',
-		data: {
-			type: 'hook_progress',
-			hookEvent,
-			hookName,
-		},
-	};
-}
-
 /** File history snapshot record (should be skipped). */
 export function fileHistorySnapshot(): Record<string, unknown> {
 	return {

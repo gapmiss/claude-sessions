@@ -2,14 +2,14 @@ import { BaseParser } from './base-parser';
 import {
 	Session, Turn, ContentBlock, TextBlock,
 	ToolUseBlock, ToolResultBlock, ImageBlock, AnsiBlock, CompactionBlock, SlashCommandBlock,
-	BashCommandBlock, HookEvent, SessionStats, SubAgentSession,
+	BashCommandBlock, SessionStats, SubAgentSession,
 } from '../types';
 import { extractProjectName, projectFromCwd, dirname, basename } from '../utils/path-utils';
 import {
 	RT_USER, RT_ASSISTANT, RT_PROGRESS, RT_QUEUE_OPERATION, RT_FILE_HISTORY, RT_SUMMARY, RT_SYSTEM,
 	SKIP_RECORD_TYPES,
 	BT_TEXT, BT_TOOL_USE, BT_TOOL_RESULT, BT_IMAGE,
-	PROGRESS_HOOK, PROGRESS_AGENT,
+	PROGRESS_AGENT,
 	SUBAGENT_TOOL_NAMES, MODEL_SYNTHETIC, SUBTYPE_LOCAL_COMMAND,
 	TAG_TASK_NOTIFICATION, TAG_COMMAND_MESSAGE_OPEN,
 	RE_COMMAND_NAME, RE_COMMAND_ARGS,
@@ -157,9 +157,6 @@ export class ClaudeParser extends BaseParser {
 		let model = '';
 		let startTime = '';
 
-		// Collect hook events by toolUseID
-		const hookMap = new Map<string, HookEvent[]>();
-
 		// Collect sub-agent progress records by parentToolUseID
 		const agentProgressMap = new Map<string, ClaudeRecord[]>();
 
@@ -182,18 +179,6 @@ export class ClaudeParser extends BaseParser {
 		for (const line of lines) {
 			const record = this.tryParseJson(line) as ClaudeRecord | null;
 			if (!record) continue;
-
-			// Capture hook_progress before skipping progress records
-			if (record.type === RT_PROGRESS && record.data?.type === PROGRESS_HOOK
-				&& record.toolUseID && record.data.hookEvent && record.data.hookName) {
-				const hooks = hookMap.get(record.toolUseID) ?? [];
-				hooks.push({
-					hookEvent: record.data.hookEvent,
-					hookName: record.data.hookName,
-					timestamp: record.timestamp,
-				});
-				hookMap.set(record.toolUseID, hooks);
-			}
 
 			// Capture agent_progress records for sub-agent rendering
 			if (record.type === RT_PROGRESS && record.data?.type === PROGRESS_AGENT
@@ -297,17 +282,6 @@ export class ClaudeParser extends BaseParser {
 
 		// Second pass: build turns from deduplicated records
 		const turns = this.buildTurns(ordered, unknownRecordTypes, unknownBlockTypes);
-
-		// Attach hook events to their corresponding tool_use blocks
-		if (hookMap.size > 0) {
-			for (const turn of turns) {
-				for (const block of turn.contentBlocks) {
-					if (block.type === BT_TOOL_USE && hookMap.has(block.id)) {
-						block.hooks = hookMap.get(block.id);
-					}
-				}
-			}
-		}
 
 		// Attach sub-agent sessions to their corresponding Agent tool_use blocks
 		if (agentProgressMap.size > 0) {

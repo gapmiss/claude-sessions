@@ -115,17 +115,6 @@ export class SettingsTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Show hook icons')
-			.setDesc('Display hook indicator icons on tool calls that triggered hooks.')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.showHookIcons)
-				.onChange(async (value) => {
-					this.plugin.settings.showHookIcons = value;
-					await this.plugin.saveSettings();
-					this.plugin.updateTimelineViews();
-				}));
-
-		new Setting(containerEl)
 			.setName('Content width')
 			.setDesc('Maximum width of session content. Narrower widths improve readability.')
 			.addDropdown(dropdown => {

@@ -120,14 +120,6 @@ export function renderToolCall(
 			text: 'background',
 		});
 	}
-	if (ctx.settings.showHookIcons && block.hooks && block.hooks.length > 0) {
-		const hookNames = [...new Set(block.hooks.map(h => h.hookName))].join(', ');
-		const hookIcon = header.createSpan({
-			cls: 'claude-sessions-hook-icon',
-			attr: { 'aria-label': hookNames, 'data-tooltip-position': 'top' },
-		});
-		setIcon(hookIcon, 'fish');
-	}
 	header.createSpan({ cls: 'claude-sessions-tool-chevron', text: '\u25B6' });
 
 	// Body (hidden by default)
