@@ -191,6 +191,29 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setHeading()
+			.setName('Beta');
+
+		new Setting(containerEl)
+			.setName('Show rate limits')
+			.setDesc(
+				'Display Claude account rate limit utilization (5-hour and weekly) in the summary hero cards. '
+				+ 'Requires network access — reads your Claude OAuth credentials and queries the Anthropic API. '
+				+ 'Data is cached for 5 minutes.',
+			)
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showRateLimits)
+				.onChange(async (value) => {
+					this.plugin.settings.showRateLimits = value;
+					await this.plugin.saveSettings();
+					if (!value) {
+						const { clearRateLimitCache } = await import('./utils/rate-limits');
+						clearRateLimitCache();
+					}
+					this.plugin.updateTimelineViews();
+				}));
+
+		new Setting(containerEl)
+			.setHeading()
 			.setName('Debug');
 
 		new Setting(containerEl)

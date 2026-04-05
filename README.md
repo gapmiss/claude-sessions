@@ -39,7 +39,7 @@ Every tool type gets purpose-built rendering:
 
 Collapsible panel at the top of each session:
 
-- **Hero cards** — cost, context window, turns, and duration
+- **Hero cards** — cost, context window, turns, duration, and rate limit utilization (beta, opt-in)
 - **Token chart** — stacked horizontal bar (cache read, cache write, uncached, output)
 - **Tool chart** — horizontal bars sorted by invocation count
 - **Metadata grid** — project, model, version, branch, start time, duration, working directory

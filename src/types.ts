@@ -161,6 +161,7 @@ export interface PluginSettings {
 	maxContentWidth: number;
 	debugLevel: 'none' | 'error' | 'warn' | 'info' | 'debug';
 	pinnedSessions: string[];
+	showRateLimits: boolean;
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -177,6 +178,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	maxContentWidth: 960,
 	debugLevel: 'warn',
 	pinnedSessions: [],
+	showRateLimits: false,
 };
 
 export interface SessionListEntry {

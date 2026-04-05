@@ -1,6 +1,7 @@
 import { setIcon } from 'obsidian';
 import type { Session, SessionMetadata, SessionStats } from '../types';
 import { type RenderContext, makeClickable, addCopyButton } from './render-helpers';
+import { fetchRateLimits, type RateLimitData } from '../utils/rate-limits';
 
 /** Render the session summary panel (collapsible) above the timeline. */
 export function renderSummary(session: Session, container: HTMLElement, ctx: RenderContext): void {
@@ -11,7 +12,7 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 	if (ctx.settings.pinSummaryDashboard) {
 		pinnedHeroes.addClass('is-pinned');
 	}
-	buildHeroCards(pinnedHeroes, stats, metadata);
+	buildHeroCards(pinnedHeroes, stats, metadata, null);
 
 	const el = container.createDiv({ cls: 'claude-sessions-summary' });
 
@@ -56,7 +57,7 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 	// Hero stat cards (with pin button)
 	// ═══════════════════════════════════════
 	const heroes = body.createDiv({ cls: 'claude-sessions-dash-heroes' });
-	buildHeroCards(heroes, stats, metadata);
+	buildHeroCards(heroes, stats, metadata, null);
 
 	const pinBtn = heroes.createEl('button', {
 		cls: `claude-sessions-heroes-pin clickable-icon${ctx.settings.pinSummaryDashboard ? ' is-active' : ''}`,
@@ -193,17 +194,59 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 	addCopyButton(uriRow, obsidianUri, 'Copy URI');
 	addCopyButton(uriRow, mdLink, 'Copy markdown link');
 
+	// Async: fetch rate limits and inject hero cards
+	if (ctx.settings.showRateLimits) {
+		fetchRateLimits().then(rl => {
+			if (!rl) return;
+			appendRateLimitCards(pinnedHeroes, rl);
+			appendRateLimitCards(heroes, rl);
+		});
+	}
 }
 
 // ═══════════════════════════════════════
 // Component helpers
 // ═══════════════════════════════════════
 
-function buildHeroCards(container: HTMLElement, stats: SessionStats, metadata: SessionMetadata): void {
+function buildHeroCards(container: HTMLElement, stats: SessionStats, metadata: SessionMetadata, _rl: RateLimitData | null): void {
 	if (stats.costUSD > 0) addHeroCard(container, formatCost(stats.costUSD), 'Cost', 'receipt');
 	if (stats.contextWindowTokens > 0) addHeroCard(container, formatTokens(stats.contextWindowTokens), 'Context', 'layers');
 	if (metadata.totalTurns > 0) addHeroCard(container, String(metadata.totalTurns), 'Turns', 'message-circle');
 	if (stats.durationMs > 0) addHeroCard(container, formatDuration(stats.durationMs), 'Duration', 'clock');
+}
+
+function appendRateLimitCards(container: HTMLElement, rl: RateLimitData): void {
+	if (rl.fiveHourPercent != null) {
+		addRateLimitCard(container, rl.fiveHourPercent, '5h limit', 'gauge', rl.fiveHourResetsAt);
+	}
+	if (rl.weeklyPercent != null) {
+		addRateLimitCard(container, rl.weeklyPercent, '7d limit', 'calendar-clock', rl.weeklyResetsAt);
+	}
+}
+
+function addRateLimitCard(container: HTMLElement, percent: number, label: string, iconName: string, resetsAt: string | null): void {
+	const card = container.createDiv({ cls: 'claude-sessions-dash-hero claude-sessions-dash-hero-rate' });
+	const iconEl = card.createDiv({ cls: 'claude-sessions-dash-hero-icon' });
+	setIcon(iconEl, iconName);
+	card.createDiv({ cls: 'claude-sessions-dash-hero-value', text: `${Math.round(percent)}%` });
+	card.createDiv({ cls: 'claude-sessions-dash-hero-label', text: label });
+
+	// Mini progress bar
+	const track = card.createDiv({ cls: 'claude-sessions-dash-hero-bar-track' });
+	const fill = track.createDiv({ cls: 'claude-sessions-dash-hero-bar-fill' });
+	fill.style.width = `${Math.min(percent, 100)}%`;
+	if (percent >= 90) fill.addClass('critical');
+	else if (percent >= 70) fill.addClass('warning');
+
+	if (resetsAt) {
+		const diff = new Date(resetsAt).getTime() - Date.now();
+		if (diff > 0) {
+			const h = Math.floor(diff / 3600000);
+			const m = Math.floor((diff % 3600000) / 60000);
+			card.setAttribute('aria-label', `Resets in ${h}h ${m}m`);
+			card.setAttribute('data-tooltip-position', 'top');
+		}
+	}
 }
 
 function addHeroCard(container: HTMLElement, value: string, label: string, iconName: string): void {
