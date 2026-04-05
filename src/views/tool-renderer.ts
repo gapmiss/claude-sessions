@@ -357,7 +357,7 @@ function renderMarkdownToggle(content: string, lang: string, container: HTMLElem
 	MarkdownRenderer.render(ctx.app, codeMd, codeView, '', ctx.component);
 
 	const previewView = wrapper.createDiv({ cls: 'claude-sessions-read-md-preview claude-sessions-read-md-hidden' });
-	let previewRendered = false;
+	MarkdownRenderer.render(ctx.app, content, previewView, '', ctx.component);
 
 	const setActive = (mode: 'code' | 'preview') => {
 		const isCode = mode === 'code';
@@ -367,10 +367,6 @@ function renderMarkdownToggle(content: string, lang: string, container: HTMLElem
 		previewBtn.setAttribute('aria-pressed', String(!isCode));
 		codeView.toggleClass('claude-sessions-read-md-hidden', !isCode);
 		previewView.toggleClass('claude-sessions-read-md-hidden', isCode);
-		if (!isCode && !previewRendered) {
-			previewRendered = true;
-			MarkdownRenderer.render(ctx.app, content, previewView, '', ctx.component);
-		}
 	};
 
 	codeBtn.addEventListener('click', () => setActive('code'));

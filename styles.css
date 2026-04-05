@@ -83,6 +83,7 @@
 .claude-sessions-timeline {
 	flex: 1;
 	overflow-y: auto;
+	overflow-x: hidden;
 	padding: var(--size-4-4) var(--size-4-4) 120px;
 	scroll-behavior: smooth;
 }
@@ -1647,7 +1648,7 @@
 /* Progress bar */
 .claude-sessions-progress-wrap {
 	width: 100%;
-	padding: var(--size-4-6) var(--size-4-3) var(--size-4-2);
+	padding: 28px var(--size-4-3) var(--size-4-2);
 	position: relative;
 }
 

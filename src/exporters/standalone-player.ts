@@ -368,6 +368,28 @@ export function getStandaloneScript(): string {
       return;
     }
 
+    /* Markdown code/preview toggle buttons */
+    var mdBtn = target.closest('.claude-sessions-read-md-btn');
+    if (mdBtn) {
+      var toggle = mdBtn.closest('.claude-sessions-read-md-toggle');
+      if (toggle) {
+        var codeView = toggle.querySelector('.claude-sessions-read-md-code');
+        var previewView = toggle.querySelector('.claude-sessions-read-md-preview');
+        var toggleRow = toggle.querySelector('.claude-sessions-read-md-toggle-row');
+        if (codeView && previewView && toggleRow) {
+          var btns = toggleRow.querySelectorAll('.claude-sessions-read-md-btn');
+          var isCodeBtn = btns[0] === mdBtn;
+          btns[0].classList.toggle('is-active', isCodeBtn);
+          btns[1].classList.toggle('is-active', !isCodeBtn);
+          btns[0].setAttribute('aria-pressed', String(isCodeBtn));
+          btns[1].setAttribute('aria-pressed', String(!isCodeBtn));
+          codeView.classList.toggle('claude-sessions-read-md-hidden', !isCodeBtn);
+          previewView.classList.toggle('claude-sessions-read-md-hidden', isCodeBtn);
+        }
+      }
+      return;
+    }
+
     /* Filter button */
     if (target.closest('#as-filter-btn')) {
       buildFilterMenu();
