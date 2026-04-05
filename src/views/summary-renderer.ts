@@ -229,7 +229,6 @@ function addRateLimitCard(container: HTMLElement, percent: number, label: string
 	const iconEl = card.createDiv({ cls: 'claude-sessions-dash-hero-icon' });
 	setIcon(iconEl, iconName);
 	card.createDiv({ cls: 'claude-sessions-dash-hero-value', text: `${Math.round(percent)}%` });
-	card.createDiv({ cls: 'claude-sessions-dash-hero-label', text: label });
 
 	// Mini progress bar
 	const track = card.createDiv({ cls: 'claude-sessions-dash-hero-bar-track' });
@@ -238,14 +237,14 @@ function addRateLimitCard(container: HTMLElement, percent: number, label: string
 	if (percent >= 90) fill.addClass('critical');
 	else if (percent >= 70) fill.addClass('warning');
 
+	// Reset time below bar
 	if (resetsAt) {
-		const diff = new Date(resetsAt).getTime() - Date.now();
-		if (diff > 0) {
-			const h = Math.floor(diff / 3600000);
-			const m = Math.floor((diff % 3600000) / 60000);
-			card.setAttribute('aria-label', `Resets in ${h}h ${m}m`);
-			card.setAttribute('data-tooltip-position', 'top');
-		}
+		const resetDate = new Date(resetsAt);
+		const isToday = resetDate.toDateString() === new Date().toDateString();
+		const resetLabel = isToday
+			? resetDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+			: resetDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+		card.createDiv({ cls: 'claude-sessions-dash-hero-reset', text: resetLabel });
 	}
 }
 

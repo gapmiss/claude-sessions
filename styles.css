@@ -344,6 +344,12 @@
 	background: var(--text-error);
 }
 
+.claude-sessions-dash-hero-reset {
+	font-size: var(--font-smallest);
+	color: var(--text-faint);
+	margin-top: var(--size-2-1);
+}
+
 /* --- Dashboard: Chart cards --- */
 
 .claude-sessions-dash-charts {
