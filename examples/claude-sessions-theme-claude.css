@@ -44,8 +44,9 @@
 	--cs-padding-header: 8px 12px;
 
 	/* Typography — Claude uses the system sans-serif family */
-	--cs-font-family-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-	--cs-font-family-text: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	--cs-font-family: var(--font-monospace);
+	--cs-font-family-ui: var(--font-ui);
+	--cs-font-family-text: var(--font-text);
 	--cs-letter-spacing-caps: 0.3px;
 
 	/* Visual effects — lighter thinking blocks */
@@ -87,8 +88,9 @@
 	--cs-padding-header: 8px 12px;
 
 	/* Typography */
-	--cs-font-family-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-	--cs-font-family-text: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	--cs-font-family: var(--font-monospace);
+	--cs-font-family-ui: var(--font-ui);
+	--cs-font-family-text: var(--font-text);
 	--cs-letter-spacing-caps: 0.3px;
 
 	/* Visual effects */

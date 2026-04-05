@@ -44,6 +44,7 @@ src/
     markdown-exporter.ts     # Markdown with frontmatter
   utils/
     path-utils.ts            # expandHome, basename, dirname, shortenPath
+    rate-limits.ts           # OAuth credential reading + Anthropic usage API (beta)
     session-index.ts         # Persistent metadata cache (JSON on disk)
     session-search.ts        # Line-by-line JSONL grep engine
     streaming-reader.ts      # File I/O (Node.js streams, metadata extraction)
@@ -73,7 +74,8 @@ Use `cymbal` CLI for code navigation — prefer it over Read, Grep, Glob, or Bas
 - **CSS**: Scoped under `claude-sessions-*`, Obsidian CSS variables only, no inline styles (exception: ANSI color rendering)
 - **Parsing**: Consecutive assistant records merge into one Turn. Tool results attach to preceding assistant turn. Dedup by uuid
 - **HTML export**: CSS class toggling (`open`/`collapsed`) drives visibility — not display style manipulation. Copy buttons need `data-copy-text` attributes since closures don't survive DOM cloning
-- **Platform**: Use `Platform.isDesktop`/`Platform.isMobile`, never `navigator.platform`. Use `requestUrl()` not `fetch()` (though no network requests currently)
+- **Platform**: Use `Platform.isDesktop`/`Platform.isMobile`, never `navigator.platform`. Use `requestUrl()` not `fetch()`
+- **Network**: Rate limit feature (beta, opt-in) uses `requestUrl()` to call `api.anthropic.com/api/oauth/usage`. OAuth token read from macOS Keychain or `~/.claude/.credentials.json`. 5-minute in-memory cache
 
 ## Key References
 
@@ -85,17 +87,18 @@ Audit results: `@AUDIT-2026-04-01.md`
 ## Session State
 <!-- DO NOT edit this section manually. It is managed exclusively by /wrap SKILL. -->
 <!-- auto-updated by /wrap -->
-- **Last session**: 2026-04-01 20:30
-- **Goal**: Fix audit items — slash command stdout display, dead code removal, doc restructuring
-- **Summary**: Implemented slash command stdout capture for system-type local commands (`/status`, `/rename`, `/doctor`, etc.) so their output displays inline. Fixed bogus "Slash output" blocks caused by `<local-command-caveat>` records being misidentified as skill expansions. Committed all audit fixes: dead code removal (duplicate `basename()`, unused constants, dead `guessFormat()`), greedy regex fix, sub-agent state save/restore, code quality improvements, and CLAUDE.md restructuring into slim version + reference docs.
+- **Last session**: 2026-04-04 20:30
+- **Goal**: Fix UI bugs, add rate limit display, remove dead hook feature
+- **Summary**: Fixed three UI bugs (pinned hero horizontal scrollbar, progress tooltip clipping, HTML export code/preview toggle). Added beta rate limit utilization display in summary hero cards via Anthropic OAuth usage API. Removed hook icons feature entirely — the `hook_progress` JSONL format is dead, replaced by `stop_hook_summary` system records.
 - **Decisions**:
-  - System record stdout captured via same `pendingCommand` mechanism as user records — avoids duplicating logic
-  - Caveat filtering added to `extractSkillExpansionText` rather than the isMeta check — more precise, doesn't affect other isMeta handling
-  - All audit fixes committed together as one cohesive commit rather than split
+  - Rate limits behind opt-in beta toggle (off by default) with network access warning
+  - Markdown preview rendered eagerly (not lazy) so HTML export captures content
+  - Hook icons removed rather than rewritten for new format — stop hooks are turn-level, not tool-level
+  - Rate limit API endpoint is undocumented beta (`anthropic-beta: oauth-2025-04-20`) — TOS status unclear
 - **Next steps**:
   - Verify ESLint works with new `@eslint/json` dependency
   - Address remaining audit items (incremental parsing for large sessions)
-  - Test slash command stdout display with more command types
+  - Monitor Anthropic usage API for stability / official documentation
 - **Blockers**: None
 - **Branch**: main
 - **Uncommitted**: Clean

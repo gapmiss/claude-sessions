@@ -17,6 +17,8 @@ Reference document for known pitfalls. Not auto-included — use `@GOTCHAS.md` w
 
 - CSS variables `--color-cyan`, `--color-blue`, `--color-red`, `--color-green` provide theme-aware colors for tool indicators and diff views
 - Obsidian renders mermaid as `div.mermaid` not `.block-language-mermaid` — discovered via live DOM inspection
+- Pinned heroes use negative margins to break out of the content max-width — requires `overflow-x: hidden` on `.claude-sessions-timeline` to prevent horizontal scrollbar
+- Progress bar tooltip (`top: -24px`) is clipped by parent `overflow: hidden` — the progress wrap needs enough top padding (28px) to contain it within bounds
 
 ## ESLint
 
@@ -32,7 +34,7 @@ Reference document for known pitfalls. Not auto-included — use `@GOTCHAS.md` w
 - Token usage must be deduplicated by message ID — streaming produces multiple records per message with the same usage values except `output_tokens` which grows. Keep the max of each field, then sum across messages
 - Token dedup uses fallback chain `msgId ?? record.uuid ?? '__anon_${counter++}'` to avoid silent data loss when `message.id` is missing
 - Claude Code v2.1.79+ encrypts thinking content — the `thinking` field is empty, content lives in `signature`. Parser skips these
-- Hook progress records have `type: "progress"` with `data.type: "hook_progress"` — must be captured before the SKIP_TYPES filter discards all progress records
+- Hook records changed format: old `progress` records with `data.type: "hook_progress"` are dead. Hooks now emit `system` records with `subtype: "stop_hook_summary"` containing `hookInfos[]` with `command` fields. These are turn-level (after assistant response), not tool-level
 - Sessions often start with multiple 6KB+ `file-history-snapshot` records — reading only the first 2KB misses all metadata. Use line-by-line reading with prefix-skip for large record types instead
 - `agent_progress` records stream only `tool_use` and `tool_result` blocks — assistant text blocks are omitted. Must read the subagent's own JSONL file to recover chain-of-thought text
 - Subagent JSONL files mark every record as `isSidechain: true` — parser needs `allowSidechain: true`
@@ -52,6 +54,7 @@ Reference document for known pitfalls. Not auto-included — use `@GOTCHAS.md` w
 - `navigator.clipboard.writeText()` requires HTTPS or localhost — exported HTML opened via `file://` needs `document.execCommand('copy')` fallback
 - The session being exported may contain its own source code (meta/self-referential sessions) — grep for script content must distinguish the actual `<script>` block from rendered code blocks in the DOM
 - Summary dashboard uses `claude-sessions-dash-*` CSS classes for inner components. The outer container/header/chevron/copy-button classes (`claude-sessions-summary-*`) are unchanged — `standalone-player.ts` and `html-exporter.ts` reference them
+- Markdown code/preview toggles (`renderMarkdownToggle`) must render preview eagerly — lazy rendering leaves the preview div empty in HTML export DOM snapshots. The standalone player handles the toggle via delegated click on `.claude-sessions-read-md-btn`
 
 ## Live Watch / UI State
 
@@ -65,6 +68,8 @@ Reference document for known pitfalls. Not auto-included — use `@GOTCHAS.md` w
 - Obsidian protocol handler params arrive as `Record<string, string>` from the query string; paths with special characters need `encodeURIComponent`/`decodeURIComponent`
 - Session index cache uses `mtime` as staleness key — fast stat() check avoids re-reading unchanged files. Store in `.obsidian/plugins/claude-sessions/session-index.json` via direct `fs` (desktop-only)
 - macOS ignores the `Notification.icon` property for the app icon (always shows Obsidian) but renders it as a secondary badge icon. SVG data URIs work
+- Claude OAuth credentials on macOS are stored in Keychain (`security find-generic-password -s "Claude Code-credentials" -w`), not in `~/.claude/.credentials.json`. The file is the Linux/fallback path. Both contain `{ claudeAiOauth: { accessToken, refreshToken, expiresAt } }`
+- `api.anthropic.com/api/oauth/usage` is an undocumented beta endpoint (header `anthropic-beta: oauth-2025-04-20`). Returns `five_hour`, `seven_day` utilization percentages and `resets_at` timestamps. May break without notice
 
 ## Rendering
 
