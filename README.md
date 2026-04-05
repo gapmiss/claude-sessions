@@ -5,7 +5,7 @@ An [Obsidian](https://obsidian.md/) plugin for viewing [Claude Code](https://doc
 **Local-first and private.** Claude Sessions reads your JSONL session files directly from disk — no uploads, no syncing, no external services. Your conversations stay on your machine.
 
 > [!WARNING]
-> **v0.2.4** — Desktop-only. Active development; expect frequent changes.
+> **v0.2.5** — Desktop-only. Active development; expect frequent changes.
 
 <!-- ![Claude Sessions — dark mode](screenshots/hero-dark.png) -->
 
@@ -158,16 +158,17 @@ With a session open, run **Export session to Markdown** or **Export session to H
 
 ## Settings
 
-| Setting                | Default              | Description                                             |
-| ---------------------- | -------------------- | ------------------------------------------------------- |
-| Session directories    | `~/.claude/projects` | Directories to scan for JSONL files (supports `~`)      |
-| Export folder          | `Claude sessions`    | Vault folder for exported files                         |
-| Show thinking blocks   | On                   | Display thinking/reasoning blocks                       |
-| Show tool calls        | On                   | Display tool use blocks                                 |
-| Show tool results      | On                   | Display tool result output                              |
-| Tool group threshold   | 4                    | Consecutive tool calls above this collapse into a group |
-| Auto-scroll on update  | On                   | Scroll to bottom on live watch changes                  |
-| Notify on pending tool | Off                  | System notification when a tool call awaits permission  |
+| Setting                | Default              | Description                                                        |
+| ---------------------- | -------------------- | ------------------------------------------------------------------ |
+| Session directories    | `~/.claude/projects` | Directories to scan for JSONL files (supports `~`)                 |
+| Export folder          | `Claude sessions`    | Vault folder for exported files                                    |
+| Show thinking blocks   | On                   | Display thinking/reasoning blocks                                  |
+| Show tool calls        | On                   | Display tool use blocks                                            |
+| Show tool results      | On                   | Display tool result output                                         |
+| Tool group threshold   | 4                    | Consecutive tool calls above this collapse into a group            |
+| Auto-scroll on update  | On                   | Scroll to bottom on live watch changes                             |
+| Notify on pending tool | Off                  | System notification when a tool call awaits permission             |
+| Show rate limits       | Off                  | Display Claude account rate limit utilization (5-hour and weekly)  |
 
 ---
 
