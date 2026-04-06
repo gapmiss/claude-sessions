@@ -120,6 +120,48 @@ function captureFontFaces(): string {
 	return result.join('\n\n');
 }
 
+/**
+ * Capture resolved --cs-* theme variables from the live container element.
+ * This picks up overrides from CSS snippets (e.g. custom themes) that
+ * capturePluginStyles() misses since it only grabs the main plugin stylesheet.
+ */
+function capturePluginThemeOverrides(): string {
+	const container = document.querySelector('.claude-sessions-timeline-container');
+	if (!container) return '';
+
+	const computed = getComputedStyle(container);
+
+	// Collect all --cs-* variable names from all stylesheets
+	const csVarNames = new Set<string>();
+	for (const sheet of Array.from(document.styleSheets)) {
+		try {
+			for (const rule of Array.from(sheet.cssRules)) {
+				if (rule instanceof CSSStyleRule && rule.style) {
+					for (let i = 0; i < rule.style.length; i++) {
+						const prop = rule.style[i];
+						if (prop.startsWith('--cs-')) csVarNames.add(prop);
+					}
+				}
+			}
+		} catch {
+			// Cross-origin stylesheet, skip
+		}
+	}
+
+	if (csVarNames.size === 0) return '';
+
+	// Resolve to computed values from the actual container element
+	const declarations: string[] = [];
+	for (const name of csVarNames) {
+		const val = computed.getPropertyValue(name).trim();
+		if (val) {
+			declarations.push(`  ${name}: ${val};`);
+		}
+	}
+
+	return `.claude-sessions-timeline-container {\n${declarations.join('\n')}\n}`;
+}
+
 /** Capture all CSS needed for standalone HTML export. */
 export function captureAllCSS(): string {
 	const sections = [
@@ -134,6 +176,9 @@ export function captureAllCSS(): string {
 		'',
 		'/* === Plugin Styles === */',
 		capturePluginStyles(),
+		'',
+		'/* === Plugin Theme Overrides (resolved from live container) === */',
+		capturePluginThemeOverrides(),
 	];
 
 	return sections.join('\n');
