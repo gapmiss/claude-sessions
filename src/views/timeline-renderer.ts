@@ -382,16 +382,7 @@ export class TimelineRenderer {
 			&& (trimmed.match(/^```/gm)?.length === 2);
 
 		if (!isJustCodeBlock) {
-			const copyBtn = wrapEl.createEl('button', {
-				cls: 'claude-sessions-text-copy clickable-icon',
-				attr: { 'aria-label': 'Copy to clipboard', 'data-tooltip-position': 'top' },
-			});
-			setIcon(copyBtn, 'copy');
-			copyBtn.addEventListener('click', () => {
-				navigator.clipboard.writeText(text);
-				setIcon(copyBtn, 'check');
-				setTimeout(() => setIcon(copyBtn, 'copy'), 1500);
-			});
+			addCopyButton(wrapEl, text, 'Copy to clipboard', 'claude-sessions-text-copy');
 		}
 
 		if (lines > COLLAPSE_THRESHOLD) {
@@ -404,8 +395,9 @@ export class TimelineRenderer {
 			const toggleBtn = wrapEl.createEl('button', {
 				cls: 'claude-sessions-collapsible-toggle',
 				text: `Show more (${lines} lines)`,
-				attr: { 'aria-expanded': 'false', 'data-line-count': String(lines) },
+				attr: { 'data-line-count': String(lines) },
 			});
+			makeClickable(toggleBtn, { label: `Show more (${lines} lines)`, expanded: false });
 			toggleBtn.addEventListener('click', () => {
 				const collapsed = wrapEl.hasClass('is-collapsed');
 				wrapEl.toggleClass('is-collapsed', !collapsed);

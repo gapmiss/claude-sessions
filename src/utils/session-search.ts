@@ -1,5 +1,6 @@
 import { Platform } from 'obsidian';
 import type { Turn, TurnRole, SessionListEntry } from '../types';
+import { BM25Index, analyze } from './bm25';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -18,6 +19,8 @@ export interface SearchMatch {
 	contextBefore: string;
 	contextAfter: string;
 	timestamp?: string;
+	/** BM25 relevance score (only set when using ranked search). */
+	score?: number;
 }
 
 export interface SessionSearchResult {
@@ -264,6 +267,162 @@ export async function searchSessions(
 
 		const entry = entries[i];
 		const { matches, totalMatches } = await searchFile(entry.path, query, DEFAULT_MAX_MATCHES, signal);
+
+		if (matches.length > 0) {
+			onResult({ entry, matches, totalMatches });
+		}
+
+		onProgress(i + 1, entries.length);
+	}
+}
+
+// ── BM25 ranked search ────────────────────────────────────
+
+/** Payload stored per BM25 document (one per JSONL content line). */
+interface RankedDocPayload {
+	role: TurnRole;
+	blockType: string;
+	toolName?: string;
+	text: string;
+	turnIndex: number;
+	timestamp?: string;
+}
+
+/**
+ * Search a single JSONL file using BM25 relevance ranking.
+ * Returns matches sorted by score (best first) instead of document order.
+ */
+export async function searchFileRanked(
+	filePath: string,
+	query: SearchQuery,
+	maxMatches = DEFAULT_MAX_MATCHES,
+	signal?: AbortSignal,
+): Promise<{ matches: SearchMatch[]; totalMatches: number }> {
+	if (!Platform.isDesktop) return { matches: [], totalMatches: 0 };
+
+	const fs = require('fs') as typeof import('fs');
+	const readline = require('readline') as typeof import('readline');
+
+	const index = new BM25Index<RankedDocPayload>();
+	let docId = 0;
+	let approxTurnIndex = 0;
+	let lastRole: string | null = null;
+
+	await new Promise<void>((resolve) => {
+		let stream: ReturnType<typeof fs.createReadStream>;
+		try {
+			stream = fs.createReadStream(filePath, { encoding: 'utf-8' });
+		} catch {
+			resolve();
+			return;
+		}
+
+		const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+
+		const cleanup = () => {
+			rl.close();
+			stream.destroy();
+		};
+
+		if (signal) {
+			signal.addEventListener('abort', cleanup, { once: true });
+		}
+
+		rl.on('line', (line: string) => {
+			if (signal?.aborted) return;
+
+			const extracted = extractSearchableContent(line);
+			if (!extracted) return;
+
+			// Track turn index
+			if (extracted.role !== lastRole) {
+				if (lastRole !== null) approxTurnIndex++;
+				lastRole = extracted.role;
+			}
+
+			// Role filter
+			if (query.roleFilter && query.roleFilter !== 'all' && extracted.role !== query.roleFilter) {
+				return;
+			}
+
+			const id = String(docId++);
+			index.add(id, extracted.text, {
+				role: extracted.role,
+				blockType: extracted.blockType,
+				toolName: extracted.toolName,
+				text: extracted.text,
+				turnIndex: approxTurnIndex,
+				timestamp: extracted.timestamp,
+			});
+		});
+
+		rl.on('close', () => resolve());
+		stream.on('error', () => resolve());
+	});
+
+	if (signal?.aborted) return { matches: [], totalMatches: 0 };
+
+	// Query the index
+	const ranked = index.search(query.text, maxMatches * 2);
+	const totalMatches = ranked.length;
+
+	// Build SearchMatch objects with context snippets
+	const searchText = query.caseSensitive ? query.text : query.text.toLowerCase();
+	const matches: SearchMatch[] = [];
+
+	for (const result of ranked) {
+		if (matches.length >= maxMatches) break;
+
+		const { data } = result;
+		const haystack = query.caseSensitive ? data.text : data.text.toLowerCase();
+
+		// Find the best substring match for snippet context
+		// First try exact substring; fall back to first query term
+		let idx = haystack.indexOf(searchText);
+		if (idx === -1) {
+			// Find first matching stemmed term position (approximate snippet)
+			const queryTerms = analyze(query.text);
+			for (const term of queryTerms) {
+				idx = haystack.indexOf(term);
+				if (idx !== -1) break;
+			}
+		}
+
+		if (idx === -1) idx = 0;
+		const snippetEnd = Math.min(idx + searchText.length, data.text.length);
+
+		matches.push({
+			turnIndex: data.turnIndex,
+			role: data.role,
+			blockType: data.blockType,
+			toolName: data.toolName,
+			matchText: data.text.slice(idx, snippetEnd),
+			contextBefore: data.text.slice(Math.max(0, idx - CONTEXT_CHARS), idx),
+			contextAfter: data.text.slice(snippetEnd, snippetEnd + CONTEXT_CHARS),
+			timestamp: data.timestamp,
+			score: result.score,
+		});
+	}
+
+	return { matches, totalMatches };
+}
+
+/**
+ * Search across sessions using BM25 ranking.
+ * Results within each session are ranked by relevance.
+ */
+export async function searchSessionsRanked(
+	entries: SessionListEntry[],
+	query: SearchQuery,
+	onResult: (result: SessionSearchResult) => void,
+	onProgress: (searched: number, total: number) => void,
+	signal?: AbortSignal,
+): Promise<void> {
+	for (let i = 0; i < entries.length; i++) {
+		if (signal?.aborted) return;
+
+		const entry = entries[i];
+		const { matches, totalMatches } = await searchFileRanked(entry.path, query, DEFAULT_MAX_MATCHES, signal);
 
 		if (matches.length > 0) {
 			onResult({ entry, matches, totalMatches });

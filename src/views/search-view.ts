@@ -1,7 +1,7 @@
-import { ItemView, Notice, WorkspaceLeaf } from 'obsidian';
+import { ItemView, Notice, WorkspaceLeaf, setIcon } from 'obsidian';
 import type ClaudeSessionsPlugin from '../main';
 import type { Session, SessionListEntry } from '../types';
-import { searchSessions, searchFile, resolveMatchTurn } from '../utils/session-search';
+import { searchSessions, searchSessionsRanked, searchFile, searchFileRanked, resolveMatchTurn } from '../utils/session-search';
 import type { SearchQuery, SearchMatch, SessionSearchResult } from '../utils/session-search';
 import { readFileContent } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
@@ -19,11 +19,13 @@ const SINGLE_SESSION_MAX_MATCHES = 100;
 const SINGLE_SESSION_VISIBLE = 20;
 
 type SearchMode = 'cross-session' | 'in-session';
+type SortMode = 'relevance' | 'chronological';
 
 interface SearchViewState {
 	mode?: SearchMode;
 	query?: string;
 	roleFilter?: 'all' | 'user' | 'assistant';
+	sortMode?: SortMode;
 }
 
 export class SearchView extends ItemView {
@@ -31,6 +33,7 @@ export class SearchView extends ItemView {
 
 	// Mode
 	private mode: SearchMode = 'cross-session';
+	private sortMode: SortMode = 'relevance';
 
 	// Cross-session state
 	private entries: SessionListEntry[] = [];
@@ -54,6 +57,7 @@ export class SearchView extends ItemView {
 	private scopeLabel!: HTMLElement;
 	private inputEl!: HTMLInputElement;
 	private roleSelect!: HTMLSelectElement;
+	private sortBtn!: HTMLElement;
 	private progressEl!: HTMLElement;
 	private resultsEl!: HTMLElement;
 
@@ -119,6 +123,24 @@ export class SearchView extends ItemView {
 			this.roleSelect.createEl('option', { value, text: label });
 		}
 
+		this.sortBtn = inputRow.createEl('button', {
+			cls: 'claude-sessions-search-sort-btn clickable-icon',
+			attr: {
+				'aria-label': 'Sort by relevance',
+				'data-tooltip-position': 'top',
+			},
+		});
+		this.syncSortUI();
+		makeClickable(this.sortBtn, { label: 'Toggle sort mode' });
+		this.sortBtn.addEventListener('click', () => {
+			this.sortMode = this.sortMode === 'relevance' ? 'chronological' : 'relevance';
+			this.syncSortUI();
+			// Re-execute query with new sort
+			if (this.inputEl.value.trim().length >= 2) {
+				this.onQueryChange();
+			}
+		});
+
 		// Progress
 		this.progressEl = contentEl.createDiv({ cls: 'claude-sessions-search-progress' });
 
@@ -177,6 +199,7 @@ export class SearchView extends ItemView {
 			mode: this.mode,
 			query: this.inputEl?.value ?? '',
 			roleFilter: this.roleSelect?.value ?? 'all',
+			sortMode: this.sortMode,
 		};
 	}
 
@@ -184,6 +207,10 @@ export class SearchView extends ItemView {
 		if (state.mode) {
 			this.mode = state.mode;
 			this.syncModeUI();
+		}
+		if (state.sortMode) {
+			this.sortMode = state.sortMode;
+			this.syncSortUI();
 		}
 		if (state.roleFilter && this.roleSelect) {
 			this.roleSelect.value = state.roleFilter;
@@ -252,6 +279,14 @@ export class SearchView extends ItemView {
 		this.inSessionBtn.toggleClass('active', this.mode === 'in-session');
 		this.inputEl.setAttribute('placeholder',
 			this.mode === 'in-session' ? 'Search in session...' : 'Search across sessions...');
+	}
+
+	private syncSortUI(): void {
+		if (!this.sortBtn) return;
+		const isRelevance = this.sortMode === 'relevance';
+		setIcon(this.sortBtn, isRelevance ? 'arrow-up-narrow-wide' : 'clock');
+		this.sortBtn.setAttribute('aria-label', isRelevance ? 'Sorted by relevance' : 'Sorted chronologically');
+		this.sortBtn.toggleClass('active', isRelevance);
 	}
 
 	private resolveTrackedSession(): void {
@@ -356,7 +391,8 @@ export class SearchView extends ItemView {
 
 		this.progressEl.setText('Searching...');
 
-		const { matches, totalMatches } = await searchFile(
+		const searchFn = this.sortMode === 'relevance' ? searchFileRanked : searchFile;
+		const { matches, totalMatches } = await searchFn(
 			this.trackedFilePath, query, SINGLE_SESSION_MAX_MATCHES, controller.signal,
 		);
 
@@ -404,6 +440,17 @@ export class SearchView extends ItemView {
 
 		// Turn label
 		row.createSpan({ cls: 'claude-sessions-search-match-turn', text: `#${resolvedTurn + 1}` });
+
+		// Score indicator (only in relevance mode)
+		if (match.score !== undefined) {
+			const pct = Math.min(100, Math.round(match.score * 20));
+			const scoreEl = row.createSpan({
+				cls: 'claude-sessions-search-match-score',
+				attr: { 'aria-label': `Relevance: ${pct}%` },
+			});
+			const bar = scoreEl.createSpan({ cls: 'claude-sessions-search-score-bar' });
+			bar.style.setProperty('--score-pct', `${pct}%`);
+		}
 
 		// Role + type
 		const meta = row.createSpan({ cls: 'claude-sessions-search-match-meta' });
@@ -473,7 +520,8 @@ export class SearchView extends ItemView {
 
 		let resultCount = 0;
 
-		searchSessions(
+		const searchFn = this.sortMode === 'relevance' ? searchSessionsRanked : searchSessions;
+		searchFn(
 			this.entries,
 			query,
 			(result) => {
@@ -547,6 +595,17 @@ export class SearchView extends ItemView {
 	): void {
 		const row = container.createDiv({ cls: 'claude-sessions-search-match-row' });
 		makeClickable(row, { label: 'Open match in session' });
+
+		// Score indicator (only in relevance mode)
+		if (match.score !== undefined) {
+			const pct = Math.min(100, Math.round(match.score * 20));
+			const scoreEl = row.createSpan({
+				cls: 'claude-sessions-search-match-score',
+				attr: { 'aria-label': `Relevance: ${pct}%` },
+			});
+			const bar = scoreEl.createSpan({ cls: 'claude-sessions-search-score-bar' });
+			bar.style.setProperty('--score-pct', `${pct}%`);
+		}
 
 		// Role + type label
 		const meta = row.createSpan({ cls: 'claude-sessions-search-match-meta' });

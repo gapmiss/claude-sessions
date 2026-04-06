@@ -2235,6 +2235,52 @@
 	font-size: var(--font-ui-small);
 }
 
+/* ── Sort toggle ── */
+
+.claude-sessions-search-sort-btn {
+	min-height: 44px;
+	min-width: 36px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background: var(--background-primary);
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.claude-sessions-search-sort-btn:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.claude-sessions-search-sort-btn.active {
+	color: var(--cs-accent);
+	border-color: var(--cs-accent);
+}
+
+/* ── Score indicator ── */
+
+.claude-sessions-search-match-score {
+	flex-shrink: 0;
+	width: 32px;
+	height: 4px;
+	background: var(--background-modifier-border);
+	border-radius: 2px;
+	overflow: hidden;
+	align-self: center;
+}
+
+.claude-sessions-search-score-bar {
+	display: block;
+	height: 100%;
+	width: var(--score-pct, 0%);
+	background: var(--cs-accent);
+	border-radius: 2px;
+	transition: width 0.2s ease;
+}
+
 .claude-sessions-search-progress {
 	padding: var(--size-2-3) var(--size-4-4);
 	font-size: var(--cs-font-size-xs);

@@ -335,14 +335,16 @@ function renderMarkdownToggle(content: string, lang: string, container: HTMLElem
 	const toggleRow = wrapper.createDiv({ cls: 'claude-sessions-read-md-toggle-row' });
 	const codeBtn = toggleRow.createEl('button', {
 		cls: 'claude-sessions-read-md-btn clickable-icon is-active',
-		attr: { 'aria-label': 'Show raw code', 'aria-pressed': 'true' },
+		attr: { 'aria-pressed': 'true' },
 	});
 	setIcon(codeBtn, 'code');
+	makeClickable(codeBtn, { label: 'Show raw code' });
 	const previewBtn = toggleRow.createEl('button', {
 		cls: 'claude-sessions-read-md-btn clickable-icon',
-		attr: { 'aria-label': 'Show rendered Markdown', 'aria-pressed': 'false' },
+		attr: { 'aria-pressed': 'false' },
 	});
 	setIcon(previewBtn, 'eye');
+	makeClickable(previewBtn, { label: 'Show rendered Markdown' });
 
 	const codeView = wrapper.createDiv({ cls: 'claude-sessions-read-md-code' });
 	const codeMd = fence(content, lang);

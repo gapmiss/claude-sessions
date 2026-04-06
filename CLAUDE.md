@@ -96,8 +96,6 @@ Audit results: `@AUDIT-2026-04-01.md`
   - Hook icons removed rather than rewritten for new format — stop hooks are turn-level, not tool-level
   - Rate limit API endpoint is undocumented beta (`anthropic-beta: oauth-2025-04-20`) — TOS status unclear
 - **Next steps**:
-  - Verify ESLint works with new `@eslint/json` dependency
-  - Address remaining audit items (incremental parsing for large sessions)
   - Monitor Anthropic usage API for stability / official documentation
 - **Blockers**: None
 - **Branch**: main
