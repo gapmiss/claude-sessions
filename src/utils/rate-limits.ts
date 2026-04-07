@@ -26,9 +26,7 @@ let inflight: Promise<RateLimitData | null> | null = null;
 async function getAccessToken(): Promise<string | null> {
 	if (!Platform.isDesktop) return null;
 
-	// eslint-disable-next-line @typescript-eslint/no-var-requires
 	const fs = require('fs') as typeof import('fs');
-	// eslint-disable-next-line @typescript-eslint/no-var-requires
 	const path = require('path') as typeof import('path');
 	const home = process.env.HOME || process.env.USERPROFILE || '';
 
