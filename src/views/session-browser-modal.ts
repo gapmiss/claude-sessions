@@ -198,7 +198,6 @@ export class SessionBrowserModal extends SuggestModal<SessionListEntry> {
 
 	async onChooseSuggestion(item: SessionListEntry): Promise<void> {
 		try {
-			new Notice('Loading session...');
 			const content = await readFileContent(item.path);
 			const parser = detectParser(content);
 			if (!parser) {

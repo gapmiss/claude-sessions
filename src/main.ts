@@ -197,7 +197,6 @@ export default class ClaudeSessionsPlugin extends Plugin {
 	async openSessionByPath(sessionPath: string, turnIndex?: number): Promise<void> {
 		try {
 			const filePath = expandHome(sessionPath);
-			new Notice('Loading session...');
 			const content = await readFileContent(filePath);
 			const parser = detectParser(content);
 			if (!parser) {
@@ -231,7 +230,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	async openSession(session: Session, turnIndex?: number, highlightQuery?: string): Promise<void> {
+	async openSession(session: Session, turnIndex?: number, highlightQuery?: string, matchContext?: string): Promise<void> {
 		// Reuse existing tab if this session is already open
 		let leaf: WorkspaceLeaf | undefined;
 		if (session.rawPath) {
@@ -260,7 +259,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 				requestAnimationFrame(() => {
 					view.scrollToTurn(turnIndex);
 					if (highlightQuery) {
-						view.navigateToMatch(turnIndex, highlightQuery);
+						view.navigateToMatch(turnIndex, highlightQuery, matchContext);
 					}
 				});
 			}

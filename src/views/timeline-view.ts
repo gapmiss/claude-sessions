@@ -519,18 +519,18 @@ expandAll(): void {
 		}
 	}
 
-	navigateToMatch(turnIndex: number, query: string): void {
+	navigateToMatch(turnIndex: number, query: string, matchContext?: string): void {
 		this.clearHighlight();
 		this.scrollToTurn(turnIndex);
 		// Allow scroll to settle before highlighting
 		requestAnimationFrame(() => {
 			requestAnimationFrame(() => {
-				this.highlightMatchInTurn(turnIndex, query);
+				this.highlightMatchInTurn(turnIndex, query, matchContext);
 			});
 		});
 	}
 
-	private highlightMatchInTurn(turnIndex: number, query: string): void {
+	private highlightMatchInTurn(turnIndex: number, query: string, matchContext?: string): void {
 		const turnEls = this.renderer?.getTurnElements() || [];
 		const turnEl = turnEls[turnIndex];
 		if (!turnEl) return;
@@ -543,34 +543,75 @@ expandAll(): void {
 		}
 
 		const lowerQuery = query.toLowerCase();
+		// Use trailing context chars to disambiguate multiple occurrences
+		const contextSuffix = matchContext
+			? matchContext.slice(-20).toLowerCase()
+			: '';
+
 		const walker = document.createTreeWalker(turnEl, NodeFilter.SHOW_TEXT);
 		let node: Text | null;
+		let fallbackNode: Text | null = null;
+		let fallbackIdx = -1;
+
 		while ((node = walker.nextNode() as Text | null)) {
 			const text = node.textContent || '';
-			const idx = text.toLowerCase().indexOf(lowerQuery);
-			if (idx === -1) continue;
+			const lowerText = text.toLowerCase();
+			let searchFrom = 0;
 
-			// Expand any collapsed ancestors between the text node and turn
-			this.expandAncestors(node, turnEl);
+			while (true) {
+				const idx = lowerText.indexOf(lowerQuery, searchFrom);
+				if (idx === -1) break;
 
-			// Split text node and wrap match in <mark>
-			const before = node.splitText(idx);
-			const after = before.splitText(query.length);
-			// after is unused but splitText needs the call to isolate the match
-			void after;
+				if (contextSuffix && idx > 0) {
+					const preceding = lowerText.slice(Math.max(0, idx - 20), idx);
+					if (preceding.includes(contextSuffix.slice(-preceding.length))) {
+						this.applyHighlight(node, idx, query.length, turnEl);
+						return;
+					}
+					if (!fallbackNode) {
+						fallbackNode = node;
+						fallbackIdx = idx;
+					}
+					searchFrom = idx + 1;
+					continue;
+				}
 
-			const mark = document.createElement('mark');
-			mark.className = 'claude-sessions-search-highlight';
-			before.parentNode!.replaceChild(mark, before);
-			mark.appendChild(document.createTextNode(before.textContent || ''));
+				// No context — use first match
+				if (!contextSuffix) {
+					this.applyHighlight(node, idx, query.length, turnEl);
+					return;
+				}
 
-			this.activeHighlight = mark;
-			mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-			// Auto-clear after 3s
-			this.highlightTimer = window.setTimeout(() => this.clearHighlight(), 5000);
-			return;
+				if (!fallbackNode) {
+					fallbackNode = node;
+					fallbackIdx = idx;
+				}
+				searchFrom = idx + 1;
+			}
 		}
+
+		// Fall back to first occurrence if context didn't disambiguate
+		if (fallbackNode) {
+			this.applyHighlight(fallbackNode, fallbackIdx, query.length, turnEl);
+		}
+	}
+
+	private applyHighlight(node: Text, idx: number, length: number, turnEl: HTMLElement): void {
+		this.expandAncestors(node, turnEl);
+
+		const before = node.splitText(idx);
+		const after = before.splitText(length);
+		void after;
+
+		const mark = document.createElement('mark');
+		mark.className = 'claude-sessions-search-highlight';
+		before.parentNode!.replaceChild(mark, before);
+		mark.appendChild(document.createTextNode(before.textContent || ''));
+
+		this.activeHighlight = mark;
+		mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+		this.highlightTimer = window.setTimeout(() => this.clearHighlight(), 5000);
 	}
 
 	private expandAncestors(node: Node, boundary: HTMLElement): void {
@@ -597,7 +638,7 @@ expandAll(): void {
 			// Show-more collapse
 			if (el.hasClass('claude-sessions-collapsible-wrap') && el.hasClass('is-collapsed')) {
 				el.removeClass('is-collapsed');
-				const btn = el.querySelector('.claude-sessions-show-more-btn');
+				const btn = el.querySelector('.claude-sessions-collapsible-toggle');
 				if (btn) btn.setAttribute('aria-expanded', 'true');
 			}
 			// Sub-agent prompt
@@ -605,6 +646,30 @@ expandAll(): void {
 				el.addClass('open');
 				const h = el.querySelector('.claude-sessions-subagent-prompt-header');
 				if (h) h.setAttribute('aria-expanded', 'true');
+			}
+			// Slash command block
+			if (el.hasClass('claude-sessions-slash-command-block') && !el.hasClass('open')) {
+				el.addClass('open');
+				const h = el.querySelector('.claude-sessions-slash-command-header');
+				if (h) h.setAttribute('aria-expanded', 'true');
+			}
+			// Compaction summary
+			if (el.hasClass('claude-sessions-compaction-block') && !el.hasClass('open')) {
+				el.addClass('open');
+				const h = el.querySelector('.claude-sessions-compaction-summary-header');
+				if (h) h.setAttribute('aria-expanded', 'true');
+			}
+			// Markdown preview toggle — if match is in the hidden code view, show it
+			if (el.hasClass('claude-sessions-read-md-hidden')) {
+				el.removeClass('claude-sessions-read-md-hidden');
+				// Hide the sibling view and update toggle buttons
+				const parent = el.parentElement;
+				if (parent) {
+					const sibling = el.hasClass('claude-sessions-read-md-code')
+						? parent.querySelector('.claude-sessions-read-md-preview')
+						: parent.querySelector('.claude-sessions-read-md-code');
+					if (sibling) sibling.addClass('claude-sessions-read-md-hidden');
+				}
 			}
 			el = el.parentElement;
 		}

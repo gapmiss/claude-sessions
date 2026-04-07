@@ -1,6 +1,6 @@
 import { Platform } from 'obsidian';
 import type { Turn, TurnRole, SessionListEntry } from '../types';
-import { BM25Index, analyze } from './bm25';
+import { BM25Index } from './bm25';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -278,19 +278,10 @@ export async function searchSessions(
 
 // ── BM25 ranked search ────────────────────────────────────
 
-/** Payload stored per BM25 document (one per JSONL content line). */
-interface RankedDocPayload {
-	role: TurnRole;
-	blockType: string;
-	toolName?: string;
-	text: string;
-	turnIndex: number;
-	timestamp?: string;
-}
-
 /**
- * Search a single JSONL file using BM25 relevance ranking.
- * Returns matches sorted by score (best first) instead of document order.
+ * Search a single JSONL file using exact substring matching, ranked by BM25.
+ * Finds exact matches (same as searchFile), then scores each match's
+ * containing document with BM25 for relevance sorting.
  */
 export async function searchFileRanked(
 	filePath: string,
@@ -303,10 +294,13 @@ export async function searchFileRanked(
 	const fs = require('fs') as typeof import('fs');
 	const readline = require('readline') as typeof import('readline');
 
-	const index = new BM25Index<RankedDocPayload>();
-	let docId = 0;
+	const searchText = query.caseSensitive ? query.text : query.text.toLowerCase();
+	const index = new BM25Index<null>();
+	const matches: (SearchMatch & { docId: string })[] = [];
+	let totalMatches = 0;
 	let approxTurnIndex = 0;
 	let lastRole: string | null = null;
+	let docId = 0;
 
 	await new Promise<void>((resolve) => {
 		let stream: ReturnType<typeof fs.createReadStream>;
@@ -345,15 +339,33 @@ export async function searchFileRanked(
 				return;
 			}
 
+			// Add every document to the BM25 index for scoring
 			const id = String(docId++);
-			index.add(id, extracted.text, {
-				role: extracted.role,
-				blockType: extracted.blockType,
-				toolName: extracted.toolName,
-				text: extracted.text,
-				turnIndex: approxTurnIndex,
-				timestamp: extracted.timestamp,
-			});
+			index.add(id, extracted.text, null);
+
+			// Find exact substring matches (same logic as searchFile)
+			const haystack = query.caseSensitive ? extracted.text : extracted.text.toLowerCase();
+			let searchFrom = 0;
+			while (true) {
+				const idx = haystack.indexOf(searchText, searchFrom);
+				if (idx === -1) break;
+
+				totalMatches++;
+				const matchEnd = idx + searchText.length;
+				matches.push({
+					docId: id,
+					turnIndex: approxTurnIndex,
+					role: extracted.role,
+					blockType: extracted.blockType,
+					toolName: extracted.toolName,
+					matchText: extracted.text.slice(idx, matchEnd),
+					contextBefore: extracted.text.slice(Math.max(0, idx - CONTEXT_CHARS), idx),
+					contextAfter: extracted.text.slice(matchEnd, matchEnd + CONTEXT_CHARS),
+					timestamp: extracted.timestamp,
+				});
+
+				searchFrom = idx + 1;
+			}
 		});
 
 		rl.on('close', () => resolve());
@@ -362,49 +374,22 @@ export async function searchFileRanked(
 
 	if (signal?.aborted) return { matches: [], totalMatches: 0 };
 
-	// Query the index
-	const ranked = index.search(query.text, maxMatches * 2);
-	const totalMatches = ranked.length;
-
-	// Build SearchMatch objects with context snippets
-	const searchText = query.caseSensitive ? query.text : query.text.toLowerCase();
-	const matches: SearchMatch[] = [];
-
-	for (const result of ranked) {
-		if (matches.length >= maxMatches) break;
-
-		const { data } = result;
-		const haystack = query.caseSensitive ? data.text : data.text.toLowerCase();
-
-		// Find the best substring match for snippet context
-		// First try exact substring; fall back to first query term
-		let idx = haystack.indexOf(searchText);
-		if (idx === -1) {
-			// Find first matching stemmed term position (approximate snippet)
-			const queryTerms = analyze(query.text);
-			for (const term of queryTerms) {
-				idx = haystack.indexOf(term);
-				if (idx !== -1) break;
-			}
-		}
-
-		if (idx === -1) idx = 0;
-		const snippetEnd = Math.min(idx + searchText.length, data.text.length);
-
-		matches.push({
-			turnIndex: data.turnIndex,
-			role: data.role,
-			blockType: data.blockType,
-			toolName: data.toolName,
-			matchText: data.text.slice(idx, snippetEnd),
-			contextBefore: data.text.slice(Math.max(0, idx - CONTEXT_CHARS), idx),
-			contextAfter: data.text.slice(snippetEnd, snippetEnd + CONTEXT_CHARS),
-			timestamp: data.timestamp,
-			score: result.score,
-		});
+	// Score each match's document with BM25 and sort by relevance
+	const scoreMap = new Map<string, number>();
+	const ranked = index.search(query.text, index.size);
+	for (const r of ranked) {
+		scoreMap.set(r.id, r.score);
 	}
 
-	return { matches, totalMatches };
+	matches.sort((a, b) => (scoreMap.get(b.docId) ?? 0) - (scoreMap.get(a.docId) ?? 0));
+
+	// Strip internal docId and cap results
+	const result: SearchMatch[] = matches.slice(0, maxMatches).map(({ docId: _id, ...m }) => ({
+		...m,
+		score: scoreMap.get(_id) ?? 0,
+	}));
+
+	return { matches: result, totalMatches };
 }
 
 /**

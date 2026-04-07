@@ -38,6 +38,9 @@ export class SearchView extends ItemView {
 	// Cross-session state
 	private entries: SessionListEntry[] = [];
 	private entriesLoaded = false;
+	private cachedCrossResults: DocumentFragment | null = null;
+	private cachedCrossProgress = '';
+	private cachedCrossKey = '';
 
 	// In-session state
 	private trackedTimelineLeaf: WorkspaceLeaf | null = null;
@@ -230,6 +233,16 @@ export class SearchView extends ItemView {
 
 	setMode(mode: SearchMode): void {
 		if (this.mode === mode) return;
+
+		// Save cross-session results before leaving
+		if (this.mode === 'cross-session' && this.resultsEl.childNodes.length > 0) {
+			this.cachedCrossResults = document.createDocumentFragment();
+			while (this.resultsEl.firstChild) {
+				this.cachedCrossResults.appendChild(this.resultsEl.firstChild);
+			}
+			this.cachedCrossProgress = this.progressEl.getText();
+		}
+
 		this.mode = mode;
 		this.abortSearch();
 		this.resultsEl.empty();
@@ -240,9 +253,15 @@ export class SearchView extends ItemView {
 		this.resolveTrackedSession();
 		this.updateScopeLabel();
 
-		// Re-execute current query in new mode
 		if (this.inputEl.value.trim().length >= 2) {
-			this.onQueryChange();
+			// Restore cached cross-session results if query unchanged
+			if (mode === 'cross-session' && this.cachedCrossResults && this.crossCacheKey() === this.cachedCrossKey) {
+				this.resultsEl.appendChild(this.cachedCrossResults);
+				this.cachedCrossResults = null;
+				this.progressEl.setText(this.cachedCrossProgress);
+			} else {
+				this.onQueryChange();
+			}
 		}
 	}
 
@@ -474,21 +493,25 @@ export class SearchView extends ItemView {
 
 		row.addEventListener('click', () => {
 			this.setActiveRow(row);
-			this.navigateToInSessionMatch(resolvedTurn, query.text);
+			this.navigateToInSessionMatch(resolvedTurn, query.text, match.contextBefore);
 		});
 	}
 
-	private navigateToInSessionMatch(turnIndex: number, query: string): void {
+	private navigateToInSessionMatch(turnIndex: number, query: string, matchContext?: string): void {
 		if (!this.trackedTimelineLeaf) return;
 		const view = this.trackedTimelineLeaf.view;
 		if (view instanceof TimelineView) {
 			// Reveal the timeline leaf so the user sees the result
 			this.app.workspace.revealLeaf(this.trackedTimelineLeaf);
-			view.navigateToMatch(turnIndex, query);
+			view.navigateToMatch(turnIndex, query, matchContext);
 		}
 	}
 
 	// ── Cross-session search ──
+
+	private crossCacheKey(): string {
+		return `${this.inputEl.value.trim()}\0${this.roleSelect.value}\0${this.sortMode}`;
+	}
 
 	private async executeCrossSessionSearch(text: string): Promise<void> {
 		this.abortSearch();
@@ -511,6 +534,9 @@ export class SearchView extends ItemView {
 
 		const controller = new AbortController();
 		this.abortController = controller;
+
+		this.cachedCrossKey = this.crossCacheKey();
+		this.cachedCrossResults = null;
 
 		const query: SearchQuery = {
 			text,
@@ -630,13 +656,12 @@ export class SearchView extends ItemView {
 		// Click opens session at turn
 		row.addEventListener('click', () => {
 			this.setActiveRow(row);
-			this.openCrossSessionResult(result.entry, match.turnIndex, query.text);
+			this.openCrossSessionResult(result.entry, match, query.text);
 		});
 	}
 
-	private async openCrossSessionResult(entry: SessionListEntry, turnIndex: number, query: string): Promise<void> {
+	private async openCrossSessionResult(entry: SessionListEntry, match: SearchMatch, query: string): Promise<void> {
 		try {
-			new Notice('Loading session...');
 			const content = await readFileContent(entry.path);
 			const parser = detectParser(content);
 			if (!parser) {
@@ -645,7 +670,8 @@ export class SearchView extends ItemView {
 			}
 			const session = parser.parse(content, entry.path);
 			await resolveSubAgentSessions(session, readFileContent);
-			await this.plugin.openSession(session, turnIndex, query);
+			const turnIndex = resolveMatchTurn(match, session.turns);
+			await this.plugin.openSession(session, turnIndex, query, match.contextBefore);
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			new Notice(`Failed to load session: ${msg}`);
