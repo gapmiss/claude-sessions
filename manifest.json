@@ -1,7 +1,7 @@
 {
 	"id": "claude-sessions",
 	"name": "Claude Sessions",
-	"version": "0.2.8",
+	"version": "0.2.9",
 	"minAppVersion": "0.15.0",
 	"description": "View Claude Code sessions. Browse, search, analyze, & export your sessions as interactive timelines with live watch & rich tool rendering — right alongside your notes.",
 	"author": "@gapmiss",
