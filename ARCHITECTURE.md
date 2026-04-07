@@ -10,7 +10,7 @@ Reference document for detailed implementation. Not auto-included — use `@ARCH
 |---|---|
 | `user` | String content → user turn. Array content → tool results attached to preceding assistant turn |
 | `assistant` | Each content block (thinking, text, tool_use) is a **separate record** with its own uuid. Consecutive records merge into one Turn |
-| `progress` | `hook_progress` → hook events by toolUseID. `agent_progress` → sub-agent blocks. All others skipped |
+| `progress` | `agent_progress` → sub-agent blocks. All others skipped |
 | `queue-operation` | `<task-notification>` XML captured for background agents. Others skipped |
 | `summary` | Compaction boundary marker |
 | `system` | `local_command` subtype → slash command display. Others skipped |
@@ -79,7 +79,7 @@ Key systems:
 - **Content filters** — `FilterState` with 8 toggles (user text/images, assistant text/thinking/tool calls/tool results). Applied via CSS class `claude-sessions-filtered`
 - **Live watch** — `fs.watch()` with `watchFile()` fallback. 1500ms debounce. Auto-reloads session, preserves UI state
 - **Pending tool notification** — deduped by `lastNotifiedToolId`. Obsidian Notice + system Notification
-- **Search highlight** — TreeWalker finds text match, splits node, wraps in `<mark>`, auto-expands collapsed ancestors
+- **Search highlight** — TreeWalker finds text match, splits node, wraps in `<mark>`, auto-expands collapsed ancestors (tool blocks, tool groups, thinking, show-more, slash commands, compaction summaries, markdown preview toggles). Uses `matchContext` for occurrence disambiguation when multiple matches exist in a turn
 
 ### Timeline Renderer (`timeline-renderer.ts`)
 
@@ -103,8 +103,9 @@ Key systems:
 
 ### Summary Renderer (`summary-renderer.ts`)
 
-- Pinned heroes bar (sticky) + collapsible summary panel
-- Hero cards: cost, context window, turns, duration
+- Pinned heroes bar (sticky, per-session pin state) + collapsible summary panel
+- Hero cards: cost, context window, turns, duration, rate limit utilization (beta, opt-in)
+- `refreshSummary()` captures and restores pin/open state across DOM rebuild during live reload
 - Token usage chart: stacked input bar (cache read/write/uncached) + output bar
 - Tool usage horizontal bar chart
 - Metadata grid: project, model, version, branch, start time, duration, cwd
@@ -113,9 +114,12 @@ Key systems:
 ### Search View (`search-view.ts`)
 
 - `ItemView` in right split, type `claude-sessions-search`
-- Cross-session mode: `searchSessions()` with progressive results, grouped by session
-- In-session mode: `searchFile()` scoped to active timeline, with DOM highlighting via `navigateToMatch()`
-- Role filter, debounced input, AbortController cancellation, arrow key navigation
+- Cross-session mode: `searchSessions()` / `searchSessionsRanked()` with progressive results, grouped by session
+- In-session mode: `searchFile()` / `searchFileRanked()` scoped to active timeline, with DOM highlighting via `navigateToMatch()`
+- Relevance sort uses exact substring matching + BM25 scoring for rank order (not BM25 for finding matches)
+- Cross-session turn resolution via `resolveMatchTurn()` using timestamps, with `matchContext` passed through for highlight disambiguation
+- Role filter, sort toggle (relevance/chronological), debounced input, AbortController cancellation, arrow key navigation
+- Cached cross-session results restored on tab switch when query/role/sort unchanged
 - State persisted via `getState()`/`setState()`
 
 ## HTML Export Pipeline (`exporters/`)
@@ -144,7 +148,7 @@ DOM snapshot approach — captures already-rendered timeline:
 - **Dashboard inner**: `claude-sessions-dash-*` (heroes, charts, meta grid, IDs)
 - **Tool blocks**: `claude-sessions-tool-*` (block, header, body, indicator, name, preview, etc.)
 - **Filtering**: `claude-sessions-filtered` class toggles `display: none`
-- **States**: `open` (tools, thinking, summary, sub-agents), `collapsed` (turns), `is-collapsed` (show-more), `visible` (IntersectionObserver), `is-pinned` (heroes bar)
+- **States**: `open` (tools, thinking, summary, sub-agents, slash commands, compaction), `collapsed` (turns), `is-collapsed` (show-more), `visible` (IntersectionObserver), `is-pinned` (heroes bar), `claude-sessions-read-md-hidden` (markdown preview toggle)
 
 ## Commands
 

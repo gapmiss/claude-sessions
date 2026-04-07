@@ -39,7 +39,7 @@ Every tool type gets purpose-built rendering:
 
 Collapsible panel at the top of each session:
 
-- **Hero cards** — cost, context window, turns, duration, and rate limit utilization (beta, opt-in)
+- **Hero cards** — cost, context window, turns, duration, and rate limit utilization (beta, opt-in) with pinnable sticky bar
 - **Token chart** — stacked horizontal bar (cache read, cache write, uncached, output)
 - **Tool chart** — horizontal bars sorted by invocation count
 - **Metadata grid** — project, model, version, branch, start time, duration, working directory
@@ -56,9 +56,10 @@ Collapsible panel at the top of each session:
 
 Dual-mode search panel in the right sidebar:
 
-- **Cross-session** — keyword search across all JSONL files with progressive results, newest first
-- **In-session** — scoped to the active timeline with DOM highlighting
+- **Cross-session** — keyword search across all JSONL files with progressive results; sort by relevance (BM25) or chronological order
+- **In-session** — scoped to the active timeline with DOM highlighting and auto-expand of collapsed sections
 - Role filter (all / user / assistant), debounced input, arrow key navigation between results
+- Cached cross-session results restored instantly when switching tabs
 
 ### Session Browser
 
@@ -158,17 +159,17 @@ With a session open, run **Export session to Markdown** or **Export session to H
 
 ## Settings
 
-| Setting                | Default              | Description                                                        |
-| ---------------------- | -------------------- | ------------------------------------------------------------------ |
-| Session directories    | `~/.claude/projects` | Directories to scan for JSONL files (supports `~`)                 |
-| Export folder          | `Claude sessions`    | Vault folder for exported files                                    |
-| Show thinking blocks   | On                   | Display thinking/reasoning blocks                                  |
-| Show tool calls        | On                   | Display tool use blocks                                            |
-| Show tool results      | On                   | Display tool result output                                         |
-| Tool group threshold   | 4                    | Consecutive tool calls above this collapse into a group            |
-| Auto-scroll on update  | On                   | Scroll to bottom on live watch changes                             |
-| Notify on pending tool | Off                  | System notification when a tool call awaits permission             |
-| Show rate limits       | Off                  | Display Claude account rate limit utilization (5-hour and weekly)  |
+| Setting                | Default              | Description                                                       |
+| ---------------------- | -------------------- | ----------------------------------------------------------------- |
+| Session directories    | `~/.claude/projects` | Directories to scan for JSONL files (supports `~`)                |
+| Export folder          | `Claude sessions`    | Vault folder for exported files                                   |
+| Show thinking blocks   | On                   | Display thinking/reasoning blocks                                 |
+| Show tool calls        | On                   | Display tool use blocks                                           |
+| Show tool results      | On                   | Display tool result output                                        |
+| Tool group threshold   | 4                    | Consecutive tool calls above this collapse into a group           |
+| Auto-scroll on update  | On                   | Scroll to bottom on live watch changes                            |
+| Notify on pending tool | Off                  | System notification when a tool call awaits permission            |
+| Show rate limits       | Off                  | Display Claude account rate limit utilization (5-hour and weekly) |
 
 ---
 
@@ -193,7 +194,7 @@ The timeline view renders all turns immediately into a scrollable container. An 
 npm install
 npm run dev          # watch mode with source maps
 npm run build        # typecheck + production bundle
-npm test             # 98 tests (vitest)
+npm test             # 121 tests (vitest)
 npm run test:watch   # watch mode tests
 npx eslint .         # lint with eslint-plugin-obsidianmd
 ```

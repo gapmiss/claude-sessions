@@ -5,7 +5,7 @@
 - [ ] Incremental parsing — track byte/line offset, only parse new lines on reload
 - [x] Incremental DOM rendering — append new turns instead of full re-render
 - [ ] Progress bar/notice for large file imports (10MB+)
-- [x] ~~Search/filter sessions by project, date range, or model~~ — cross-session keyword search implemented
+- [x] ~~Search/filter sessions by project, date range, or model~~ — cross-session keyword search with BM25 relevance ranking
 - [ ] Semantic search — embeddings-based search for concept-level queries
 - [ ] Skip filtered blocks during segment-level navigation (arrow keys currently land on hidden blocks)
 - [ ] Full-resolution tool result images — Read tool image results are downscaled by Claude Code (~25x) before JSONL embedding; try loading from original `file_path` on disk with base64 fallback

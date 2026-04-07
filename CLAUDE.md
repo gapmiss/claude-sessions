@@ -2,7 +2,7 @@
 
 Desktop-only Claude Code JSONL session viewer for Obsidian. Browse, search, and export sessions with rich tool rendering, live watch, and summary dashboards.
 
-**Version**: 0.2.1 | **Branch**: main
+**Version**: 0.2.5 | **Branch**: main
 
 ## Development
 
@@ -46,7 +46,8 @@ src/
     path-utils.ts            # expandHome, basename, dirname, shortenPath
     rate-limits.ts           # OAuth credential reading + Anthropic usage API (beta)
     session-index.ts         # Persistent metadata cache (JSON on disk)
-    session-search.ts        # Line-by-line JSONL grep engine
+    session-search.ts        # Line-by-line JSONL grep + BM25-ranked search
+    bm25.ts                  # BM25 relevance scoring engine (tokenizer, stemmer, index)
     streaming-reader.ts      # File I/O (Node.js streams, metadata extraction)
     logger.ts                # Configurable log levels
 ```
@@ -87,14 +88,14 @@ Audit results: `@AUDIT-2026-04-01.md`
 ## Session State
 <!-- DO NOT edit this section manually. It is managed exclusively by /wrap SKILL. -->
 <!-- auto-updated by /wrap -->
-- **Last session**: 2026-04-04 20:30
-- **Goal**: Fix UI bugs, add rate limit display, remove dead hook feature
-- **Summary**: Fixed three UI bugs (pinned hero horizontal scrollbar, progress tooltip clipping, HTML export code/preview toggle). Added beta rate limit utilization display in summary hero cards via Anthropic OAuth usage API. Removed hook icons feature entirely — the `hook_progress` JSONL format is dead, replaced by `stop_hook_summary` system records.
+- **Last session**: 2026-04-06 22:30
+- **Goal**: Fix search accuracy, navigation, pinned dashboard, expand-to-highlight
+- **Summary**: Rewrote ranked search to use exact substring matching with BM25 for sort order only (eliminates false positives from scattered stemmed terms). Fixed cross-session turn resolution via timestamps. Added match context disambiguation for highlight targeting. Fixed expandAncestors (wrong collapsible-toggle selector, missing slash command/compaction/markdown-preview handlers). Replaced global pinSummaryDashboard setting with per-session pin state. Added unpin button to sticky dashboard. Fixed refreshSummary losing pin state during live reload. Added scroll-margin-top for pinned dashboard offset. Rate limit reset times now use relative format with exact tooltip.
 - **Decisions**:
-  - Rate limits behind opt-in beta toggle (off by default) with network access warning
-  - Markdown preview rendered eagerly (not lazy) so HTML export captures content
-  - Hook icons removed rather than rewritten for new format — stop hooks are turn-level, not tool-level
-  - Rate limit API endpoint is undocumented beta (`anthropic-beta: oauth-2025-04-20`) — TOS status unclear
+  - BM25 used only for scoring/ranking, not for finding matches — exact substring match is the source of truth
+  - Pin state is per-session (saved/restored via heroesPinned in view state), not a global setting
+  - scroll-margin-top (120px) via CSS sibling combinator on pinned heroes
+  - Rate limit reset shows relative time ("in 3h 42m") with exact date/time in aria-label tooltip
 - **Next steps**:
   - Monitor Anthropic usage API for stability / official documentation
 - **Blockers**: None

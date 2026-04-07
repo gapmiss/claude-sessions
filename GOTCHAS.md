@@ -18,6 +18,7 @@ Reference document for known pitfalls. Not auto-included — use `@GOTCHAS.md` w
 - CSS variables `--color-cyan`, `--color-blue`, `--color-red`, `--color-green` provide theme-aware colors for tool indicators and diff views
 - Obsidian renders mermaid as `div.mermaid` not `.block-language-mermaid` — discovered via live DOM inspection
 - Pinned heroes use negative margins to break out of the content max-width — requires `overflow-x: hidden` on `.claude-sessions-timeline` to prevent horizontal scrollbar
+- `refreshSummary()` destroys and rebuilds the pinned heroes and summary DOM — must capture `is-pinned` and `open` state before teardown and restore after re-render, otherwise live reload resets pin state
 - Progress bar tooltip (`top: -24px`) is clipped by parent `overflow: hidden` — the progress wrap needs enough top padding (28px) to contain it within bounds
 
 ## ESLint
@@ -55,6 +56,14 @@ Reference document for known pitfalls. Not auto-included — use `@GOTCHAS.md` w
 - The session being exported may contain its own source code (meta/self-referential sessions) — grep for script content must distinguish the actual `<script>` block from rendered code blocks in the DOM
 - Summary dashboard uses `claude-sessions-dash-*` CSS classes for inner components. The outer container/header/chevron/copy-button classes (`claude-sessions-summary-*`) are unchanged — `standalone-player.ts` and `html-exporter.ts` reference them
 - Markdown code/preview toggles (`renderMarkdownToggle`) must render preview eagerly — lazy rendering leaves the preview div empty in HTML export DOM snapshots. The standalone player handles the toggle via delegated click on `.claude-sessions-read-md-btn`
+
+## Search
+
+- BM25 is used only for ranking, not for finding matches — exact substring matching is the source of truth. Earlier approach using BM25 for candidate discovery produced false positives from scattered stemmed terms (e.g., "rate limit fetcher" matching any doc containing "rate", "limit", or "fetch" separately)
+- Cross-session search must resolve `approxTurnIndex` (a role-transition counter from line scanning) to actual turn index via `resolveMatchTurn()` using timestamps. In-session search already did this correctly
+- `expandAncestors()` must handle all collapsible element types: tool blocks, tool groups, thinking blocks, show-more wraps (`.claude-sessions-collapsible-toggle`, NOT `.claude-sessions-show-more-btn`), sub-agent prompts, slash command blocks, compaction summaries, and markdown preview toggles
+- When the pinned dashboard is visible, turns need `scroll-margin-top` (CSS sibling combinator on `.is-pinned`) to prevent `scrollIntoView` from placing content behind the sticky bar
+- Multiple occurrences of the same query in a turn require `matchContext` (trailing chars of `contextBefore`) for disambiguation — without it, highlighting always lands on the first occurrence
 
 ## Live Watch / UI State
 
