@@ -246,6 +246,12 @@
 	gap: var(--size-4-2);
 }
 
+.claude-sessions-pinned-heroes.is-pinned ~ .claude-sessions-turn,
+.claude-sessions-pinned-heroes.is-pinned ~ .claude-sessions-summary,
+.claude-sessions-pinned-heroes.is-pinned ~ .claude-sessions-turn .claude-sessions-search-highlight {
+	scroll-margin-top: 120px;
+}
+
 .claude-sessions-pinned-heroes .claude-sessions-dash-hero {
 	margin-bottom: 0;
 }

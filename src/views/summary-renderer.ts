@@ -11,6 +11,15 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 	const pinnedHeroes = container.createDiv({ cls: 'claude-sessions-pinned-heroes' });
 	buildHeroCards(pinnedHeroes, stats, metadata, null);
 
+	const unpinBtn = pinnedHeroes.createEl('button', {
+		cls: 'claude-sessions-heroes-pin clickable-icon is-active',
+		attr: {
+			'aria-label': 'Click to unpin stats',
+			'data-tooltip-position': 'bottom',
+		},
+	});
+	setIcon(unpinBtn, 'pin');
+
 	const el = container.createDiv({ cls: 'claude-sessions-summary' });
 
 	// Header (click to toggle)
@@ -59,17 +68,25 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 	const pinBtn = heroes.createEl('button', {
 		cls: 'claude-sessions-heroes-pin clickable-icon',
 		attr: {
-			'aria-label': 'Pin stats to top',
+			'aria-label': 'Click to pin stats to top',
 			'data-tooltip-position': 'top',
 		},
 	});
 	setIcon(pinBtn, 'pin');
-	pinBtn.addEventListener('click', (e) => {
-		e.stopPropagation();
-		const willPin = !pinnedHeroes.hasClass('is-pinned');
+	const togglePin = (willPin: boolean) => {
 		pinnedHeroes.toggleClass('is-pinned', willPin);
 		pinBtn.toggleClass('is-active', willPin);
-		pinBtn.setAttribute('aria-label', willPin ? 'Unpin stats' : 'Pin stats to top');
+		pinBtn.setAttribute('aria-label', willPin ? 'Click to unpin stats' : 'Click to pin stats to top');
+	};
+
+	pinBtn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		togglePin(!pinnedHeroes.hasClass('is-pinned'));
+	});
+
+	unpinBtn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		togglePin(false);
 	});
 
 	// ═══════════════════════════════════════
@@ -237,11 +254,14 @@ function addRateLimitCard(container: HTMLElement, percent: number, label: string
 	// Reset time below bar
 	if (resetsAt) {
 		const resetDate = new Date(resetsAt);
-		const isToday = resetDate.toDateString() === new Date().toDateString();
-		const resetLabel = isToday
-			? resetDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-			: resetDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-		card.createDiv({ cls: 'claude-sessions-dash-hero-reset', text: resetLabel });
+		const exactLabel = resetDate.toLocaleDateString(undefined, {
+			weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+		});
+		card.createDiv({
+			cls: 'claude-sessions-dash-hero-reset',
+			text: `Resets ${formatRelativeTime(resetDate)}`,
+			attr: { 'aria-label': exactLabel, 'data-tooltip-position': 'bottom' },
+		});
 	}
 }
 
@@ -317,4 +337,31 @@ function formatDuration(ms: number): string {
 	if (h > 0) return `${h}h ${m}m`;
 	if (m > 0) return `${m}m ${s}s`;
 	return `${s}s`;
+}
+
+function formatRelativeTime(date: Date): string {
+	const now = Date.now();
+	const diffMs = date.getTime() - now;
+	const absDiffMs = Math.abs(diffMs);
+	const inFuture = diffMs > 0;
+
+	const minutes = Math.round(absDiffMs / 60_000);
+	const hours = Math.round(absDiffMs / 3_600_000);
+	const days = Math.round(absDiffMs / 86_400_000);
+
+	let relative: string;
+	if (minutes < 1) relative = 'now';
+	else if (minutes < 60) relative = `${minutes}m`;
+	else if (absDiffMs < 86_400_000) {
+		const h = Math.floor(absDiffMs / 3_600_000);
+		const m = Math.round((absDiffMs % 3_600_000) / 60_000);
+		relative = m > 0 ? `${h}h ${m}m` : `${h}h`;
+	} else {
+		const d = Math.floor(absDiffMs / 86_400_000);
+		const h = Math.round((absDiffMs % 86_400_000) / 3_600_000);
+		relative = h > 0 ? `${d}d ${h}h` : `${d}d`;
+	}
+
+	if (relative === 'now') return relative;
+	return inFuture ? `in ${relative}` : `${relative} ago`;
 }
