@@ -1,6 +1,6 @@
 {
 	"name": "claude-sessions",
-	"version": "0.2.5",
+	"version": "0.2.6",
 	"description": "An Obsidian plugin for viewing Claude Code sessions. Browse, search, analyze, and export your sessions as interactive timelines with live watch and rich tool rendering — right alongside your notes.",
 	"main": "main.js",
 	"scripts": {
