@@ -1,4 +1,6 @@
 import type { CachedSessionMeta, SessionIndexData } from '../types';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const INDEX_VERSION = 1;
 const INDEX_FILENAME = 'session-index.json';
@@ -9,7 +11,6 @@ export class SessionIndex {
 	private indexPath: string;
 
 	constructor(vaultBasePath: string, configDir: string) {
-		const path = require('path') as typeof import('path');
 		this.indexPath = path.join(
 			vaultBasePath,
 			configDir,
@@ -23,7 +24,6 @@ export class SessionIndex {
 		if (this.loaded) return;
 		this.loaded = true;
 
-		const fs = require('fs') as typeof import('fs');
 		try {
 			const raw = fs.readFileSync(this.indexPath, 'utf-8');
 			const data = JSON.parse(raw) as SessionIndexData;
@@ -58,7 +58,6 @@ export class SessionIndex {
 	}
 
 	save(): void {
-		const fs = require('fs') as typeof import('fs');
 		const data: SessionIndexData = {
 			version: INDEX_VERSION,
 			entries: this.entries,

@@ -210,7 +210,7 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 
 	// Async: fetch rate limits and inject hero cards
 	if (ctx.settings.showRateLimits) {
-		fetchRateLimits().then(rl => {
+		void fetchRateLimits().then(rl => {
 			if (!rl) return;
 			appendRateLimitCards(pinnedHeroes, rl);
 			appendRateLimitCards(heroes, rl);
@@ -346,8 +346,6 @@ function formatRelativeTime(date: Date): string {
 	const inFuture = diffMs > 0;
 
 	const minutes = Math.round(absDiffMs / 60_000);
-	const hours = Math.round(absDiffMs / 3_600_000);
-	const days = Math.round(absDiffMs / 86_400_000);
 
 	let relative: string;
 	if (minutes < 1) relative = 'now';

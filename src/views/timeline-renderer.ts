@@ -27,10 +27,10 @@ export class TimelineRenderer {
 		this.container = container;
 		this.ctx = { app, component, settings };
 		this.delegate = {
-			renderAssistantBlocks: this.renderAssistantBlocks.bind(this),
-			renderTextContent: this.renderTextContent.bind(this),
-			buildAnsiDom: this.buildAnsiDom.bind(this),
-			openImageModal: this.openImageModal.bind(this),
+			renderAssistantBlocks: this.renderAssistantBlocks.bind(this) as ToolRendererDelegate['renderAssistantBlocks'],
+			renderTextContent: this.renderTextContent.bind(this) as ToolRendererDelegate['renderTextContent'],
+			buildAnsiDom: this.buildAnsiDom.bind(this) as ToolRendererDelegate['buildAnsiDom'],
+			openImageModal: this.openImageModal.bind(this) as ToolRendererDelegate['openImageModal'],
 			taskState: new Map(),
 		};
 	}
@@ -170,7 +170,7 @@ export class TimelineRenderer {
 	getBlockWrappers(turnIndex: number): HTMLElement[] {
 		const turnEl = this.turnEls[turnIndex];
 		if (!turnEl) return [];
-		return Array.from(turnEl.querySelectorAll('.claude-sessions-block-wrapper')) as HTMLElement[];
+		return Array.from(turnEl.querySelectorAll<HTMLElement>('.claude-sessions-block-wrapper'));
 	}
 
 	private setupMermaidObserver(): void {
@@ -187,8 +187,8 @@ export class TimelineRenderer {
 	}
 
 	private processMermaidBlocks(root: HTMLElement): void {
-		const els = root.querySelectorAll('div.mermaid:not(.claude-sessions-mermaid-processed)');
-		for (const el of Array.from(els) as HTMLElement[]) {
+		const els = root.querySelectorAll<HTMLElement>('div.mermaid:not(.claude-sessions-mermaid-processed)');
+		for (const el of Array.from(els)) {
 			const svg = el.querySelector('svg');
 			if (!svg) continue;
 
@@ -206,7 +206,7 @@ export class TimelineRenderer {
 
 			makeClickable(wrapper, { label: 'View full diagram' });
 			wrapper.addEventListener('click', () => {
-				new MermaidPreviewModal(this.ctx.app, svg as SVGElement).open();
+				new MermaidPreviewModal(this.ctx.app, svg).open();
 			});
 		}
 	}
@@ -305,11 +305,11 @@ export class TimelineRenderer {
 				if (block.type === 'text') {
 					this.renderTextContent(block.text, wrapper, 'claude-sessions-user-text');
 				} else if (block.type === 'slash_command') {
-					this.renderSlashCommandBlock(block as SlashCommandBlock, wrapper);
+					this.renderSlashCommandBlock(block, wrapper);
 				} else if (block.type === 'bash_command') {
-					this.renderBashCommandBlock(block as BashCommandBlock, wrapper);
+					this.renderBashCommandBlock(block, wrapper);
 				} else if (block.type === 'ansi') {
-					this.renderAnsiBlock(block as AnsiBlock, wrapper);
+					this.renderAnsiBlock(block, wrapper);
 				} else if (block.type === 'image') {
 					const dataUri = `data:${block.mediaType};base64,${block.data}`;
 					const img = wrapper.createEl('img', {
@@ -380,7 +380,7 @@ export class TimelineRenderer {
 				}
 				break;
 			case 'compaction':
-				this.renderCompactionBlock(block as CompactionBlock, container);
+				this.renderCompactionBlock(block, container);
 				break;
 		}
 	}
@@ -404,7 +404,7 @@ export class TimelineRenderer {
 			wrapEl.addClass('claude-sessions-collapsible-wrap', 'is-collapsed');
 			const contentEl = wrapEl.createDiv({ cls: 'claude-sessions-collapsible-content' });
 			const mdEl = contentEl.createDiv({ cls });
-			MarkdownRenderer.render(this.ctx.app, text, mdEl, '', this.ctx.component);
+			void MarkdownRenderer.render(this.ctx.app, text, mdEl, '', this.ctx.component);
 
 			wrapEl.createDiv({ cls: 'claude-sessions-collapsible-fade' });
 			const toggleBtn = wrapEl.createEl('button', {
@@ -421,7 +421,7 @@ export class TimelineRenderer {
 			});
 		} else {
 			const mdEl = wrapEl.createDiv({ cls });
-			MarkdownRenderer.render(this.ctx.app, text, mdEl, '', this.ctx.component);
+			void MarkdownRenderer.render(this.ctx.app, text, mdEl, '', this.ctx.component);
 		}
 	}
 
@@ -442,7 +442,7 @@ export class TimelineRenderer {
 		if (isRedacted) {
 			body.createDiv({ cls: 'claude-sessions-thinking-redacted-body', text: 'Thinking content is not available — encrypted by Claude Code.' });
 		} else {
-			MarkdownRenderer.render(this.ctx.app, text, body, '', this.ctx.component);
+			void MarkdownRenderer.render(this.ctx.app, text, body, '', this.ctx.component);
 		}
 
 		makeClickable(header, { label: 'Toggle thinking block', expanded: false });
@@ -464,7 +464,7 @@ export class TimelineRenderer {
 		header.createSpan({ cls: 'claude-sessions-slash-command-chevron', text: '\u25B6' });
 
 		const body = el.createDiv({ cls: 'claude-sessions-slash-command-body' });
-		MarkdownRenderer.render(this.ctx.app, block.text, body, '', this.ctx.component);
+		void MarkdownRenderer.render(this.ctx.app, block.text, body, '', this.ctx.component);
 
 		makeClickable(header, { label: 'Toggle slash command output', expanded: false });
 		header.addEventListener('click', () => {
@@ -480,20 +480,20 @@ export class TimelineRenderer {
 		// Command as bash code block with INPUT label
 		const commandEl = el.createDiv({ cls: 'claude-sessions-bash-command-input' });
 		commandEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'INPUT' });
-		MarkdownRenderer.render(this.ctx.app, fence(block.command, 'bash'), commandEl, '', this.ctx.component);
+		void MarkdownRenderer.render(this.ctx.app, fence(block.command, 'bash'), commandEl, '', this.ctx.component);
 
 		// Result section with RESULT label (always shown, even if empty)
 		const resultEl = el.createDiv({ cls: 'claude-sessions-bash-command-stdout' });
 		resultEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'RESULT' });
 		if (block.stdout.trim()) {
-			MarkdownRenderer.render(this.ctx.app, fence(block.stdout), resultEl, '', this.ctx.component);
+			void MarkdownRenderer.render(this.ctx.app, fence(block.stdout), resultEl, '', this.ctx.component);
 		}
 
 		// Stderr (if non-empty)
 		if (block.stderr.trim()) {
 			const stderrEl = el.createDiv({ cls: 'claude-sessions-bash-command-stderr' });
 			stderrEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'STDERR' });
-			MarkdownRenderer.render(this.ctx.app, fence(block.stderr), stderrEl, '', this.ctx.component);
+			void MarkdownRenderer.render(this.ctx.app, fence(block.stderr), stderrEl, '', this.ctx.component);
 		}
 	}
 
@@ -526,7 +526,7 @@ export class TimelineRenderer {
 			}
 		};
 
-		const re = /\x1b\[([\d;]*)m/g;
+		const re = new RegExp('\\x1b\\[([\\d;]*)m', 'g');
 		let last = 0;
 		let match: RegExpExecArray | null;
 
@@ -632,7 +632,7 @@ export class TimelineRenderer {
 			addCopyButton(header, block.summary, 'Copy continuation summary');
 
 			const summaryEl = el.createDiv({ cls: 'claude-sessions-compaction-summary' });
-			MarkdownRenderer.render(this.ctx.app, block.summary, summaryEl, '', this.ctx.component);
+			void MarkdownRenderer.render(this.ctx.app, block.summary, summaryEl, '', this.ctx.component);
 
 			makeClickable(header, { label: 'Toggle continuation summary', expanded: false });
 			header.addEventListener('click', () => {
@@ -690,19 +690,21 @@ class ImagePreviewModal extends Modal {
 			text: 'Copy',
 			attr: { 'aria-label': 'Copy image to clipboard' },
 		});
-		copyBtn.addEventListener('click', async () => {
-			const parts = this.dataUri.split(',');
-			const byteString = atob(parts[1]);
-			const bytes = new Uint8Array(byteString.length);
-			for (let i = 0; i < byteString.length; i++) {
-				bytes[i] = byteString.charCodeAt(i);
-			}
-			const blob = new Blob([bytes], { type: this.mediaType });
-			await navigator.clipboard.write([
-				new ClipboardItem({ [this.mediaType]: blob }),
-			]);
-			copyBtn.setText('Copied!');
-			setTimeout(() => copyBtn.setText('Copy'), 1500);
+		copyBtn.addEventListener('click', () => {
+			void (async () => {
+				const parts = this.dataUri.split(',');
+				const byteString = atob(parts[1]);
+				const bytes = new Uint8Array(byteString.length);
+				for (let i = 0; i < byteString.length; i++) {
+					bytes[i] = byteString.charCodeAt(i);
+				}
+				const blob = new Blob([bytes], { type: this.mediaType });
+				await navigator.clipboard.write([
+					new ClipboardItem({ [this.mediaType]: blob }),
+				]);
+				copyBtn.setText('Copied!');
+				setTimeout(() => copyBtn.setText('Copy'), 1500);
+			})();
 		});
 	}
 
@@ -765,11 +767,13 @@ class MermaidPreviewModal extends Modal {
 			text: 'Copy SVG',
 			attr: { 'aria-label': 'Copy SVG to clipboard' },
 		});
-		copyBtn.addEventListener('click', async () => {
-			const svgString = new XMLSerializer().serializeToString(this.svgEl);
-			await navigator.clipboard.writeText(svgString);
-			copyBtn.setText('Copied!');
-			setTimeout(() => copyBtn.setText('Copy SVG'), 1500);
+		copyBtn.addEventListener('click', () => {
+			void (async () => {
+				const svgString = new XMLSerializer().serializeToString(this.svgEl);
+				await navigator.clipboard.writeText(svgString);
+				copyBtn.setText('Copied!');
+				setTimeout(() => copyBtn.setText('Copy SVG'), 1500);
+			})();
 		});
 	}
 

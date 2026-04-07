@@ -172,7 +172,7 @@ function renderBlock(
 
 		case 'ansi':
 			// Strip ANSI escape codes for markdown export
-			return '```\n' + block.text.replace(/\x1b\[[\d;]*m/g, '') + '\n```';
+			return '```\n' + block.text.replace(new RegExp('\\x1b\\[[\\d;]*m', 'g'), '') + '\n```';
 
 		case 'compaction':
 			return '---\n*Context compacted*' + (block.summary ? `\n${block.summary}` : '') + '\n---';
@@ -212,9 +212,9 @@ function renderToolUse(block: ToolUseBlock): string {
 }
 
 function renderEditToolUse(block: ToolUseBlock): string {
-	const filePath = String(block.input['file_path'] || '');
-	const oldStr = String(block.input['old_string'] || '');
-	const newStr = String(block.input['new_string'] || '');
+	const filePath = typeof block.input['file_path'] === 'string' ? block.input['file_path'] : '';
+	const oldStr = typeof block.input['old_string'] === 'string' ? block.input['old_string'] : '';
+	const newStr = typeof block.input['new_string'] === 'string' ? block.input['new_string'] : '';
 	const replaceAll = block.input['replace_all'] ? ' (replace all)' : '';
 
 	const changes = diffLines(oldStr, newStr);
@@ -257,7 +257,7 @@ function renderToolResult(
 
 		// For Read results: strip line numbers and use file language
 		if (toolName === 'Read' && toolUse) {
-			const filePath = String(toolUse.input['file_path'] || '');
+			const filePath = typeof toolUse.input['file_path'] === 'string' ? toolUse.input['file_path'] : '';
 			const lang = langFromPath(filePath);
 			resultText = stripLineNumbers(resultText);
 			parts.push(

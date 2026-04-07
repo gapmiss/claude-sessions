@@ -1,4 +1,6 @@
 import { Modal, Notice, Setting, Platform } from 'obsidian';
+import * as fs from 'fs';
+import * as path from 'path';
 import type ClaudeSessionsPlugin from '../main';
 import { expandHome } from '../utils/path-utils';
 import { readFileContent } from '../utils/streaming-reader';
@@ -47,7 +49,7 @@ export class FilePickerModal extends Modal {
 			});
 			label.createSpan({ text: '.' });
 
-			const hint = dropZone.createDiv({
+			dropZone.createDiv({
 				text: '.jsonl or .json',
 				cls: 'claude-sessions-drop-zone-hint',
 			});
@@ -63,7 +65,7 @@ export class FilePickerModal extends Modal {
 
 			fileInput.addEventListener('change', () => {
 				const file = fileInput.files?.[0];
-				if (file) this.importFromFile(file);
+				if (file) void this.importFromFile(file);
 			});
 
 			// Drag events
@@ -82,7 +84,7 @@ export class FilePickerModal extends Modal {
 				e.stopPropagation();
 				dropZone.removeClass('drag-over');
 				const file = e.dataTransfer?.files[0];
-				if (file) this.importFromFile(file);
+				if (file) void this.importFromFile(file);
 			});
 		}
 
@@ -100,7 +102,7 @@ export class FilePickerModal extends Modal {
 				text.onChange(value => { filePath = value; });
 				text.inputEl.addEventListener('keydown', (e: KeyboardEvent) => {
 					if (e.key === 'Enter') {
-						this.importFile(filePath);
+						void this.importFile(filePath);
 					}
 				});
 				// Focus the input
@@ -145,7 +147,7 @@ export class FilePickerModal extends Modal {
 			}
 
 			// Attempt to find the full path by searching session directories
-			const fullPath = await this.resolveSessionPath(file.name) ?? file.name;
+			const fullPath = this.resolveSessionPath(file.name) ?? file.name;
 			const session = parser.parse(content, fullPath);
 			await resolveSubAgentSessions(session, readFileContent);
 			new Notice(`Loaded session with ${session.turns.length} turns.`);
@@ -158,10 +160,8 @@ export class FilePickerModal extends Modal {
 	}
 
 	/** Search configured session directories for a file by name. */
-	private async resolveSessionPath(fileName: string): Promise<string | null> {
+	private resolveSessionPath(fileName: string): string | null {
 		if (!Platform.isDesktop) return null;
-		const fs = require('fs') as typeof import('fs');
-		const path = require('path') as typeof import('path');
 		// Strip directory components to prevent path traversal
 		const safeName = path.basename(fileName);
 		for (const dir of this.plugin.settings.sessionDirs) {

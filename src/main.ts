@@ -41,7 +41,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 				const searchLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_SEARCH);
 				for (const sl of searchLeaves) {
 					if (sl.view instanceof SearchView) {
-						(sl.view as SearchView).onActiveLeafChanged(leaf);
+						sl.view.onActiveLeafChanged(leaf);
 					}
 				}
 			})
@@ -90,7 +90,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 			checkCallback: (checking: boolean) => {
 				if (!this.getActiveTimelineView()) return false;
 				if (checking) return true;
-				this.exportActiveSession();
+				void this.exportActiveSession();
 				return true;
 			},
 		});
@@ -101,7 +101,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 			checkCallback: (checking: boolean) => {
 				if (!this.getActiveTimelineView()) return false;
 				if (checking) return true;
-				this.exportActiveSessionHTML();
+				void this.exportActiveSessionHTML();
 				return true;
 			},
 		});
@@ -137,7 +137,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 				const view = this.getActiveTimelineView();
 				if (!view) return false;
 				if (checking) return true;
-				view.reloadSession();
+				void view.reloadSession();
 				return true;
 			},
 		});
@@ -162,7 +162,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 				const session = view?.getSession();
 				if (!view || !session?.rawPath) return false;
 				if (checking) return true;
-				this.revealSearchView('in-session');
+				void this.revealSearchView('in-session');
 				return true;
 			},
 		});
@@ -175,7 +175,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 				const id = view?.getSession()?.metadata.id;
 				if (!id) return false;
 				if (checking) return true;
-				navigator.clipboard.writeText(`claude --resume ${id}`);
+				void navigator.clipboard.writeText(`claude --resume ${id}`);
 				new Notice('Copied resume command');
 				return true;
 			},
@@ -223,7 +223,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 	}
 
 	async loadSettings(): Promise<void> {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<PluginSettings>);
 	}
 
 	async saveSettings(): Promise<void> {
@@ -243,7 +243,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 		}
 
 		if (leaf) {
-			this.app.workspace.revealLeaf(leaf);
+			void this.app.workspace.revealLeaf(leaf);
 		} else {
 			leaf = this.app.workspace.getLeaf('tab');
 			await leaf.setViewState({
@@ -275,7 +275,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 			leaf = this.app.workspace.getRightLeaf(false)!;
 			await leaf.setViewState({ type: VIEW_TYPE_SEARCH, active: true });
 		}
-		this.app.workspace.revealLeaf(leaf);
+		void this.app.workspace.revealLeaf(leaf);
 		const view = leaf.view as SearchView;
 		view.setMode(mode);
 		return view;

@@ -1,4 +1,6 @@
 import { Platform } from 'obsidian';
+import * as fs from 'fs';
+import * as readline from 'readline';
 import type { Turn, TurnRole, SessionListEntry } from '../types';
 import { BM25Index } from './bm25';
 
@@ -64,7 +66,7 @@ export function extractSearchableContent(line: string): ExtractedContent | null 
 
 	let record: Record<string, unknown>;
 	try {
-		record = JSON.parse(trimmed);
+		record = JSON.parse(trimmed) as Record<string, unknown>;
 	} catch {
 		return null;
 	}
@@ -144,9 +146,6 @@ export async function searchFile(
 	signal?: AbortSignal,
 ): Promise<{ matches: SearchMatch[]; totalMatches: number }> {
 	if (!Platform.isDesktop) return { matches: [], totalMatches: 0 };
-
-	const fs = require('fs') as typeof import('fs');
-	const readline = require('readline') as typeof import('readline');
 
 	const searchText = query.caseSensitive ? query.text : query.text.toLowerCase();
 	const matches: SearchMatch[] = [];
@@ -290,9 +289,6 @@ export async function searchFileRanked(
 	signal?: AbortSignal,
 ): Promise<{ matches: SearchMatch[]; totalMatches: number }> {
 	if (!Platform.isDesktop) return { matches: [], totalMatches: 0 };
-
-	const fs = require('fs') as typeof import('fs');
-	const readline = require('readline') as typeof import('readline');
 
 	const searchText = query.caseSensitive ? query.text : query.text.toLowerCase();
 	const index = new BM25Index<null>();

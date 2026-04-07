@@ -140,7 +140,7 @@ export function renderToolCall(
 		const inputText = formatInput(block.input);
 		const inputMd = fence(inputText, 'json');
 		const inputMdContainer = inputEl.createDiv({ cls: 'claude-sessions-tool-input-code' });
-		MarkdownRenderer.render(ctx.app, inputMd, inputMdContainer, '', ctx.component);
+		void MarkdownRenderer.render(ctx.app, inputMd, inputMdContainer, '', ctx.component);
 	}
 
 	// Result section (skip for Edit/Write/Agent which render their own results)
@@ -159,8 +159,9 @@ export function renderToolCall(
 	});
 }
 
+const ANSI_RE = new RegExp('\\x1b\\[[\\d;]*m');
 function hasAnsiCodes(text: string): boolean {
-	return /\x1b\[[\d;]*m/.test(text);
+	return ANSI_RE.test(text);
 }
 
 function renderToolResult(
@@ -186,10 +187,10 @@ function renderToolResult(
 		if (resultText) {
 			const md = fence(resultText);
 			const mdContainer = resultEl.createDiv({ cls: 'claude-sessions-tool-result-code' });
-			MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
+			void MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
 		}
 	} else if (block.name === 'Read' && !isError) {
-		const filePath = String(block.input['file_path'] || '');
+		const filePath = typeof block.input['file_path'] === 'string' ? block.input['file_path'] : '';
 		const lang = langFromPath(filePath);
 		const cleaned = stripLineNumbers(resultText);
 		const isMarkdownFile = /\.mdx?$/i.test(filePath);
@@ -199,25 +200,25 @@ function renderToolResult(
 		} else {
 			const md = fence(cleaned, lang);
 			const mdContainer = resultEl.createDiv({ cls: 'claude-sessions-read-result' });
-			MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
+			void MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
 		}
 	} else if (block.name === 'Bash' && !isError && isBashDiffResult(block, resultText)) {
 		const resultMd = fence(resultText, 'diff');
 		const resultMdContainer = resultEl.createDiv({ cls: 'claude-sessions-tool-result-code' });
-		MarkdownRenderer.render(ctx.app, resultMd, resultMdContainer, '', ctx.component);
+		void MarkdownRenderer.render(ctx.app, resultMd, resultMdContainer, '', ctx.component);
 	} else if (block.name === 'Bash' && !isError && hasAnsiCodes(resultText)) {
 		const pre = resultEl.createEl('pre', { cls: 'claude-sessions-ansi-block' });
 		delegate.buildAnsiDom(resultText, pre);
 	} else {
 		const resultMd = fence(resultText);
 		const resultMdContainer = resultEl.createDiv({ cls: 'claude-sessions-tool-result-code' });
-		MarkdownRenderer.render(ctx.app, resultMd, resultMdContainer, '', ctx.component);
+		void MarkdownRenderer.render(ctx.app, resultMd, resultMdContainer, '', ctx.component);
 	}
 
 	// Show enriched data (Bash exit code + stderr)
 	if (block.name === 'Bash' && result.enrichedResult) {
-		const exitCode = result.enrichedResult['exitCode'];
-		const stderr = result.enrichedResult['stderr'] as string | undefined;
+		const exitCode = typeof result.enrichedResult['exitCode'] === 'number' ? result.enrichedResult['exitCode'] : undefined;
+		const stderr = typeof result.enrichedResult['stderr'] === 'string' ? result.enrichedResult['stderr'] : undefined;
 		if (exitCode != null && exitCode !== 0) {
 			resultEl.createDiv({ cls: 'claude-sessions-tool-exit-code', text: `Exit code: ${exitCode}` });
 		}
@@ -229,7 +230,7 @@ function renderToolResult(
 				: stderr;
 			const stderrMd = fence(stderrText);
 			const stderrContainer = resultEl.createDiv({ cls: 'claude-sessions-tool-result-code claude-sessions-tool-result-error' });
-			MarkdownRenderer.render(ctx.app, stderrMd, stderrContainer, '', ctx.component);
+			void MarkdownRenderer.render(ctx.app, stderrMd, stderrContainer, '', ctx.component);
 		}
 	}
 }
@@ -277,10 +278,10 @@ function renderTaskResult(
 	// Update cumulative state based on tool type
 	if (block.name === 'TaskCreate' && enriched['task']) {
 		const t = enriched['task'] as Record<string, unknown>;
-		const id = String(t['id']);
-		ts.set(id, { id, subject: String(t['subject'] || ''), status: 'pending' });
+		const id = typeof t['id'] === 'string' ? t['id'] : '';
+		ts.set(id, { id, subject: typeof t['subject'] === 'string' ? t['subject'] : '', status: 'pending' });
 	} else if (block.name === 'TaskUpdate' && enriched['taskId']) {
-		const id = String(enriched['taskId']);
+		const id = typeof enriched['taskId'] === 'string' ? enriched['taskId'] : '';
 		const existing = ts.get(id);
 		const sc = enriched['statusChange'] as Record<string, string> | undefined;
 		const status = (sc?.['to'] || existing?.status || 'pending') as TaskState['status'];
@@ -288,20 +289,20 @@ function renderTaskResult(
 	} else if (block.name === 'TaskList' && Array.isArray(enriched['tasks'])) {
 		ts.clear();
 		for (const t of enriched['tasks'] as Record<string, unknown>[]) {
-			const id = String(t['id']);
+			const id = typeof t['id'] === 'string' ? t['id'] : '';
 			ts.set(id, {
 				id,
-				subject: String(t['subject'] || ''),
-				status: (String(t['status'] || 'pending')) as TaskState['status'],
+				subject: typeof t['subject'] === 'string' ? t['subject'] : '',
+				status: (typeof t['status'] === 'string' ? t['status'] : 'pending') as TaskState['status'],
 			});
 		}
 	} else if (block.name === 'TaskGet' && enriched['id']) {
-		const id = String(enriched['id']);
+		const id = typeof enriched['id'] === 'string' ? enriched['id'] : '';
 		const existing = ts.get(id);
 		ts.set(id, {
 			id,
-			subject: String(enriched['subject'] || existing?.subject || ''),
-			status: (String(enriched['status'] || existing?.status || 'pending')) as TaskState['status'],
+			subject: typeof enriched['subject'] === 'string' ? enriched['subject'] : (existing?.subject || ''),
+			status: (typeof enriched['status'] === 'string' ? enriched['status'] : (existing?.status || 'pending')) as TaskState['status'],
 		});
 	}
 
@@ -323,10 +324,10 @@ function renderTaskResult(
 function renderBashInput(block: ToolUseBlock, container: HTMLElement, ctx: RenderContext): void {
 	const inputEl = container.createDiv({ cls: 'claude-sessions-tool-input' });
 	inputEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'INPUT' });
-	const command = String(block.input['command'] || '');
+	const command = typeof block.input['command'] === 'string' ? block.input['command'] : '';
 	const md = fence(command, 'bash');
 	const mdContainer = inputEl.createDiv({ cls: 'claude-sessions-tool-input-code' });
-	MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
+	void MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
 }
 
 function renderMarkdownToggle(content: string, lang: string, container: HTMLElement, ctx: RenderContext): void {
@@ -348,10 +349,10 @@ function renderMarkdownToggle(content: string, lang: string, container: HTMLElem
 
 	const codeView = wrapper.createDiv({ cls: 'claude-sessions-read-md-code' });
 	const codeMd = fence(content, lang);
-	MarkdownRenderer.render(ctx.app, codeMd, codeView, '', ctx.component);
+	void MarkdownRenderer.render(ctx.app, codeMd, codeView, '', ctx.component);
 
 	const previewView = wrapper.createDiv({ cls: 'claude-sessions-read-md-preview claude-sessions-read-md-hidden' });
-	MarkdownRenderer.render(ctx.app, content, previewView, '', ctx.component);
+	void MarkdownRenderer.render(ctx.app, content, previewView, '', ctx.component);
 
 	const setActive = (mode: 'code' | 'preview') => {
 		const isCode = mode === 'code';
@@ -414,7 +415,7 @@ function renderSubAgentSession(
 			const wrapEl = outputEl.createDiv({ cls: 'claude-sessions-collapsible-wrap is-collapsed' });
 			const contentEl = wrapEl.createDiv({ cls: 'claude-sessions-collapsible-content' });
 			const bodyEl = contentEl.createDiv({ cls: 'claude-sessions-subagent-output-body' });
-			MarkdownRenderer.render(ctx.app, result.content, bodyEl, '', ctx.component);
+			void MarkdownRenderer.render(ctx.app, result.content, bodyEl, '', ctx.component);
 			wrapEl.createDiv({ cls: 'claude-sessions-collapsible-fade' });
 			const toggleBtn = wrapEl.createEl('button', {
 				cls: 'claude-sessions-collapsible-toggle',
@@ -429,13 +430,13 @@ function renderSubAgentSession(
 			});
 		} else {
 			const bodyEl = outputEl.createDiv({ cls: 'claude-sessions-subagent-output-body' });
-			MarkdownRenderer.render(ctx.app, result.content, bodyEl, '', ctx.component);
+			void MarkdownRenderer.render(ctx.app, result.content, bodyEl, '', ctx.component);
 		}
 	}
 }
 
 function isBashDiffResult(block: ToolUseBlock, resultText: string): boolean {
-	const command = String(block.input['command'] || '').toLowerCase();
+	const command = (typeof block.input['command'] === 'string' ? block.input['command'] : '').toLowerCase();
 	if (!/\bdiff\b/.test(command)) return false;
 	return /^(diff\s|---\s|@@\s)/m.test(resultText);
 }
@@ -446,12 +447,12 @@ function renderDiffView(block: ToolUseBlock, result: ToolResultBlock | undefined
 	if (block.input['file_path']) {
 		diffEl.createDiv({
 			cls: 'claude-sessions-diff-file',
-			text: String(block.input['file_path']) + (block.input['replace_all'] ? ' (replace all)' : ''),
+			text: (typeof block.input['file_path'] === 'string' ? block.input['file_path'] : '') + (block.input['replace_all'] ? ' (replace all)' : ''),
 		});
 	}
 
-	const oldStr = String(block.input['old_string'] || '');
-	const newStr = String(block.input['new_string'] || '');
+	const oldStr = typeof block.input['old_string'] === 'string' ? block.input['old_string'] : '';
+	const newStr = typeof block.input['new_string'] === 'string' ? block.input['new_string'] : '';
 
 	const changes = diffLines(oldStr, newStr);
 	const outputLines: string[] = [];
@@ -465,7 +466,7 @@ function renderDiffView(block: ToolUseBlock, result: ToolResultBlock | undefined
 
 	const md = fence(outputLines.join('\n'), 'diff');
 	const mdContainer = diffEl.createDiv({ cls: 'claude-sessions-diff-code' });
-	MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
+	void MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
 
 	if (result?.isError) {
 		renderErrorOutput(result, container, ctx);
@@ -475,12 +476,12 @@ function renderDiffView(block: ToolUseBlock, result: ToolResultBlock | undefined
 function renderWriteView(block: ToolUseBlock, result: ToolResultBlock | undefined, container: HTMLElement, ctx: RenderContext): void {
 	const writeEl = container.createDiv({ cls: 'claude-sessions-tool-input' });
 
-	const filePath = String(block.input['file_path'] || '');
+	const filePath = typeof block.input['file_path'] === 'string' ? block.input['file_path'] : '';
 	if (filePath) {
 		writeEl.createDiv({ cls: 'claude-sessions-diff-file', text: filePath });
 	}
 
-	const content = String(block.input['content'] || '');
+	const content = typeof block.input['content'] === 'string' ? block.input['content'] : '';
 	const lang = langFromPath(filePath);
 	const isMarkdownFile = /\.mdx?$/i.test(filePath);
 
@@ -489,7 +490,7 @@ function renderWriteView(block: ToolUseBlock, result: ToolResultBlock | undefine
 	} else {
 		const md = fence(content, lang);
 		const mdContainer = writeEl.createDiv({ cls: 'claude-sessions-tool-input-code' });
-		MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
+		void MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
 	}
 
 	if (result?.isError) {
@@ -505,7 +506,7 @@ function renderErrorOutput(result: ToolResultBlock, container: HTMLElement, ctx:
 	el.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'OUTPUT' });
 	const md = fence(result.content);
 	const mdContainer = el.createDiv({ cls: 'claude-sessions-tool-result-code' });
-	MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
+	void MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
 }
 
 function toolPreview(block: ToolUseBlock): string {
@@ -516,7 +517,7 @@ function toolPreview(block: ToolUseBlock): string {
 
 	switch (block.name) {
 		case 'Edit': {
-			const fp = String(input['file_path'] || '');
+			const fp = typeof input['file_path'] === 'string' ? input['file_path'] : '';
 			if (!fp) return '';
 			const name = baseName(fp);
 			const old = input['old_string'] as string | undefined;
@@ -531,7 +532,7 @@ function toolPreview(block: ToolUseBlock): string {
 			return name;
 		}
 		case 'Write': {
-			const fp = String(input['file_path'] || '');
+			const fp = typeof input['file_path'] === 'string' ? input['file_path'] : '';
 			if (!fp) return '';
 			const name = baseName(fp);
 			const content = input['content'] as string | undefined;
@@ -541,7 +542,7 @@ function toolPreview(block: ToolUseBlock): string {
 			return name;
 		}
 		case 'Read': {
-			const fp = String(input['file_path'] || '');
+			const fp = typeof input['file_path'] === 'string' ? input['file_path'] : '';
 			if (!fp) return '';
 			const name = baseName(fp);
 			const limit = input['limit'] as number | undefined;
@@ -573,11 +574,11 @@ function toolPreview(block: ToolUseBlock): string {
 		case 'Bash': {
 			const desc = input['description'] as string | undefined;
 			if (desc) return truncate(desc, 50);
-			return truncate(String(input['command'] || ''), 50);
+			return truncate(typeof input['command'] === 'string' ? input['command'] : '', 50);
 		}
 		case 'Agent':
 		case 'Task': {
-			const desc = String(input['description'] || '');
+			const desc = typeof input['description'] === 'string' ? input['description'] : '';
 			const subType = input['subagent_type'] as string | undefined;
 			const prefix = subType ? `${subType} \u2014 ` : '';
 			if (desc) return `${prefix}${truncate(desc, 40)}`;
@@ -621,7 +622,7 @@ function formatInput(input: Record<string, unknown>): string {
 	try {
 		return JSON.stringify(input, null, 2);
 	} catch {
-		return String(input);
+		return JSON.stringify(input);
 	}
 }
 

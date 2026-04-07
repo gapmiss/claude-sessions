@@ -1,4 +1,5 @@
 import { App, SuggestModal, Notice, Platform, setIcon } from 'obsidian';
+import * as fs from 'fs';
 import type ClaudeSessionsPlugin from '../main';
 import { SessionListEntry } from '../types';
 import { expandHome, extractProjectName, basename, shortenPath, projectFromCwd } from '../utils/path-utils';
@@ -17,7 +18,6 @@ export async function scanSessionDirs(plugin: ClaudeSessionsPlugin): Promise<{ e
 		return { entries: [], total: 0, updated: 0 };
 	}
 
-	const fs = require('fs') as typeof import('fs');
 	const index = plugin.sessionIndex;
 	index.load();
 
@@ -28,9 +28,9 @@ export async function scanSessionDirs(plugin: ClaudeSessionsPlugin): Promise<{ e
 	for (const dir of plugin.settings.sessionDirs) {
 		const expanded = expandHome(dir);
 		try {
-			const subdirs = await listSubdirectories(expanded);
+			const subdirs = listSubdirectories(expanded);
 			for (const subdir of subdirs) {
-				const files = await listDirectory(subdir);
+				const files = listDirectory(subdir);
 				for (const file of files) {
 					discoveredPaths.add(file);
 					const entry = await buildEntry(file, extractProjectName(subdir), fs, index);
@@ -41,7 +41,7 @@ export async function scanSessionDirs(plugin: ClaudeSessionsPlugin): Promise<{ e
 				}
 			}
 
-			const rootFiles = await listDirectory(expanded);
+			const rootFiles = listDirectory(expanded);
 			for (const file of rootFiles) {
 				discoveredPaths.add(file);
 				const entry = await buildEntry(file, extractProjectName(expanded), fs, index);
@@ -186,7 +186,7 @@ export class SessionBrowserModal extends SuggestModal<SessionListEntry> {
 		} else {
 			pinned.push(path);
 		}
-		this.plugin.saveSettings();
+		void this.plugin.saveSettings();
 
 		// Re-render the suggestion list by re-triggering the query
 		// Access the internal inputEl to get current query text
@@ -196,22 +196,24 @@ export class SessionBrowserModal extends SuggestModal<SessionListEntry> {
 		}
 	}
 
-	async onChooseSuggestion(item: SessionListEntry): Promise<void> {
-		try {
-			const content = await readFileContent(item.path);
-			const parser = detectParser(content);
-			if (!parser) {
-				new Notice('Could not detect session format.');
-				return;
-			}
+	onChooseSuggestion(item: SessionListEntry): void {
+		void (async () => {
+			try {
+				const content = await readFileContent(item.path);
+				const parser = detectParser(content);
+				if (!parser) {
+					new Notice('Could not detect session format.');
+					return;
+				}
 
-			const session = parser.parse(content, item.path);
-			await resolveSubAgentSessions(session, readFileContent);
-			await this.plugin.openSession(session);
-		} catch (e) {
-			const msg = e instanceof Error ? e.message : String(e);
-			new Notice(`Failed to load session: ${msg}`);
-		}
+				const session = parser.parse(content, item.path);
+				await resolveSubAgentSessions(session, readFileContent);
+				await this.plugin.openSession(session);
+			} catch (e) {
+				const msg = e instanceof Error ? e.message : String(e);
+				new Notice(`Failed to load session: ${msg}`);
+			}
+		})();
 	}
 }
 

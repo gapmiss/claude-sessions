@@ -1,4 +1,7 @@
 import { Platform, Notice } from 'obsidian';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as readline from 'readline';
 
 interface ReadProgress {
 	bytesRead: number;
@@ -25,16 +28,13 @@ async function readDesktop(
 	filePath: string,
 	onProgress?: (progress: ReadProgress) => void
 ): Promise<string> {
-	const fs = require('fs') as typeof import('fs');
-	const path = require('path') as typeof import('path');
-
 	const resolved = path.resolve(filePath);
 
 	return new Promise((resolve, reject) => {
 		let stat: { size: number };
 		try {
 			stat = fs.statSync(resolved);
-		} catch (e) {
+		} catch {
 			reject(new Error(`File not found: ${resolved}`));
 			return;
 		}
@@ -85,9 +85,6 @@ const SKIP_TYPE_STRINGS = [
 export async function extractQuickMetadataAsync(filePath: string): Promise<QuickMetadata> {
 	if (!Platform.isDesktop) return { hasContent: false };
 
-	const fs = require('fs') as typeof import('fs');
-	const readline = require('readline') as typeof import('readline');
-
 	const result: QuickMetadata = { hasContent: false };
 	const MAX_LINES = 100;
 	let lineCount = 0;
@@ -132,14 +129,14 @@ export async function extractQuickMetadataAsync(filePath: string): Promise<Quick
 					result.hasContent = true;
 				}
 
-				if (record['sessionId'] && !result.sessionId) {
-					result.sessionId = String(record['sessionId']);
+				if (typeof record['sessionId'] === 'string' && !result.sessionId) {
+					result.sessionId = record['sessionId'];
 				}
-				if (record['cwd'] && !result.cwd) {
-					result.cwd = String(record['cwd']);
+				if (typeof record['cwd'] === 'string' && !result.cwd) {
+					result.cwd = record['cwd'];
 				}
-				if (record['timestamp'] && !result.startTime) {
-					result.startTime = String(record['timestamp']);
+				if (typeof record['timestamp'] === 'string' && !result.startTime) {
+					result.startTime = record['timestamp'];
 				}
 			} catch {
 				// Malformed JSON — skip
@@ -163,11 +160,8 @@ export async function extractQuickMetadataAsync(filePath: string): Promise<Quick
 /**
  * List files in a directory. Desktop only.
  */
-export async function listDirectory(dirPath: string): Promise<string[]> {
+export function listDirectory(dirPath: string): string[] {
 	if (!Platform.isDesktop) return [];
-
-	const fs = require('fs') as typeof import('fs');
-	const path = require('path') as typeof import('path');
 
 	const resolved = path.resolve(dirPath);
 
@@ -186,11 +180,8 @@ export async function listDirectory(dirPath: string): Promise<string[]> {
 /**
  * List subdirectories. Desktop only.
  */
-export async function listSubdirectories(dirPath: string): Promise<string[]> {
+export function listSubdirectories(dirPath: string): string[] {
 	if (!Platform.isDesktop) return [];
-
-	const fs = require('fs') as typeof import('fs');
-	const path = require('path') as typeof import('path');
 
 	const resolved = path.resolve(dirPath);
 

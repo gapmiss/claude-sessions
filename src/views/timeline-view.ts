@@ -1,4 +1,5 @@
 import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon } from 'obsidian';
+import * as fs from 'fs';
 import { makeClickable } from './render-helpers';
 import { Session, PluginSettings } from '../types';
 import { TimelineRenderer } from './timeline-renderer';
@@ -91,7 +92,7 @@ export class TimelineView extends ItemView {
 		return 'claude-sparkle';
 	}
 
-	async onOpen(): Promise<void> {
+	onOpen(): Promise<void> {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass('claude-sessions-timeline-container');
@@ -111,13 +112,15 @@ export class TimelineView extends ItemView {
 				text: 'No session loaded. Use "Browse sessions" or "Import session file" to load one.',
 			});
 		}
+		return Promise.resolve();
 	}
 
-	async onClose(): Promise<void> {
+	onClose(): Promise<void> {
 		this.clearHighlight();
 		this.stopWatching();
 		this.destroyObserver();
 		this.renderer?.destroyMermaidObserver();
+		return Promise.resolve();
 	}
 
 	getState(): Record<string, unknown> {
@@ -163,7 +166,7 @@ export class TimelineView extends ItemView {
 		this.computeTiming();
 
 		(this.leaf as unknown as { updateHeader?(): void }).updateHeader?.();
-		const titleEl = this.containerEl.parentElement?.querySelector('.view-header-title') as HTMLElement | null;
+		const titleEl = this.containerEl.parentElement?.querySelector<HTMLElement>('.view-header-title');
 		if (titleEl) titleEl.textContent = this.getDisplayText();
 
 		this.renderFullTimeline();
@@ -372,7 +375,7 @@ export class TimelineView extends ItemView {
 		if ('Notification' in window && Notification.permission === 'granted') {
 			sendNotification();
 		} else if ('Notification' in window && Notification.permission !== 'denied') {
-			Notification.requestPermission().then(perm => {
+			void Notification.requestPermission().then(perm => {
 				if (perm === 'granted') sendNotification();
 			});
 		}
@@ -406,15 +409,13 @@ export class TimelineView extends ItemView {
 			return;
 		}
 
-		const fs = require('fs') as typeof import('fs');
-
 		const onChange = () => {
 			if (this.debounceTimer !== null) {
 				window.clearTimeout(this.debounceTimer);
 			}
 			this.debounceTimer = window.setTimeout(() => {
 				this.debounceTimer = null;
-				this.reloadSession();
+				void this.reloadSession();
 			}, 1500);
 		};
 
@@ -446,7 +447,7 @@ export class TimelineView extends ItemView {
 		this.updateWatchIndicator();
 
 		// Immediately reload to catch any changes since the session was first opened
-		this.reloadSession();
+		void this.reloadSession();
 	}
 
 	private updateWatchIndicator(): void {
@@ -480,8 +481,8 @@ export class TimelineView extends ItemView {
 
 expandAll(): void {
 		if (!this.timelineEl) return;
-		for (const el of Array.from(this.timelineEl.querySelectorAll('.claude-sessions-turn.collapsed'))) {
-			(el as HTMLElement).removeClass('collapsed');
+		for (const el of Array.from(this.timelineEl.querySelectorAll<HTMLElement>('.claude-sessions-turn.collapsed'))) {
+			el.removeClass('collapsed');
 			const h = el.querySelector('.claude-sessions-turn-header');
 			if (h) h.setAttribute('aria-expanded', 'true');
 		}
@@ -489,8 +490,8 @@ expandAll(): void {
 
 	collapseAll(): void {
 		if (!this.timelineEl) return;
-		for (const el of Array.from(this.timelineEl.querySelectorAll('.claude-sessions-turn:not(.collapsed)'))) {
-			(el as HTMLElement).addClass('collapsed');
+		for (const el of Array.from(this.timelineEl.querySelectorAll<HTMLElement>('.claude-sessions-turn:not(.collapsed)'))) {
+			el.addClass('collapsed');
 			const h = el.querySelector('.claude-sessions-turn-header');
 			if (h) h.setAttribute('aria-expanded', 'false');
 		}
@@ -512,7 +513,7 @@ expandAll(): void {
 			leaf = right;
 			await leaf.setViewState({ type: SEARCH_TYPE, active: true });
 		}
-		this.app.workspace.revealLeaf(leaf);
+		void this.app.workspace.revealLeaf(leaf);
 		const view = leaf.view;
 		if (view && 'setMode' in view) {
 			(view as { setMode(mode: string): void }).setMode('in-session');
@@ -897,7 +898,7 @@ expandAll(): void {
 					const btn = wraps[w].querySelector('.claude-sessions-collapsible-toggle');
 					if (btn) {
 						btn.textContent = 'Show less';
-						(btn as HTMLElement).setAttribute('aria-expanded', 'true');
+						btn.setAttribute('aria-expanded', 'true');
 					}
 				}
 			}
@@ -909,7 +910,7 @@ expandAll(): void {
 			if (t < turnEls.length) {
 				const toggles = turnEls[t].querySelectorAll('.claude-sessions-read-md-toggle');
 				if (m < toggles.length) {
-					const previewBtn = toggles[m].querySelector('.claude-sessions-read-md-btn:last-child') as HTMLElement | null;
+					const previewBtn = toggles[m].querySelector<HTMLElement>('.claude-sessions-read-md-btn:last-child');
 					previewBtn?.click();
 				}
 			}
@@ -981,14 +982,14 @@ expandAll(): void {
 				const btn = wraps[i].querySelector('.claude-sessions-collapsible-toggle');
 				if (btn) {
 					btn.textContent = 'Show less';
-					(btn as HTMLElement).setAttribute('aria-expanded', 'true');
+					btn.setAttribute('aria-expanded', 'true');
 				}
 			}
 		}
 		const toggles = el.querySelectorAll('.claude-sessions-read-md-toggle');
 		for (const i of state.previewToggles) {
 			if (i < toggles.length) {
-				(toggles[i].querySelector('.claude-sessions-read-md-btn:last-child') as HTMLElement | null)?.click();
+				toggles[i].querySelector<HTMLElement>('.claude-sessions-read-md-btn:last-child')?.click();
 			}
 		}
 	}
@@ -1024,11 +1025,10 @@ expandAll(): void {
 		this.observer = new IntersectionObserver(
 			(entries) => {
 				for (const entry of entries) {
-					const el = entry.target as HTMLElement;
 					if (entry.isIntersecting) {
-						el.addClass('visible');
+						entry.target.addClass('visible');
 					} else {
-						el.removeClass('visible');
+						entry.target.removeClass('visible');
 					}
 				}
 
@@ -1104,9 +1104,9 @@ expandAll(): void {
 
 	private updateTurnDots(): void {
 		if (!this.progressBar) return;
-		const dots = this.progressBar.querySelectorAll('.claude-sessions-turn-dot');
+		const dots = this.progressBar.querySelectorAll<HTMLElement>('.claude-sessions-turn-dot');
 		dots.forEach((dot) => {
-			const idx = parseInt((dot as HTMLElement).dataset.turnIndex || '0', 10);
+			const idx = parseInt(dot.dataset.turnIndex || '0', 10);
 			dot.toggleClass('reached', idx <= this.activeTurnIndex);
 		});
 	}
@@ -1124,7 +1124,7 @@ expandAll(): void {
 			attr: { 'aria-label': 'Search in session', 'data-tooltip-position': 'top' },
 		});
 		setIcon(searchBtn, 'search');
-		searchBtn.addEventListener('click', () => this.openInSessionSearch());
+		searchBtn.addEventListener('click', () => void this.openInSessionSearch());
 
 		// Filter button
 		const filterBtn = row.createEl('button', {
@@ -1266,51 +1266,51 @@ expandAll(): void {
 		const f = this.filters;
 
 		// ── User section (parent toggle) ──
-		scope.querySelectorAll('.claude-sessions-role-user').forEach(el => {
-			(el as HTMLElement).toggleClass('claude-sessions-filtered', !f.user);
+		scope.querySelectorAll<HTMLElement>('.claude-sessions-role-user').forEach(el => {
+			el.toggleClass('claude-sessions-filtered', !f.user);
 		});
 
 		// User children (only matter when parent is on)
 		if (f.user) {
 			scope.querySelectorAll('.claude-sessions-user-text').forEach(el => {
-				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
+				const wrapper = el.closest<HTMLElement>('.claude-sessions-block-wrapper');
 				wrapper?.toggleClass('claude-sessions-filtered', !f.userText);
 			});
 			scope.querySelectorAll('.claude-sessions-slash-command-block').forEach(el => {
-				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
+				const wrapper = el.closest<HTMLElement>('.claude-sessions-block-wrapper');
 				wrapper?.toggleClass('claude-sessions-filtered', !f.userText);
 			});
 			scope.querySelectorAll('.claude-sessions-bash-command-block').forEach(el => {
-				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
+				const wrapper = el.closest<HTMLElement>('.claude-sessions-block-wrapper');
 				wrapper?.toggleClass('claude-sessions-filtered', !f.userText);
 			});
 			scope.querySelectorAll('.claude-sessions-image-thumbnail').forEach(el => {
-				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
+				const wrapper = el.closest<HTMLElement>('.claude-sessions-block-wrapper');
 				wrapper?.toggleClass('claude-sessions-filtered', !f.userImages);
 			});
 		}
 
 		// ── Assistant section (parent toggle) ──
-		scope.querySelectorAll('.claude-sessions-role-assistant').forEach(el => {
-			(el as HTMLElement).toggleClass('claude-sessions-filtered', !f.assistant);
+		scope.querySelectorAll<HTMLElement>('.claude-sessions-role-assistant').forEach(el => {
+			el.toggleClass('claude-sessions-filtered', !f.assistant);
 		});
 
 		// Assistant children (only matter when parent is on)
 		if (f.assistant) {
 			scope.querySelectorAll('.claude-sessions-assistant-text').forEach(el => {
-				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
+				const wrapper = el.closest<HTMLElement>('.claude-sessions-block-wrapper');
 				wrapper?.toggleClass('claude-sessions-filtered', !f.assistantText);
 			});
 			scope.querySelectorAll('.claude-sessions-thinking-block').forEach(el => {
-				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
+				const wrapper = el.closest<HTMLElement>('.claude-sessions-block-wrapper');
 				wrapper?.toggleClass('claude-sessions-filtered', !f.thinking);
 			});
 			scope.querySelectorAll('.claude-sessions-tool-block, .claude-sessions-tool-group').forEach(el => {
-				const wrapper = (el as HTMLElement).closest('.claude-sessions-block-wrapper') as HTMLElement | null;
+				const wrapper = el.closest<HTMLElement>('.claude-sessions-block-wrapper');
 				wrapper?.toggleClass('claude-sessions-filtered', !f.toolCalls);
 			});
-			scope.querySelectorAll('.claude-sessions-tool-result').forEach(el => {
-				(el as HTMLElement).toggleClass('claude-sessions-filtered', !f.toolResults);
+			scope.querySelectorAll<HTMLElement>('.claude-sessions-tool-result').forEach(el => {
+				el.toggleClass('claude-sessions-filtered', !f.toolResults);
 			});
 		}
 

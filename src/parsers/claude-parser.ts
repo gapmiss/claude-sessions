@@ -119,8 +119,9 @@ interface ToolResultContent {
 	is_error?: boolean;
 }
 
+const ANSI_RE = new RegExp('\\x1b\\[[\\d;]*m');
 function hasAnsiCodes(text: string): boolean {
-	return /\x1b\[[\d;]*m/.test(text);
+	return ANSI_RE.test(text);
 }
 
 export class ClaudeParser extends BaseParser {
@@ -310,9 +311,9 @@ export class ClaudeParser extends BaseParser {
 						const tn = taskNotifications.get(block.id)!;
 						block.subAgentSession = {
 							agentId: tn.taskId,
-							description: String(block.input['description'] || ''),
-							subagentType: String(block.input['subagent_type'] || ''),
-							prompt: String(block.input['prompt'] || ''),
+							description: typeof block.input['description'] === 'string' ? block.input['description'] : '',
+							subagentType: typeof block.input['subagent_type'] === 'string' ? block.input['subagent_type'] : '',
+							prompt: typeof block.input['prompt'] === 'string' ? block.input['prompt'] : '',
 							turns: [],
 							isBackground: true,
 							durationMs: tn.durationMs,
@@ -339,9 +340,9 @@ export class ClaudeParser extends BaseParser {
 					const isBg = block.input['run_in_background'] === true;
 					block.subAgentSession = {
 						agentId: '',
-						description: String(block.input['description'] || ''),
-						subagentType: String(block.input['subagent_type'] || ''),
-						prompt: String(block.input['prompt'] || ''),
+						description: typeof block.input['description'] === 'string' ? block.input['description'] : '',
+						subagentType: typeof block.input['subagent_type'] === 'string' ? block.input['subagent_type'] : '',
+						prompt: typeof block.input['prompt'] === 'string' ? block.input['prompt'] : '',
 						turns: [],
 						isBackground: isBg || undefined,
 					};
@@ -622,7 +623,7 @@ export class ClaudeParser extends BaseParser {
 						summary = mc;
 					} else if (Array.isArray(mc)) {
 						const texts: string[] = [];
-						for (const b of mc as ClaudeContentBlock[]) {
+						for (const b of mc) {
 							if (b.type === BT_TEXT && b.text?.trim()) texts.push(b.text);
 						}
 						if (texts.length > 0) summary = texts.join('\n\n');
@@ -829,8 +830,8 @@ export class ClaudeParser extends BaseParser {
 
 		return {
 			agentId,
-			description: String(parentBlock.input['description'] || ''),
-			subagentType: String(parentBlock.input['subagent_type'] || ''),
+			description: typeof parentBlock.input['description'] === 'string' ? parentBlock.input['description'] : '',
+			subagentType: typeof parentBlock.input['subagent_type'] === 'string' ? parentBlock.input['subagent_type'] : '',
 			prompt,
 			turns,
 		};
@@ -851,7 +852,7 @@ export class ClaudeParser extends BaseParser {
 				blocks.push({ type: 'text', text: msg.content, timestamp });
 			}
 		} else if (Array.isArray(msg.content)) {
-			for (const block of msg.content as ClaudeContentBlock[]) {
+			for (const block of msg.content) {
 				const parsed = parseContentBlock(block, toolUseNames, timestamp, unknownBlockTypes);
 				if (parsed) blocks.push(parsed);
 			}
@@ -1023,7 +1024,7 @@ export class ClaudeParser extends BaseParser {
 		}
 		if (Array.isArray(content)) {
 			const blocks: ContentBlock[] = [];
-			for (const block of content as ClaudeContentBlock[]) {
+			for (const block of content) {
 				if (block.type === BT_TEXT && block.text?.trim()) {
 					blocks.push({ type: 'text', text: block.text, timestamp } as TextBlock);
 				} else if (block.type === BT_IMAGE && block.source?.data) {
@@ -1047,7 +1048,7 @@ export class ClaudeParser extends BaseParser {
 		if (typeof content === 'string' && RE_LOCAL_CAVEAT.test(content)) return null;
 		if (Array.isArray(content)) {
 			const texts: string[] = [];
-			for (const block of content as ClaudeContentBlock[]) {
+			for (const block of content) {
 				if (block.type === BT_TEXT && block.text?.trim()) {
 					// Skip caveat blocks
 					if (RE_LOCAL_CAVEAT.test(block.text)) continue;

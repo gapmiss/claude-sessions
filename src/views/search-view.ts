@@ -81,7 +81,7 @@ export class SearchView extends ItemView {
 		return 'search';
 	}
 
-	async onOpen(): Promise<void> {
+	onOpen(): Promise<void> {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass('claude-sessions-search-view');
@@ -158,7 +158,7 @@ export class SearchView extends ItemView {
 		this.inputEl.addEventListener('keydown', (e: KeyboardEvent) => {
 			if (e.key === 'ArrowDown') {
 				e.preventDefault();
-				const first = this.resultsEl.querySelector('.claude-sessions-search-match-row') as HTMLElement | null;
+				const first = this.resultsEl.querySelector<HTMLElement>('.claude-sessions-search-match-row');
 				first?.focus();
 			}
 		});
@@ -188,13 +188,15 @@ export class SearchView extends ItemView {
 		this.updateScopeLabel();
 
 		requestAnimationFrame(() => this.inputEl.focus());
+		return Promise.resolve();
 	}
 
-	async onClose(): Promise<void> {
+	onClose(): Promise<void> {
 		this.abortSearch();
 		if (this.debounceTimer !== null) {
 			window.clearTimeout(this.debounceTimer);
 		}
+		return Promise.resolve();
 	}
 
 	getState(): Record<string, unknown> {
@@ -206,7 +208,7 @@ export class SearchView extends ItemView {
 		};
 	}
 
-	async setState(state: SearchViewState): Promise<void> {
+	setState(state: SearchViewState): Promise<void> {
 		if (state.mode) {
 			this.mode = state.mode;
 			this.syncModeUI();
@@ -227,6 +229,7 @@ export class SearchView extends ItemView {
 		if (this.inputEl?.value.trim().length >= 2) {
 			this.onQueryChange();
 		}
+		return Promise.resolve();
 	}
 
 	// ── Public API ──
@@ -272,7 +275,7 @@ export class SearchView extends ItemView {
 		if (this.mode !== 'in-session') return;
 
 		if (leaf?.view instanceof TimelineView) {
-			const session = (leaf.view as TimelineView).getSession();
+			const session = leaf.view.getSession();
 			if (session?.rawPath && session.rawPath !== this.trackedFilePath) {
 				this.trackedTimelineLeaf = leaf;
 				this.trackedSession = session;
@@ -326,7 +329,7 @@ export class SearchView extends ItemView {
 			const leaves = this.app.workspace.getLeavesOfType('claude-sessions-timeline');
 			for (const l of leaves) {
 				if (l.view instanceof TimelineView) {
-					const s = (l.view as TimelineView).getSession();
+					const s = l.view.getSession();
 					if (s?.rawPath) {
 						this.trackedTimelineLeaf = l;
 						this.trackedSession = s;
@@ -373,9 +376,9 @@ export class SearchView extends ItemView {
 		this.debounceTimer = window.setTimeout(() => {
 			this.debounceTimer = null;
 			if (this.mode === 'in-session') {
-				this.executeInSessionSearch(text);
+				void this.executeInSessionSearch(text);
 			} else {
-				this.executeCrossSessionSearch(text);
+				void this.executeCrossSessionSearch(text);
 			}
 		}, DEBOUNCE_MS);
 	}
@@ -502,7 +505,7 @@ export class SearchView extends ItemView {
 		const view = this.trackedTimelineLeaf.view;
 		if (view instanceof TimelineView) {
 			// Reveal the timeline leaf so the user sees the result
-			this.app.workspace.revealLeaf(this.trackedTimelineLeaf);
+			void this.app.workspace.revealLeaf(this.trackedTimelineLeaf);
 			view.navigateToMatch(turnIndex, query, matchContext);
 		}
 	}
@@ -547,7 +550,7 @@ export class SearchView extends ItemView {
 		let resultCount = 0;
 
 		const searchFn = this.sortMode === 'relevance' ? searchSessionsRanked : searchSessions;
-		searchFn(
+		void searchFn(
 			this.entries,
 			query,
 			(result) => {
@@ -656,7 +659,7 @@ export class SearchView extends ItemView {
 		// Click opens session at turn
 		row.addEventListener('click', () => {
 			this.setActiveRow(row);
-			this.openCrossSessionResult(result.entry, match, query.text);
+			void this.openCrossSessionResult(result.entry, match, query.text);
 		});
 	}
 

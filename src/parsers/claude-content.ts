@@ -83,7 +83,7 @@ export function extractToolResultBlocks(
 
 	const results: ToolResultBlock[] = [];
 	if (Array.isArray(msg.content)) {
-		for (const block of msg.content as ClaudeContentBlock[]) {
+		for (const block of msg.content) {
 			if (block.type === BT_TOOL_RESULT && block.tool_use_id) {
 				let resultContent = '';
 				let images: ToolResultImage[] | undefined;
@@ -92,7 +92,7 @@ export function extractToolResultBlocks(
 					resultContent = block.content;
 				} else if (Array.isArray(block.content)) {
 					const texts: string[] = [];
-					for (const c of block.content as ToolResultContent[]) {
+					for (const c of block.content) {
 						if (c.type === 'image' && c.source?.data) {
 							if (!images) images = [];
 							images.push({
@@ -137,7 +137,7 @@ export function isInterruptionMessage(msg: RecordMessage | undefined): boolean {
 		return content.startsWith(PREFIX_INTERRUPTION);
 	}
 	if (Array.isArray(content)) {
-		for (const block of content as ClaudeContentBlock[]) {
+		for (const block of content) {
 			if (block.type === BT_TEXT && block.text?.startsWith(PREFIX_INTERRUPTION)) {
 				return true;
 			}

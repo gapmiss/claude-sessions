@@ -1,4 +1,7 @@
 import { Platform, requestUrl } from 'obsidian';
+import * as fs from 'fs';
+import * as path from 'path';
+import { execSync } from 'child_process';
 
 export interface RateLimitData {
 	fiveHourPercent: number | null;
@@ -13,6 +16,17 @@ interface CacheEntry {
 	fetchedAt: number;
 }
 
+interface CredentialData {
+	claudeAiOauth?: { accessToken?: string; expiresAt?: number };
+	accessToken?: string;
+	expiresAt?: number;
+}
+
+interface UsageResponse {
+	five_hour?: { utilization?: unknown; resets_at?: string };
+	seven_day?: { utilization?: unknown; resets_at?: string };
+}
+
 /** How often to re-fetch from the API (5 minutes). */
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -23,24 +37,21 @@ let inflight: Promise<RateLimitData | null> | null = null;
  * Read the Claude OAuth access token from ~/.claude/.credentials.json (Linux)
  * or macOS Keychain. Returns null if unavailable or expired.
  */
-async function getAccessToken(): Promise<string | null> {
+function getAccessToken(): string | null {
 	if (!Platform.isDesktop) return null;
 
-	const fs = require('fs') as typeof import('fs');
-	const path = require('path') as typeof import('path');
 	const home = process.env.HOME || process.env.USERPROFILE || '';
 
 	// Try macOS Keychain first
 	if (process.platform === 'darwin') {
 		try {
-			const { execSync } = require('child_process') as typeof import('child_process');
 			const raw = execSync(
 				'security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null',
 				{ encoding: 'utf-8', timeout: 3000 },
 			).trim();
 			if (raw) {
-				const parsed = JSON.parse(raw);
-				const creds = parsed.claudeAiOauth || parsed;
+				const parsed = JSON.parse(raw) as CredentialData;
+				const creds = parsed.claudeAiOauth ?? parsed;
 				if (creds.accessToken) {
 					if (creds.expiresAt && creds.expiresAt <= Date.now()) return null;
 					return creds.accessToken;
@@ -53,8 +64,8 @@ async function getAccessToken(): Promise<string | null> {
 	const credPath = path.join(home, '.claude', '.credentials.json');
 	try {
 		if (!fs.existsSync(credPath)) return null;
-		const parsed = JSON.parse(fs.readFileSync(credPath, 'utf-8'));
-		const creds = parsed.claudeAiOauth || parsed;
+		const parsed = JSON.parse(fs.readFileSync(credPath, 'utf-8')) as CredentialData;
+		const creds = parsed.claudeAiOauth ?? parsed;
 		if (creds.accessToken) {
 			if (creds.expiresAt && creds.expiresAt <= Date.now()) return null;
 			return creds.accessToken;
@@ -79,7 +90,7 @@ export async function fetchRateLimits(): Promise<RateLimitData | null> {
 
 	inflight = (async () => {
 		try {
-			const token = await getAccessToken();
+			const token = getAccessToken();
 			if (!token) return cached?.data ?? null;
 
 			const response = await requestUrl({
@@ -94,7 +105,7 @@ export async function fetchRateLimits(): Promise<RateLimitData | null> {
 
 			if (response.status !== 200) return cached?.data ?? null;
 
-			const body = response.json;
+			const body = response.json as UsageResponse;
 			const clamp = (v: unknown): number | null => {
 				if (v == null || typeof v !== 'number' || !isFinite(v)) return null;
 				return Math.max(0, Math.min(100, v));

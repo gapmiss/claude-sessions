@@ -43,14 +43,13 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Add session directory')
-			// eslint-disable-next-line obsidianmd/ui/sentence-case -- "Claude Code" is a proper noun
-			.setDesc('Path to a directory containing Claude Code session files (supports ~ for home).')
+			.setDesc('Path to a directory containing session files (supports ~ for home).')
 			.addText(text => {
 				addDirInput = text;
 				text.setPlaceholder('~/.claude/projects');
-				text.inputEl.addEventListener('keydown', async (e: KeyboardEvent) => {
+				text.inputEl.addEventListener('keydown', (e: KeyboardEvent) => {
 					if (e.key === 'Enter') {
-						await addDir();
+						void addDir();
 					}
 				});
 			})
@@ -224,9 +223,9 @@ export class SettingsTab extends PluginSettingTab {
 				},
 			});
 			setIcon(removeBtn, 'trash-2');
-			removeBtn.addEventListener('click', async () => {
+			removeBtn.addEventListener('click', () => {
 				this.plugin.settings.sessionDirs.splice(i, 1);
-				await this.plugin.saveSettings();
+				void this.plugin.saveSettings();
 				this.renderDirsList(container);
 			});
 		}

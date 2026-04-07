@@ -106,7 +106,7 @@ export function addCopyButton(container: HTMLElement, text: string, label: strin
 	setIcon(btn, 'copy');
 	btn.addEventListener('click', (e) => {
 		e.stopPropagation();
-		navigator.clipboard.writeText(text);
+		void navigator.clipboard.writeText(text);
 		setIcon(btn, 'check');
 		setTimeout(() => setIcon(btn, 'copy'), 1500);
 	});

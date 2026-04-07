@@ -4,6 +4,8 @@
  */
 
 import { Notice } from 'obsidian';
+import * as fs from 'fs';
+import * as electron from 'electron';
 import type { Session, PluginSettings } from '../types';
 import { captureAllCSS } from './css-capture';
 import { getStandaloneScript } from './standalone-player';
@@ -255,7 +257,7 @@ function snapshotTimeline(timelineEl: HTMLElement): string {
  * Copy buttons in the live view use closure-captured text.
  * We need to attach the text as data attributes for the standalone script.
  */
-function processCopyButtons(clone: HTMLElement, original: HTMLElement): void {
+function processCopyButtons(clone: HTMLElement, _original: HTMLElement): void {
 	// Text block copy buttons — extract text from the adjacent content
 	clone.querySelectorAll('.claude-sessions-text-copy').forEach(btn => {
 		const wrapper = btn.closest('.claude-sessions-text-block');
@@ -368,7 +370,6 @@ ${script}
 		let savePath: string | null = null;
 
 		try {
-			const electron = require('electron');
 			const dialog = electron.remote?.dialog;
 			if (dialog) {
 				const result = await dialog.showSaveDialog({
@@ -392,7 +393,6 @@ ${script}
 			savePath = `${dir}/${safeName}.html`;
 		}
 
-		const fs = require('fs') as typeof import('fs');
 		fs.writeFileSync(savePath, html, 'utf-8');
 
 		notice.hide();

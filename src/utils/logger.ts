@@ -26,14 +26,14 @@ export class Logger {
 
 	static debug(message: string, data?: unknown): void {
 		if (!Logger.shouldLog('debug')) return;
-		if (data !== undefined) console.log(`${PREFIX} ${message}`, data);
-		else console.log(`${PREFIX} ${message}`);
+		if (data !== undefined) console.debug(`${PREFIX} ${message}`, data);
+		else console.debug(`${PREFIX} ${message}`);
 	}
 
 	static info(message: string, data?: unknown): void {
 		if (!Logger.shouldLog('info')) return;
-		if (data !== undefined) console.info(`${PREFIX} ${message}`, data);
-		else console.info(`${PREFIX} ${message}`);
+		if (data !== undefined) console.debug(`${PREFIX} ${message}`, data);
+		else console.debug(`${PREFIX} ${message}`);
 	}
 
 	static warn(message: string, data?: unknown): void {

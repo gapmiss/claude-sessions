@@ -1,10 +1,10 @@
 import { Platform } from 'obsidian';
+import * as os from 'os';
 
 export function expandHome(path: string): string {
 	if (!path.startsWith('~')) return path;
 	if (Platform.isDesktop) {
 		try {
-			const os = require('os') as { homedir(): string };
 			return path.replace(/^~/, os.homedir());
 		} catch {
 			return path;
@@ -28,7 +28,6 @@ export function dirname(path: string): string {
 export function shortenPath(fullPath: string): string {
 	if (Platform.isDesktop) {
 		try {
-			const os = require('os') as { homedir(): string };
 			const home = os.homedir();
 			if (fullPath.startsWith(home)) {
 				return '~' + fullPath.slice(home.length);
