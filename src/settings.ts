@@ -130,17 +130,6 @@ export class SettingsTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName('Pin summary dashboard')
-			.setDesc('Always pin the session stats bar to the top of every session view.')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.pinSummaryDashboard)
-				.onChange(async (value) => {
-					this.plugin.settings.pinSummaryDashboard = value;
-					await this.plugin.saveSettings();
-					this.plugin.updateTimelineViews();
-				}));
-
-		new Setting(containerEl)
 			.setName('Tool group threshold')
 			.setDesc('Consecutive tool calls above this number are collapsed into a group.')
 			.addText(text => text

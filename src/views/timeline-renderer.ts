@@ -114,6 +114,10 @@ export class TimelineRenderer {
 	 * Called during incremental reload when stats have changed.
 	 */
 	refreshSummary(session: Session): void {
+		// Capture pin and summary-open state before tearing down
+		const wasPinned = this.container.querySelector('.claude-sessions-pinned-heroes')?.hasClass('is-pinned') ?? false;
+		const wasOpen = this.container.querySelector('.claude-sessions-summary')?.hasClass('open') ?? false;
+
 		// Remove existing summary elements
 		this.container.querySelector('.claude-sessions-pinned-heroes')?.remove();
 		this.container.querySelector('.claude-sessions-summary')?.remove();
@@ -121,7 +125,6 @@ export class TimelineRenderer {
 		// Re-render summary at the top (before the first turn element)
 		const firstTurn = this.turnEls[0];
 		if (firstTurn) {
-			// Create a temporary fragment, render into it, then insert before first turn
 			const frag = document.createDocumentFragment();
 			const tempContainer = document.createElement('div');
 			renderSummary(session, tempContainer, this.ctx);
@@ -131,6 +134,18 @@ export class TimelineRenderer {
 			this.container.insertBefore(frag, firstTurn);
 		} else {
 			renderSummary(session, this.container, this.ctx);
+		}
+
+		// Restore pin state
+		if (wasPinned) {
+			this.container.querySelector('.claude-sessions-pinned-heroes')?.addClass('is-pinned');
+			this.container.querySelector('.claude-sessions-heroes-pin')?.addClass('is-active');
+		}
+		if (wasOpen) {
+			const summaryEl = this.container.querySelector('.claude-sessions-summary');
+			summaryEl?.addClass('open');
+			const header = summaryEl?.querySelector('.claude-sessions-summary-header');
+			header?.setAttribute('aria-expanded', 'true');
 		}
 	}
 

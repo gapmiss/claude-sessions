@@ -9,9 +9,6 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 
 	// Pinned heroes bar — direct child of scroll container for position:sticky
 	const pinnedHeroes = container.createDiv({ cls: 'claude-sessions-pinned-heroes' });
-	if (ctx.settings.pinSummaryDashboard) {
-		pinnedHeroes.addClass('is-pinned');
-	}
 	buildHeroCards(pinnedHeroes, stats, metadata, null);
 
 	const el = container.createDiv({ cls: 'claude-sessions-summary' });
@@ -60,9 +57,9 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 	buildHeroCards(heroes, stats, metadata, null);
 
 	const pinBtn = heroes.createEl('button', {
-		cls: `claude-sessions-heroes-pin clickable-icon${ctx.settings.pinSummaryDashboard ? ' is-active' : ''}`,
+		cls: 'claude-sessions-heroes-pin clickable-icon',
 		attr: {
-			'aria-label': ctx.settings.pinSummaryDashboard ? 'Unpin stats' : 'Pin stats to top',
+			'aria-label': 'Pin stats to top',
 			'data-tooltip-position': 'top',
 		},
 	});
