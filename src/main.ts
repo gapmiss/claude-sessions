@@ -7,7 +7,7 @@ import { SessionBrowserModal, scanSessionDirs } from './views/session-browser-mo
 import { FilePickerModal } from './views/file-picker-modal';
 import { exportToMarkdown } from './exporters/markdown-exporter';
 import { exportToHTML } from './exporters/html-exporter';
-import { readFileContent } from './utils/streaming-reader';
+import { readFileContent, listDirectoryFiles } from './utils/streaming-reader';
 import { detectParser } from './parsers/detect';
 import { resolveSubAgentSessions } from './parsers/claude-subagent';
 import { expandHome } from './utils/path-utils';
@@ -204,7 +204,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 				return;
 			}
 			const session = parser.parse(content, filePath);
-			await resolveSubAgentSessions(session, readFileContent);
+			await resolveSubAgentSessions(session, readFileContent, listDirectoryFiles);
 			await this.openSession(session, turnIndex);
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);

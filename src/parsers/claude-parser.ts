@@ -19,7 +19,7 @@ import {
 	RE_SYSTEM_REMINDER, RE_COMMAND_MESSAGE_STRIP, RE_COMMAND_ARGS_STRIP,
 	RE_IMAGE_REF, RE_LOCAL_STDOUT_TAGS,
 	TEXT_SESSION_ENDED, TEXT_INTERRUPTION,
-	ANSI_COMMANDS, ANSI_RE,
+	ANSI_COMMANDS, ANSI_RE, RE_AGENT_ID,
 } from '../constants';
 import { parseTaskNotification } from './claude-subagent';
 import { Logger } from '../utils/logger';
@@ -345,6 +345,36 @@ export class ClaudeParser extends BaseParser {
 						turns: [],
 						isBackground: isBg || undefined,
 					};
+				}
+			}
+		}
+
+		// Extract agentId from tool_result text for Agent blocks that lack one.
+		// Foreground agents include "agentId: <id>" in one of the result text blocks.
+		{
+			// Build a map of tool_use_id → ToolUseBlock for agent blocks missing agentId
+			const agentBlocksById = new Map<string, ToolUseBlock>();
+			for (const turn of turns) {
+				for (const block of turn.contentBlocks) {
+					if (block.type === BT_TOOL_USE
+						&& SUBAGENT_TOOL_NAMES.has(block.name)
+						&& block.subAgentSession
+						&& !block.subAgentSession.agentId) {
+						agentBlocksById.set(block.id, block as ToolUseBlock);
+					}
+				}
+			}
+			if (agentBlocksById.size > 0) {
+				for (const turn of turns) {
+					for (const block of turn.contentBlocks) {
+						if (block.type === BT_TOOL_RESULT && agentBlocksById.has(block.toolUseId)) {
+							const match = block.content?.match(RE_AGENT_ID);
+							if (match) {
+								agentBlocksById.get(block.toolUseId)!.subAgentSession!.agentId = match[1];
+								agentBlocksById.delete(block.toolUseId);
+							}
+						}
+					}
 				}
 			}
 		}

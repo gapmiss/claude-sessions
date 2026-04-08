@@ -63,6 +63,9 @@ export const RE_TN_RESULT = /<result>([\s\S]*?)<\/result>/;
 export const RE_TN_SUMMARY = /<summary>([\s\S]*?)<\/summary>/;
 export const RE_TN_DURATION = /<duration_ms>([\s\S]*?)<\/duration_ms>/;
 
+// ── Agent ID extraction (from tool_result text) ────────────
+export const RE_AGENT_ID = /agentId:\s*(\S+)/;
+
 // ── Display strings ──────────────────────────────────────────
 export const TEXT_SESSION_ENDED = '*Session ended*';
 export const TEXT_INTERRUPTION = '*Request interrupted by user*';

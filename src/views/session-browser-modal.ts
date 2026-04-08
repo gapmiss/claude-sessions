@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import type ClaudeSessionsPlugin from '../main';
 import { SessionListEntry } from '../types';
 import { expandHome, extractProjectName, basename, shortenPath, projectFromCwd } from '../utils/path-utils';
-import { listDirectory, listSubdirectories, readFileContent, extractQuickMetadataAsync } from '../utils/streaming-reader';
+import { listDirectory, listDirectoryFiles, listSubdirectories, readFileContent, extractQuickMetadataAsync } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
 import { resolveSubAgentSessions } from '../parsers/claude-subagent';
 
@@ -207,7 +207,7 @@ export class SessionBrowserModal extends SuggestModal<SessionListEntry> {
 				}
 
 				const session = parser.parse(content, item.path);
-				await resolveSubAgentSessions(session, readFileContent);
+				await resolveSubAgentSessions(session, readFileContent, listDirectoryFiles);
 				await this.plugin.openSession(session);
 			} catch (e) {
 				const msg = e instanceof Error ? e.message : String(e);

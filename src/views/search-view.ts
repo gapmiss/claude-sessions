@@ -3,7 +3,7 @@ import type ClaudeSessionsPlugin from '../main';
 import type { Session, SessionListEntry } from '../types';
 import { searchSessions, searchSessionsRanked, searchFile, searchFileRanked, resolveMatchTurn } from '../utils/session-search';
 import type { SearchQuery, SearchMatch, SessionSearchResult } from '../utils/session-search';
-import { readFileContent } from '../utils/streaming-reader';
+import { readFileContent, listDirectoryFiles } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
 import { resolveSubAgentSessions } from '../parsers/claude-subagent';
 import { makeClickable } from './render-helpers';
@@ -672,7 +672,7 @@ export class SearchView extends ItemView {
 				return;
 			}
 			const session = parser.parse(content, entry.path);
-			await resolveSubAgentSessions(session, readFileContent);
+			await resolveSubAgentSessions(session, readFileContent, listDirectoryFiles);
 			const turnIndex = resolveMatchTurn(match, session.turns);
 			await this.plugin.openSession(session, turnIndex, query, match.contextBefore);
 		} catch (e) {

@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type ClaudeSessionsPlugin from '../main';
 import { expandHome } from '../utils/path-utils';
-import { readFileContent } from '../utils/streaming-reader';
+import { readFileContent, listDirectoryFiles } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
 import { resolveSubAgentSessions } from '../parsers/claude-subagent';
 
@@ -149,7 +149,7 @@ export class FilePickerModal extends Modal {
 			// Attempt to find the full path by searching session directories
 			const fullPath = this.resolveSessionPath(file.name) ?? file.name;
 			const session = parser.parse(content, fullPath);
-			await resolveSubAgentSessions(session, readFileContent);
+			await resolveSubAgentSessions(session, readFileContent, listDirectoryFiles);
 			new Notice(`Loaded session with ${session.turns.length} turns.`);
 			this.close();
 			await this.plugin.openSession(session);
@@ -202,7 +202,7 @@ export class FilePickerModal extends Modal {
 			}
 
 			const session = parser.parse(content, expanded);
-			await resolveSubAgentSessions(session, readFileContent);
+			await resolveSubAgentSessions(session, readFileContent, listDirectoryFiles);
 			new Notice(`Loaded session with ${session.turns.length} turns.`);
 			this.close();
 			await this.plugin.openSession(session);

@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import { makeClickable } from './render-helpers';
 import { Session, PluginSettings } from '../types';
 import { TimelineRenderer } from './timeline-renderer';
-import { readFileContent } from '../utils/streaming-reader';
+import { readFileContent, listDirectoryFiles } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
 import { resolveSubAgentSessions } from '../parsers/claude-subagent';
 import { BT_TOOL_USE, SUBAGENT_TOOL_NAMES } from '../constants';
@@ -137,7 +137,7 @@ export class TimelineView extends ItemView {
 				const parser = detectParser(content);
 				if (parser) {
 					const session = parser.parse(content, state.sessionPath);
-					await resolveSubAgentSessions(session, readFileContent);
+					await resolveSubAgentSessions(session, readFileContent, listDirectoryFiles);
 					this.loadSession(session);
 				}
 			} catch {
@@ -226,7 +226,7 @@ export class TimelineView extends ItemView {
 				return;
 			}
 			const session = parser.parse(content, filePath);
-			await resolveSubAgentSessions(session, readFileContent);
+			await resolveSubAgentSessions(session, readFileContent, listDirectoryFiles);
 
 			const prevCount = this.session?.turns.length ?? 0;
 			const newCount = session.turns.length;
