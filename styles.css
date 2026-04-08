@@ -1287,6 +1287,52 @@
 }
 
 /* ═══════════════════════════════════════════
+   ToolSearch tool
+   ═══════════════════════════════════════════ */
+
+.claude-sessions-toolsearch-matches {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-2);
+	padding: var(--size-2-2) 0;
+}
+
+.claude-sessions-toolsearch-match {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--size-2-3) var(--size-4-3);
+	border-radius: var(--radius-s);
+	background: var(--background-secondary);
+	font-size: var(--font-ui-small);
+	font-family: var(--font-monospace);
+}
+
+.claude-sessions-toolsearch-icon {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	color: var(--text-muted);
+}
+
+.claude-sessions-toolsearch-icon svg {
+	width: 14px;
+	height: 14px;
+}
+
+.claude-sessions-toolsearch-total {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+	padding-top: var(--size-2-1);
+}
+
+.claude-sessions-toolsearch-empty {
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	font-style: italic;
+}
+
+/* ═══════════════════════════════════════════
    AskUserQuestion tool
    ═══════════════════════════════════════════ */
 

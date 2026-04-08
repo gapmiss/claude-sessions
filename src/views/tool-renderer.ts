@@ -184,6 +184,8 @@ function renderToolResult(
 
 	if (TASK_TOOL_NAMES.has(block.name) && !isError && result.enrichedResult) {
 		renderTaskResult(block, result.enrichedResult, resultEl, delegate);
+	} else if (block.name === 'ToolSearch' && !isError && result.enrichedResult) {
+		renderToolSearchResult(result.enrichedResult, resultEl);
 	} else if (result.images && result.images.length > 0) {
 		renderToolResultImages(result.images, resultEl, delegate);
 		if (resultText) {
@@ -320,6 +322,38 @@ function renderTaskResult(
 		const label = item.createSpan({ cls: 'claude-sessions-task-label' });
 		label.createSpan({ cls: 'claude-sessions-task-id', text: `#${task.id}` });
 		label.createSpan({ text: task.subject });
+	}
+}
+
+// ── AskUserQuestion rendering ─────────────────────────────────
+
+// ── ToolSearch rendering ──────────────────────────────────────
+
+function renderToolSearchResult(
+	enriched: Record<string, unknown>,
+	container: HTMLElement,
+): void {
+	const matches = Array.isArray(enriched['matches']) ? enriched['matches'] as string[] : [];
+	const total = typeof enriched['total_deferred_tools'] === 'number' ? enriched['total_deferred_tools'] : undefined;
+
+	if (matches.length === 0) {
+		container.createDiv({ cls: 'claude-sessions-toolsearch-empty', text: 'No matching tools found' });
+		return;
+	}
+
+	const list = container.createDiv({ cls: 'claude-sessions-toolsearch-matches' });
+	for (const name of matches) {
+		const item = list.createDiv({ cls: 'claude-sessions-toolsearch-match' });
+		const icon = item.createSpan({ cls: 'claude-sessions-toolsearch-icon' });
+		setIcon(icon, 'wrench');
+		item.createSpan({ text: name });
+	}
+
+	if (total != null) {
+		container.createDiv({
+			cls: 'claude-sessions-toolsearch-total',
+			text: `${matches.length} of ${total} deferred tools matched`,
+		});
 	}
 }
 

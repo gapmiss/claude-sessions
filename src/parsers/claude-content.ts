@@ -18,6 +18,7 @@ interface ToolResultContent {
 	type: string;
 	text?: string;
 	content?: string;
+	tool_name?: string;
 	source?: { type?: string; media_type?: string; data?: string };
 }
 
@@ -99,6 +100,8 @@ export function extractToolResultBlocks(
 								mediaType: c.source.media_type ?? 'image/png',
 								data: c.source.data,
 							});
+						} else if (c.type === 'tool_reference' && c.tool_name) {
+							texts.push(c.tool_name);
 						} else {
 							const t = c.text ?? c.content ?? '';
 							if (t) texts.push(t);
