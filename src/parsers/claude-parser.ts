@@ -360,7 +360,7 @@ export class ClaudeParser extends BaseParser {
 						&& SUBAGENT_TOOL_NAMES.has(block.name)
 						&& block.subAgentSession
 						&& !block.subAgentSession.agentId) {
-						agentBlocksById.set(block.id, block as ToolUseBlock);
+						agentBlocksById.set(block.id, block);
 					}
 				}
 			}

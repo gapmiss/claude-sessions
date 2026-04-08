@@ -21,7 +21,7 @@ export function parseTaskNotification(
 
 /** Read and parse JSON, returning null on failure. */
 function tryParseJson(text: string): Record<string, unknown> | null {
-	try { return JSON.parse(text); } catch { return null; }
+	try { return JSON.parse(text) as Record<string, unknown>; } catch { return null; }
 }
 
 /**

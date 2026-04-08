@@ -164,16 +164,17 @@ export async function extractQuickMetadataAsync(filePath: string): Promise<Quick
  * List file names in a directory. Desktop only.
  * Returns just the file names (not full paths).
  */
-export async function listDirectoryFiles(dirPath: string): Promise<string[]> {
-	if (!Platform.isDesktop) return [];
+export function listDirectoryFiles(dirPath: string): Promise<string[]> {
+	if (!Platform.isDesktop) return Promise.resolve([]);
 	const resolved = path.resolve(dirPath);
 	try {
 		const entries = fs.readdirSync(resolved, { withFileTypes: true });
-		return entries
+		const names = entries
 			.filter((e: { isFile(): boolean }) => e.isFile())
 			.map((e: { name: string }) => e.name);
+		return Promise.resolve(names);
 	} catch {
-		return [];
+		return Promise.resolve([]);
 	}
 }
 

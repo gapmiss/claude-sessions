@@ -1287,6 +1287,124 @@
 }
 
 /* ═══════════════════════════════════════════
+   AskUserQuestion tool
+   ═══════════════════════════════════════════ */
+
+.claude-sessions-ask-user {
+	padding: var(--cs-padding-tool-body);
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-4);
+}
+
+.claude-sessions-ask-question {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+}
+
+.claude-sessions-ask-header-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.claude-sessions-ask-header {
+	display: inline-block;
+	align-self: flex-start;
+	padding: var(--size-2-1) var(--size-4-2);
+	border-radius: var(--radius-s);
+	background: var(--color-blue);
+	color: var(--text-on-accent);
+	font-size: var(--font-smallest);
+	font-weight: var(--font-semibold);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.claude-sessions-ask-text {
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-medium);
+	color: var(--text-normal);
+}
+
+.claude-sessions-ask-options {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-2);
+}
+
+.claude-sessions-ask-option {
+	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-s);
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+}
+
+.claude-sessions-ask-option-selected {
+	border-color: var(--color-green);
+	background: hsla(var(--color-green-hsl), 0.08);
+}
+
+.claude-sessions-ask-option-label {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	font-weight: var(--font-medium);
+	font-size: var(--font-ui-small);
+}
+
+.claude-sessions-ask-option-check {
+	color: var(--color-green);
+	display: flex;
+	align-items: center;
+}
+
+.claude-sessions-ask-option-check svg {
+	width: 16px;
+	height: 16px;
+}
+
+.claude-sessions-ask-option-desc {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	margin-top: var(--size-2-1);
+}
+
+.claude-sessions-ask-answers {
+	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-s);
+	background: var(--background-secondary);
+}
+
+.claude-sessions-ask-answer-row {
+	font-size: var(--font-ui-small);
+	margin-top: var(--size-2-1);
+}
+
+.claude-sessions-ask-answer-q {
+	color: var(--text-muted);
+}
+
+.claude-sessions-ask-answer-a {
+	font-weight: var(--font-medium);
+	color: var(--text-normal);
+}
+
+.claude-sessions-ask-rejected {
+	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-s);
+	border: 1px solid var(--color-red);
+	background: hsla(var(--color-red-hsl), 0.08);
+}
+
+.claude-sessions-ask-rejected-text {
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+	white-space: pre-wrap;
+}
+
+/* ═══════════════════════════════════════════
    Diff view (Edit tool)
    ═══════════════════════════════════════════ */
 

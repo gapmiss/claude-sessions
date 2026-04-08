@@ -126,7 +126,9 @@ export function renderToolCall(
 	const body = toolEl.createDiv({ cls: 'claude-sessions-tool-body' });
 
 	// Input section
-	if ((block.name === 'Agent' || block.name === 'Task') && block.subAgentSession) {
+	if (block.name === 'AskUserQuestion') {
+		renderAskUserQuestion(block, result, body, ctx);
+	} else if ((block.name === 'Agent' || block.name === 'Task') && block.subAgentSession) {
 		renderSubAgentSession(block.subAgentSession, body, result, ctx, delegate);
 	} else if (block.name === 'Edit' && block.input['old_string'] != null) {
 		renderDiffView(block, result, body, ctx);
@@ -143,8 +145,9 @@ export function renderToolCall(
 		void MarkdownRenderer.render(ctx.app, inputMd, inputMdContainer, '', ctx.component);
 	}
 
-	// Result section (skip for Edit/Write/Agent which render their own results)
+	// Result section (skip for Edit/Write/Agent/AskUserQuestion which render their own results)
 	if (result && ctx.settings.showToolResults
+		&& block.name !== 'AskUserQuestion'
 		&& !(block.name === 'Edit' && block.input['old_string'] != null)
 		&& !(block.name === 'Write' && block.input['content'] != null)
 		&& !((block.name === 'Agent' || block.name === 'Task') && block.subAgentSession)) {
@@ -317,6 +320,101 @@ function renderTaskResult(
 		const label = item.createSpan({ cls: 'claude-sessions-task-label' });
 		label.createSpan({ cls: 'claude-sessions-task-id', text: `#${task.id}` });
 		label.createSpan({ text: task.subject });
+	}
+}
+
+// ── AskUserQuestion rendering ─────────────────────────────────
+
+interface AskOption {
+	label: string;
+	description: string;
+}
+
+interface AskQuestion {
+	header: string;
+	question: string;
+	options: AskOption[];
+	multiSelect: boolean;
+}
+
+function renderAskUserQuestion(
+	block: ToolUseBlock,
+	result: ToolResultBlock | undefined,
+	container: HTMLElement,
+	_ctx: RenderContext,
+): void {
+	const questions = block.input['questions'] as AskQuestion[] | undefined;
+	if (!questions?.length) return;
+
+	const rawJson = formatInput(block.input);
+
+	// Parse answers from result text
+	const answers = new Map<string, string>();
+	const isRejected = result?.isError ?? false;
+	if (result && !isRejected) {
+		// Result format: "question"="answer", "question"="answer"
+		const answerMatches = result.content.matchAll(/"([^"]+)"="([^"]+)"/g);
+		for (const m of answerMatches) {
+			answers.set(m[1], m[2]);
+		}
+	}
+
+	const wrapper = container.createDiv({ cls: 'claude-sessions-ask-user' });
+
+	for (let i = 0; i < questions.length; i++) {
+		const q = questions[i];
+		const questionEl = wrapper.createDiv({ cls: 'claude-sessions-ask-question' });
+
+		// Header row with badge and copy button (on first question only)
+		const headerRow = questionEl.createDiv({ cls: 'claude-sessions-ask-header-row' });
+		if (q.header) {
+			headerRow.createSpan({ cls: 'claude-sessions-ask-header', text: q.header });
+		}
+		if (i === 0) {
+			addCopyButton(headerRow, rawJson, 'Copy raw JSON');
+		}
+
+		// Question text
+		questionEl.createDiv({ cls: 'claude-sessions-ask-text', text: q.question });
+
+		// Options list
+		const optionsEl = questionEl.createDiv({ cls: 'claude-sessions-ask-options' });
+		const answer = answers.get(q.question) ?? '';
+		const selectedLabels = new Set(answer.split(', ').map(s => s.trim()).filter(Boolean));
+
+		for (const opt of q.options) {
+			const isSelected = selectedLabels.has(opt.label);
+			const optEl = optionsEl.createDiv({
+				cls: `claude-sessions-ask-option ${isSelected ? 'claude-sessions-ask-option-selected' : ''}`,
+			});
+			const labelRow = optEl.createDiv({ cls: 'claude-sessions-ask-option-label' });
+			labelRow.createSpan({ text: opt.label });
+			if (isSelected) {
+				const check = labelRow.createSpan({ cls: 'claude-sessions-ask-option-check' });
+				setIcon(check, 'check');
+			}
+			if (opt.description) {
+				optEl.createDiv({ cls: 'claude-sessions-ask-option-desc', text: opt.description });
+			}
+		}
+	}
+
+	// Rejected state
+	if (isRejected && result) {
+		const rejectedEl = wrapper.createDiv({ cls: 'claude-sessions-ask-rejected' });
+		rejectedEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'CLARIFICATION' });
+		rejectedEl.createDiv({ cls: 'claude-sessions-ask-rejected-text', text: result.content });
+	}
+
+	// Answer summary (only for successful responses)
+	if (answers.size > 0) {
+		const answerEl = wrapper.createDiv({ cls: 'claude-sessions-ask-answers' });
+		answerEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'USER ANSWERS' });
+		for (const [question, answer] of answers) {
+			const row = answerEl.createDiv({ cls: 'claude-sessions-ask-answer-row' });
+			row.createSpan({ cls: 'claude-sessions-ask-answer-q', text: question + ' ' });
+			row.createSpan({ cls: 'claude-sessions-ask-answer-a', text: answer });
+		}
 	}
 }
 
@@ -574,6 +672,14 @@ function toolPreview(block: ToolUseBlock): string {
 			const desc = input['description'] as string | undefined;
 			if (desc) return truncate(desc, 50);
 			return truncate(typeof input['command'] === 'string' ? input['command'] : '', 50);
+		}
+		case 'AskUserQuestion': {
+			const qs = input['questions'] as Array<Record<string, unknown>> | undefined;
+			if (!qs?.length) return '';
+			const first = qs[0];
+			const q = typeof first['question'] === 'string' ? first['question'] : '';
+			const prefix = qs.length > 1 ? `${qs.length} questions \u2014 ` : '';
+			return `${prefix}${truncate(q, 40)}`;
 		}
 		case 'Agent':
 		case 'Task': {
