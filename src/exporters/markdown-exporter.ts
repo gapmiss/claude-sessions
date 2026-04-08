@@ -2,6 +2,7 @@ import { App, TFolder, normalizePath } from 'obsidian';
 import { diffLines } from 'diff';
 import { Session, Turn, ContentBlock, ToolUseBlock, ToolResultBlock, PluginSettings } from '../types';
 import { fence, langFromPath, stripLineNumbers } from '../views/render-helpers';
+import { ANSI_STRIP_RE } from '../constants';
 
 /** Accumulated images for writing to the attachment folder. */
 interface PendingImage {
@@ -172,7 +173,7 @@ function renderBlock(
 
 		case 'ansi':
 			// Strip ANSI escape codes for markdown export
-			return '```\n' + block.text.replace(new RegExp('\\x1b\\[[\\d;]*m', 'g'), '') + '\n```';
+			return '```\n' + block.text.replace(ANSI_STRIP_RE, '') + '\n```';
 
 		case 'compaction':
 			return '---\n*Context compacted*' + (block.summary ? `\n${block.summary}` : '') + '\n---';

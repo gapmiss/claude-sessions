@@ -68,6 +68,15 @@ export const TEXT_SESSION_ENDED = '*Session ended*';
 export const TEXT_INTERRUPTION = '*Request interrupted by user*';
 export const PREFIX_INTERRUPTION = '[Request interrupted by user';
 
+// ── ANSI escape code patterns ──────────────────────────────
+const ESC = String.fromCharCode(0x1b);
+/** Test whether text contains ANSI escape codes */
+export const ANSI_RE = new RegExp(ESC + '\\[' + '[\\d;]*m');
+/** Strip all ANSI escape codes (global) */
+export const ANSI_STRIP_RE = new RegExp(ESC + '\\[' + '[\\d;]*m', 'g');
+/** Parse ANSI escape codes with capture group (global) */
+export const ANSI_PARSE_RE = new RegExp(ESC + '\\[' + '([\\d;]*)m', 'g');
+
 // ── Commands with ANSI output ────────────────────────────────
 export const ANSI_COMMANDS = new Set(['/context']);
 

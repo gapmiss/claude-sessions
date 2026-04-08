@@ -1,7 +1,7 @@
 import { MarkdownRenderer, setIcon } from 'obsidian';
 import { diffLines } from 'diff';
 import type { ContentBlock, ToolUseBlock, ToolResultBlock, ToolResultImage, SubAgentSession } from '../types';
-import { TASK_TOOL_NAMES } from '../constants';
+import { TASK_TOOL_NAMES, ANSI_RE } from '../constants';
 import {
 	type RenderContext, COLLAPSE_THRESHOLD,
 	makeClickable, fence, langFromPath, stripLineNumbers, addCopyButton,
@@ -159,7 +159,6 @@ export function renderToolCall(
 	});
 }
 
-const ANSI_RE = new RegExp('\\x1b\\[[\\d;]*m');
 function hasAnsiCodes(text: string): boolean {
 	return ANSI_RE.test(text);
 }

@@ -19,7 +19,7 @@ import {
 	RE_SYSTEM_REMINDER, RE_COMMAND_MESSAGE_STRIP, RE_COMMAND_ARGS_STRIP,
 	RE_IMAGE_REF, RE_LOCAL_STDOUT_TAGS,
 	TEXT_SESSION_ENDED, TEXT_INTERRUPTION,
-	ANSI_COMMANDS,
+	ANSI_COMMANDS, ANSI_RE,
 } from '../constants';
 import { parseTaskNotification } from './claude-subagent';
 import { Logger } from '../utils/logger';
@@ -119,7 +119,6 @@ interface ToolResultContent {
 	is_error?: boolean;
 }
 
-const ANSI_RE = new RegExp('\\x1b\\[[\\d;]*m');
 function hasAnsiCodes(text: string): boolean {
 	return ANSI_RE.test(text);
 }

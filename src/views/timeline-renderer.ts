@@ -7,6 +7,7 @@ import {
 	type RenderContext, COLLAPSE_THRESHOLD,
 	makeClickable, shortModelName, addCopyButton, normalizeMarkdown, fence,
 } from './render-helpers';
+import { ANSI_PARSE_RE } from '../constants';
 import { renderSummary } from './summary-renderer';
 import { renderToolGroup, type ToolRendererDelegate } from './tool-renderer';
 
@@ -526,7 +527,7 @@ export class TimelineRenderer {
 			}
 		};
 
-		const re = new RegExp('\\x1b\\[([\\d;]*)m', 'g');
+		const re = new RegExp(ANSI_PARSE_RE.source, 'g');
 		let last = 0;
 		let match: RegExpExecArray | null;
 
