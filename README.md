@@ -5,7 +5,7 @@ An [Obsidian](https://obsidian.md/) plugin for viewing [Claude Code](https://doc
 **Local-first and private.** Claude Sessions reads your JSONL session files directly from disk — no uploads, no syncing, no external services. Your conversations stay on your machine.
 
 > [!IMPORTANT]
-> **v0.2.6** — Desktop-only. Active development; expect frequent changes.
+> **v0.2.12** — Desktop-only. Active development; expect frequent changes.
 
 <!-- ![Claude Sessions — dark mode](screenshots/hero-dark.png) -->
 
@@ -28,8 +28,10 @@ Every tool type gets purpose-built rendering:
 - **Edit** — red/green diff view (success messages hidden; errors shown)
 - **Write** — syntax-highlighted code with language detection from file extension
 - **Read** — language-specific syntax highlighting
+- **AskUserQuestion** — header badges, option cards with selected/rejected state, answer summary, copy raw JSON
+- **ToolSearch** — matched tool names with icons and deferred tool count
 - **MCP tools** — displayed as `server / tool_name` instead of raw `mcp__server__tool`
-- **Sub-agent sessions** — inline with collapsible prompt, tool groups, and output
+- **Sub-agent sessions** — inline with collapsible prompt, tool groups, and output (supports both legacy inline and separate JSONL file formats)
 - **Tool grouping** — consecutive calls above a configurable threshold (default 4) collapse into a summary bar
 
 - **Orphan detection** — tool calls without results show "in progress" (last turn) or "interrupted" (mid-session)
@@ -194,7 +196,7 @@ The timeline view renders all turns immediately into a scrollable container. An 
 npm install
 npm run dev          # watch mode with source maps
 npm run build        # typecheck + production bundle
-npm test             # 121 tests (vitest)
+npm test             # vitest
 npm run test:watch   # watch mode tests
 npx eslint .         # lint with eslint-plugin-obsidianmd
 ```

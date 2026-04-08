@@ -37,9 +37,14 @@ Reference document for known pitfalls. Not auto-included — use `@GOTCHAS.md` w
 - Claude Code v2.1.79+ encrypts thinking content — the `thinking` field is empty, content lives in `signature`. Parser skips these
 - Hook records changed format: old `progress` records with `data.type: "hook_progress"` are dead. Hooks now emit `system` records with `subtype: "stop_hook_summary"` containing `hookInfos[]` with `command` fields. These are turn-level (after assistant response), not tool-level
 - Sessions often start with multiple 6KB+ `file-history-snapshot` records — reading only the first 2KB misses all metadata. Use line-by-line reading with prefix-skip for large record types instead
-- `agent_progress` records stream only `tool_use` and `tool_result` blocks — assistant text blocks are omitted. Must read the subagent's own JSONL file to recover chain-of-thought text
+- `agent_progress` records are the legacy format — newer Claude Code versions no longer emit them. All sub-agent data now lives in separate `subagents/agent-<id>.jsonl` files alongside `.meta.json` files
 - Subagent JSONL files mark every record as `isSidechain: true` — parser needs `allowSidechain: true`
 - Background agents don't produce `agent_progress` records at all. Their completion arrives as `<task-notification>` XML in `queue-operation` or `user` records, which must be captured before those record types are skipped
+- Foreground Explore and worktree agents don't include `agentId` in their tool_result text. Resolution requires scanning `subagents/*.meta.json` and matching by description field
+- General-purpose and background agents include `agentId: <id>` in a tool_result text block — extracted via `RE_AGENT_ID` regex
+- The `Task` tool name is legacy (replaced by `Agent`) but kept in `SUBAGENT_TOOL_NAMES` for backward compatibility with older session files
+- `ToolSearch` tool results use `tool_reference` content blocks (`{"type":"tool_reference","tool_name":"..."}`) instead of standard text blocks — the parser must extract `tool_name` or the result appears empty
+- `ToolSearch` structured data (matches, query, total_deferred_tools) is available via `toolUseResult` on the user record, captured as `enrichedResult` on the `ToolResultBlock`
 - Session directory encoding (`-Users-gm-claude-sessions`) is lossy — hyphens in directory names are indistinguishable from path separators. Prefer `cwd` from session metadata; `extractProjectName()` is fallback only
 
 ## Slash Commands / Skills
@@ -82,6 +87,7 @@ Reference document for known pitfalls. Not auto-included — use `@GOTCHAS.md` w
 
 ## Rendering
 
+- ANSI escape code regexes must use `String.fromCharCode(0x1b)` instead of literal `\x1b` — the Obsidian community plugin scanner flags control characters in source code
 - All JSONL magic strings live in `constants.ts` — when Claude Code changes its schema, update one file. Parser logs unknown record/block type warnings with counts for format change detection
 - ANSI rendering uses programmatic DOM construction (`buildAnsiDom()`) — no `innerHTML` anywhere in the renderer pipeline
 - Image clipboard copy validates MIME type against `SAFE_IMAGE_TYPES` whitelist

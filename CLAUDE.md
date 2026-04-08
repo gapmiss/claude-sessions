@@ -2,7 +2,7 @@
 
 Desktop-only Claude Code JSONL session viewer for Obsidian. Browse, search, and export sessions with rich tool rendering, live watch, and summary dashboards.
 
-**Version**: 0.2.6 | **Branch**: main
+**Version**: 0.2.12 | **Branch**: main
 
 ## Development
 
@@ -11,7 +11,7 @@ npm run dev          # watch mode
 npm run build        # production (typecheck + bundle + copy to vault)
 npm test             # vitest
 npm run test:watch   # watch mode tests
-npx eslint .         # lint (requires `npm i -D @eslint/json` — currently broken)
+npx eslint .         # lint
 ```
 
 ## File Structure
@@ -33,7 +33,7 @@ src/
     timeline-renderer.ts     # Turn/block rendering, ANSI, mermaid, image modals
     render-helpers.ts        # Shared: makeClickable, fence, langFromPath, etc.
     summary-renderer.ts      # Dashboard panel (hero cards, charts, metadata)
-    tool-renderer.ts         # Tool-specific rendering (Bash, Edit, Write, Read, Agent)
+    tool-renderer.ts         # Tool-specific rendering (Bash, Edit, Write, Read, Agent, AskUserQuestion, ToolSearch)
     search-view.ts           # Dual-mode search panel (cross-session / in-session)
     session-browser-modal.ts # SuggestModal with cached session index
     file-picker-modal.ts     # Import via drag-drop or path
@@ -88,14 +88,15 @@ Audit results: `@AUDIT-2026-04-01.md`
 ## Session State
 <!-- DO NOT edit this section manually. It is managed exclusively by /wrap SKILL. -->
 <!-- auto-updated by /wrap -->
-- **Last session**: 2026-04-06 22:30
-- **Goal**: Fix search accuracy, navigation, pinned dashboard, expand-to-highlight
-- **Summary**: Rewrote ranked search to use exact substring matching with BM25 for sort order only (eliminates false positives from scattered stemmed terms). Fixed cross-session turn resolution via timestamps. Added match context disambiguation for highlight targeting. Fixed expandAncestors (wrong collapsible-toggle selector, missing slash command/compaction/markdown-preview handlers). Replaced global pinSummaryDashboard setting with per-session pin state. Added unpin button to sticky dashboard. Fixed refreshSummary losing pin state during live reload. Added scroll-margin-top for pinned dashboard offset. Rate limit reset times now use relative format with exact tooltip.
+- **Last session**: 2026-04-08 16:00
+- **Goal**: Fix community plugin scan violations, sub-agent resolution, add tool renderers
+- **Summary**: Fixed \x1b control characters in ANSI regexes by centralizing to constants.ts using String.fromCharCode. Fixed sub-agent session resolution for new JSONL format (Claude Code no longer emits inline agent_progress records; data lives in separate subagents/agent-<id>.jsonl files). Added agentId extraction from tool_result text and meta.json description matching fallback. Added dedicated AskUserQuestion renderer (header badges, option cards, selected state, rejected/clarification, copy raw JSON). Added ToolSearch renderer (matched tools with icons, deferred tool count). Fixed tool_reference content block parsing.
 - **Decisions**:
-  - BM25 used only for scoring/ranking, not for finding matches — exact substring match is the source of truth
-  - Pin state is per-session (saved/restored via heroesPinned in view state), not a global setting
-  - scroll-margin-top (120px) via CSS sibling combinator on pinned heroes
-  - Rate limit reset shows relative time ("in 3h 42m") with exact date/time in aria-label tooltip
+  - ANSI regexes use String.fromCharCode(0x1b) to avoid literal control characters in source
+  - Sub-agent resolution: two-phase (agentId from result text, then meta.json description matching)
+  - "Task" tool name kept in SUBAGENT_TOOL_NAMES for backward compat but no longer actively used
+  - AskUserQuestion renders its own results (skipped by generic result renderer)
+  - ToolSearch uses enrichedResult from toolUseResult for structured display
 - **Next steps**:
   - Monitor Anthropic usage API for stability / official documentation
 - **Blockers**: None
