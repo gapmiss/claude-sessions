@@ -497,6 +497,48 @@ expandAll(): void {
 		}
 	}
 
+	/** Expand all collapsible blocks: tools, thinking, summary, sub-agents, slash commands, compaction */
+	expandAllBlocks(): void {
+		if (!this.timelineEl) return;
+		const selectors = [
+			{ block: '.claude-sessions-tool-block:not(.open)', header: '.claude-sessions-tool-header' },
+			{ block: '.claude-sessions-tool-group:not(.open)', header: '.claude-sessions-tool-group-header' },
+			{ block: '.claude-sessions-thinking-block:not(.open)', header: '.claude-sessions-thinking-header' },
+			{ block: '.claude-sessions-subagent-prompt:not(.open)', header: '.claude-sessions-subagent-prompt-header' },
+			{ block: '.claude-sessions-slash-command-block:not(.open)', header: '.claude-sessions-slash-command-header' },
+			{ block: '.claude-sessions-compaction-block:not(.open)', header: '.claude-sessions-compaction-summary-header' },
+			{ block: '.claude-sessions-summary:not(.open)', header: '.claude-sessions-summary-header' },
+		];
+		for (const { block, header } of selectors) {
+			for (const el of Array.from(this.timelineEl.querySelectorAll<HTMLElement>(block))) {
+				el.addClass('open');
+				const h = el.querySelector(header);
+				if (h) h.setAttribute('aria-expanded', 'true');
+			}
+		}
+	}
+
+	/** Collapse all collapsible blocks: tools, thinking, summary, sub-agents, slash commands, compaction */
+	collapseAllBlocks(): void {
+		if (!this.timelineEl) return;
+		const selectors = [
+			{ block: '.claude-sessions-tool-block.open', header: '.claude-sessions-tool-header' },
+			{ block: '.claude-sessions-tool-group.open', header: '.claude-sessions-tool-group-header' },
+			{ block: '.claude-sessions-thinking-block.open', header: '.claude-sessions-thinking-header' },
+			{ block: '.claude-sessions-subagent-prompt.open', header: '.claude-sessions-subagent-prompt-header' },
+			{ block: '.claude-sessions-slash-command-block.open', header: '.claude-sessions-slash-command-header' },
+			{ block: '.claude-sessions-compaction-block.open', header: '.claude-sessions-compaction-summary-header' },
+			{ block: '.claude-sessions-summary.open', header: '.claude-sessions-summary-header' },
+		];
+		for (const { block, header } of selectors) {
+			for (const el of Array.from(this.timelineEl.querySelectorAll<HTMLElement>(block))) {
+				el.removeClass('open');
+				const h = el.querySelector(header);
+				if (h) h.setAttribute('aria-expanded', 'false');
+			}
+		}
+	}
+
 	// ── In-session search ──
 
 	async openInSessionSearch(): Promise<void> {

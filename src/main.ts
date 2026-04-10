@@ -131,6 +131,30 @@ export default class ClaudeSessionsPlugin extends Plugin {
 		});
 
 		this.addCommand({
+			id: 'expand-all-blocks',
+			name: 'Expand all blocks (tools, thinking, summary)',
+			checkCallback: (checking: boolean) => {
+				const view = this.getActiveTimelineView();
+				if (!view) return false;
+				if (checking) return true;
+				view.expandAllBlocks();
+				return true;
+			},
+		});
+
+		this.addCommand({
+			id: 'collapse-all-blocks',
+			name: 'Collapse all blocks (tools, thinking, summary)',
+			checkCallback: (checking: boolean) => {
+				const view = this.getActiveTimelineView();
+				if (!view) return false;
+				if (checking) return true;
+				view.collapseAllBlocks();
+				return true;
+			},
+		});
+
+		this.addCommand({
 			id: 'refresh-session',
 			name: 'Refresh session',
 			checkCallback: (checking: boolean) => {

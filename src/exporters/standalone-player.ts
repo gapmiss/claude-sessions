@@ -345,18 +345,18 @@ export function getStandaloneScript(): string {
       return;
     }
 
-    /* Walk up to find interactive element */
-    var el = target.closest('[role="button"][aria-expanded]');
-    if (el && document.getElementById('as-export-root')?.contains(el)) {
-      toggleCollapsible(el);
-      return;
-    }
-
-    /* Show more button */
+    /* Show more button — check BEFORE generic collapsible since it also has role="button" */
     var showBtn = target.closest('.claude-sessions-collapsible-toggle');
     if (showBtn) {
       e.preventDefault();
       toggleShowMore(showBtn);
+      return;
+    }
+
+    /* Walk up to find interactive element */
+    var el = target.closest('[role="button"][aria-expanded]');
+    if (el && document.getElementById('as-export-root')?.contains(el)) {
+      toggleCollapsible(el);
       return;
     }
 
