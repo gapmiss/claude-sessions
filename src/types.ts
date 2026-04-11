@@ -38,8 +38,62 @@ export interface Session {
 	metadata: SessionMetadata;
 	stats: SessionStats;
 	turns: Turn[];
+	systemEvents: SystemEvent[];
 	rawPath: string;
 }
+
+// ── System Events ──
+
+export type SystemEventType = 'permission-mode' | 'skill_listing' | 'hook_success' | 'async_hook_response' | 'task_reminder';
+
+export interface BaseSystemEvent {
+	type: SystemEventType;
+	uuid: string;
+	timestamp: string;
+	parentUuid?: string;
+}
+
+export interface PermissionModeEvent extends BaseSystemEvent {
+	type: 'permission-mode';
+	permissionMode: string;
+}
+
+export interface SkillListingEvent extends BaseSystemEvent {
+	type: 'skill_listing';
+	content: string;
+	skillCount: number;
+	isInitial?: boolean;
+}
+
+export interface HookSuccessEvent extends BaseSystemEvent {
+	type: 'hook_success';
+	hookName: string;
+	hookEvent: string;
+	command: string;
+	durationMs: number;
+	stdout: string;
+	stderr: string;
+	exitCode: number;
+	toolUseId?: string;
+}
+
+export interface AsyncHookResponseEvent extends BaseSystemEvent {
+	type: 'async_hook_response';
+	hookName: string;
+	hookEvent: string;
+	processId: string;
+	stdout: string;
+	stderr: string;
+	exitCode: number;
+}
+
+export interface TaskReminderEvent extends BaseSystemEvent {
+	type: 'task_reminder';
+	content: unknown[];
+	itemCount: number;
+}
+
+export type SystemEvent = PermissionModeEvent | SkillListingEvent | HookSuccessEvent | AsyncHookResponseEvent | TaskReminderEvent;
 
 export interface Turn {
 	index: number;

@@ -2321,44 +2321,63 @@
 	font-size: var(--font-ui-small);
 }
 
-/* ── Mode toggle ── */
+/* ── Mode toggle (tab style) ── */
 
 .claude-sessions-search-mode-toggle {
 	display: flex;
-	gap: 0;
-	padding: var(--size-4-2) var(--size-4-3);
+	gap: var(--size-4-4);
+	padding: var(--size-4-3) var(--size-4-4) 0;
 	border-bottom: 1px solid var(--background-modifier-border);
 }
 
 .claude-sessions-search-mode-btn {
-	flex: 1;
-	min-height: 44px;
-	padding: var(--size-2-3) var(--size-4-3);
-	border: 1px solid var(--background-modifier-border);
-	background: var(--background-primary);
+	position: relative;
+	padding: var(--size-2-2) var(--size-2-1);
+	padding-bottom: var(--size-4-2);
+	margin: 0;
+	border: none !important;
+	border-radius: 0 !important;
+	outline: none !important;
+	box-shadow: none !important;
+	background: none !important;
+	background-color: transparent !important;
 	color: var(--text-muted);
-	font-family: var(--cs-font-family-ui);
-	font-size: var(--font-ui-smaller);
+	font-size: var(--font-ui-small);
 	cursor: pointer;
+	-webkit-appearance: none;
+	appearance: none;
 }
 
-.claude-sessions-search-mode-btn:first-child {
-	border-radius: var(--radius-s) 0 0 var(--radius-s);
-	border-right: none;
-}
-
-.claude-sessions-search-mode-btn:last-child {
-	border-radius: 0 var(--radius-s) var(--radius-s) 0;
+.claude-sessions-search-mode-btn:hover {
+	color: var(--text-normal);
+	background: none !important;
 }
 
 .claude-sessions-search-mode-btn.active {
-	background: var(--cs-accent);
-	color: var(--text-on-accent);
-	border-color: var(--cs-accent);
+	color: var(--text-normal);
+	background: none !important;
+}
+
+.claude-sessions-search-mode-btn:active {
+	background: none !important;
+}
+
+.claude-sessions-search-mode-btn::after {
+	content: '';
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: 2px;
+	background: transparent;
+}
+
+.claude-sessions-search-mode-btn.active::after {
+	background: var(--interactive-accent);
 }
 
 .claude-sessions-search-mode-btn:focus-visible {
-	box-shadow: inset 0 0 0 2px var(--cs-accent);
+	color: var(--text-normal);
 }
 
 /* ── Scope label ── */
@@ -2375,59 +2394,109 @@
 	gap: var(--size-4-2);
 	padding: var(--size-4-3) var(--size-4-4);
 	border-bottom: 1px solid var(--background-modifier-border);
+	align-items: center;
+}
+
+/* Input container - matches Obsidian's search input styling */
+.claude-sessions-search-input-container {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	min-height: 32px;
+	padding: 0 var(--size-4-2);
+	background: var(--background-secondary);
+	border-radius: var(--radius-m);
+}
+
+.claude-sessions-search-input-container:focus-within {
+	box-shadow: inset 0 0 0 1px var(--background-modifier-border-focus);
+}
+
+.claude-sessions-search-icon {
+	display: flex;
+	align-items: center;
+	color: var(--text-faint);
+	flex-shrink: 0;
+}
+
+.claude-sessions-search-icon svg {
+	width: 16px;
+	height: 16px;
 }
 
 .claude-sessions-search-input {
 	flex: 1;
-	min-height: 44px;
-	padding: var(--size-4-2) var(--size-4-3);
-	border: 1px solid var(--background-modifier-border);
-	border-radius: var(--radius-s);
-	background: var(--background-primary);
+	min-width: 0;
+	padding: var(--size-4-1) 0;
+	border: none !important;
+	border-radius: 0 !important;
+	outline: none !important;
+	box-shadow: none !important;
+	background: transparent !important;
 	color: var(--text-normal);
 	font-family: var(--cs-font-family);
-	font-size: var(--cs-font-size-input);
+	font-size: var(--font-ui-small);
+	line-height: var(--line-height-tight);
 }
 
 .claude-sessions-search-input:focus {
-	border-color: var(--cs-accent);
-	outline: none;
+	border: none !important;
+	outline: none !important;
+	box-shadow: none !important;
 }
 
-.claude-sessions-search-role-select {
-	min-height: 44px;
-	padding: var(--size-4-2) var(--size-4-3);
-	border: 1px solid var(--background-modifier-border);
+.claude-sessions-search-input::placeholder {
+	color: var(--text-faint);
+}
+
+/* Clear button - hidden by default */
+.claude-sessions-search-clear-btn {
+	display: none;
+	align-items: center;
+	justify-content: center;
+	padding: 2px;
+	border: none;
 	border-radius: var(--radius-s);
-	background: var(--background-primary);
-	color: var(--text-normal);
-	font-family: var(--cs-font-family-ui);
-	font-size: var(--font-ui-small);
+	background: transparent;
+	color: var(--text-faint);
+	cursor: pointer;
+	flex-shrink: 0;
 }
 
-/* ── Sort toggle ── */
+.claude-sessions-search-clear-btn:hover {
+	color: var(--text-muted);
+	background: var(--background-modifier-hover);
+}
 
-.claude-sessions-search-sort-btn {
-	min-height: 44px;
-	min-width: 36px;
+.claude-sessions-search-clear-btn.is-visible {
+	display: flex;
+}
+
+.claude-sessions-search-clear-btn svg {
+	width: 14px;
+	height: 14px;
+}
+
+/* ── Options menu button ── */
+
+.claude-sessions-search-options-btn {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border: 1px solid var(--background-modifier-border);
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: none;
 	border-radius: var(--radius-s);
-	background: var(--background-primary);
+	background: transparent;
 	color: var(--text-muted);
 	cursor: pointer;
 }
 
-.claude-sessions-search-sort-btn:hover {
+.claude-sessions-search-options-btn:hover {
 	background: var(--background-modifier-hover);
 	color: var(--text-normal);
-}
-
-.claude-sessions-search-sort-btn.active {
-	color: var(--cs-accent);
-	border-color: var(--cs-accent);
 }
 
 /* ── Score indicator ── */
@@ -2612,4 +2681,230 @@
 @keyframes claude-sessions-highlight-fade {
 	0%, 70% { background: var(--text-highlight-bg); }
 	100% { background: transparent; }
+}
+
+/* ═══════════════════════════════════════════
+   System Events Panel
+   ═══════════════════════════════════════════ */
+
+.claude-sessions-system-events {
+	margin-block: var(--size-4-2) var(--size-4-3);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+}
+
+.claude-sessions-system-events-header {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-3);
+	padding: var(--size-4-2) var(--size-4-3);
+	cursor: pointer;
+	user-select: none;
+}
+
+.claude-sessions-system-events-header:hover {
+	background: var(--background-modifier-hover);
+}
+
+.claude-sessions-system-events-chevron {
+	font-size: var(--font-smallest);
+	color: var(--text-muted);
+	flex-shrink: 0;
+	transition: transform 0.2s;
+}
+
+.claude-sessions-system-events.open .claude-sessions-system-events-chevron {
+	transform: rotate(90deg);
+}
+
+.claude-sessions-system-events-icon {
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+}
+
+.claude-sessions-system-events-icon .svg-icon {
+	width: 14px;
+	height: 14px;
+}
+
+.claude-sessions-system-events-title {
+	font-size: var(--font-ui-smaller);
+	font-weight: 600;
+	color: var(--text-normal);
+}
+
+.claude-sessions-system-events-count {
+	margin-left: auto;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+}
+
+.claude-sessions-system-events-body {
+	display: none;
+	padding: var(--size-4-2) var(--size-4-3);
+	padding-top: 0;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.claude-sessions-system-events.open .claude-sessions-system-events-body {
+	display: block;
+}
+
+/* ── Sections ── */
+
+.claude-sessions-system-events-section {
+	margin-bottom: var(--size-4-3);
+}
+
+.claude-sessions-system-events-section:last-child {
+	margin-bottom: 0;
+}
+
+.claude-sessions-system-events-section-header {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	padding: var(--size-4-1) 0;
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-medium);
+	color: var(--text-muted);
+	border-bottom: 1px solid var(--background-modifier-border);
+	margin-bottom: var(--size-4-2);
+}
+
+.claude-sessions-system-events-section-icon {
+	display: flex;
+	color: var(--text-faint);
+}
+
+.claude-sessions-system-events-section-icon svg {
+	width: 12px;
+	height: 12px;
+}
+
+.claude-sessions-system-events-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+}
+
+/* ── Hook rows ── */
+
+.claude-sessions-system-events-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--size-4-1) var(--size-4-2);
+	background: var(--background-primary);
+	border-radius: var(--radius-s);
+	font-size: var(--font-ui-smaller);
+}
+
+.claude-sessions-system-events-badge {
+	display: flex;
+	gap: 2px;
+}
+
+.claude-sessions-system-events-badge-event {
+	padding: 1px 4px;
+	background: var(--background-modifier-border);
+	border-radius: 3px 0 0 3px;
+	color: var(--text-muted);
+	font-size: 10px;
+	text-transform: uppercase;
+}
+
+.claude-sessions-system-events-badge-tool {
+	padding: 1px 4px;
+	background: var(--interactive-accent);
+	border-radius: 0 3px 3px 0;
+	color: var(--text-on-accent);
+	font-size: 10px;
+}
+
+.claude-sessions-system-events-duration {
+	color: var(--text-faint);
+	font-family: var(--font-monospace);
+	font-size: 10px;
+}
+
+.claude-sessions-system-events-command {
+	color: var(--text-faint);
+	font-family: var(--font-monospace);
+	font-size: 10px;
+}
+
+.claude-sessions-system-events-error {
+	padding: 1px 4px;
+	background: var(--background-modifier-error);
+	border-radius: 3px;
+	color: var(--text-error);
+	font-size: 10px;
+}
+
+.claude-sessions-system-events-stdout {
+	width: 100%;
+	margin-top: var(--size-4-1);
+	padding: var(--size-4-1) var(--size-4-2);
+	background: var(--background-secondary);
+	border-radius: var(--radius-s);
+	font-family: var(--font-monospace);
+	font-size: 11px;
+	color: var(--text-muted);
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.claude-sessions-system-events-stdout.collapsed {
+	cursor: pointer;
+}
+
+.claude-sessions-system-events-stdout pre {
+	margin: 0;
+	font-family: inherit;
+	font-size: inherit;
+}
+
+.claude-sessions-system-events-expand {
+	color: var(--text-accent);
+	cursor: pointer;
+	margin-left: var(--size-4-1);
+}
+
+.claude-sessions-system-events-expand:hover {
+	text-decoration: underline;
+}
+
+/* ── Skills section ── */
+
+.claude-sessions-system-events-skills {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+}
+
+.claude-sessions-system-events-skill-row {
+	display: flex;
+	gap: var(--size-4-2);
+	padding: var(--size-4-1) var(--size-4-2);
+	background: var(--background-primary);
+	border-radius: var(--radius-s);
+	font-size: var(--font-ui-smaller);
+}
+
+.claude-sessions-system-events-skill-name {
+	font-family: var(--font-monospace);
+	font-weight: var(--font-medium);
+	color: var(--text-normal);
+	flex-shrink: 0;
+}
+
+.claude-sessions-system-events-skill-desc {
+	color: var(--text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }

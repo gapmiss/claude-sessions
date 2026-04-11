@@ -82,16 +82,27 @@ function getAccessToken(): string | null {
 export async function fetchRateLimits(): Promise<RateLimitData | null> {
 	// Return cached if fresh
 	if (cached && (Date.now() - cached.fetchedAt) < CACHE_TTL_MS) {
+		const age = Math.round((Date.now() - cached.fetchedAt) / 1000);
+		console.debug(`[rate-limits] returning cached data (${age}s old)`);
 		return cached.data;
 	}
 
 	// Deduplicate concurrent requests
-	if (inflight) return inflight;
+	if (inflight) {
+		console.debug('[rate-limits] request already inflight, deduping');
+		return inflight;
+	}
+
+	console.debug('[rate-limits] fetching fresh data...');
 
 	inflight = (async () => {
 		try {
 			const token = getAccessToken();
-			if (!token) return cached?.data ?? null;
+			if (!token) {
+				console.warn('[rate-limits] no OAuth token found');
+				return cached?.data ?? null;
+			}
+			console.debug('[rate-limits] token found, calling API...');
 
 			const response = await requestUrl({
 				url: 'https://api.anthropic.com/api/oauth/usage',
@@ -103,9 +114,14 @@ export async function fetchRateLimits(): Promise<RateLimitData | null> {
 				},
 			});
 
-			if (response.status !== 200) return cached?.data ?? null;
+			if (response.status !== 200) {
+				console.warn(`[rate-limits] API returned status ${response.status}`, response.text);
+				return cached?.data ?? null;
+			}
 
 			const body = response.json as UsageResponse;
+			console.debug('[rate-limits] API response:', JSON.stringify(body, null, 2));
+
 			const clamp = (v: unknown): number | null => {
 				if (v == null || typeof v !== 'number' || !isFinite(v)) return null;
 				return Math.max(0, Math.min(100, v));
@@ -119,8 +135,10 @@ export async function fetchRateLimits(): Promise<RateLimitData | null> {
 			};
 
 			cached = { data, fetchedAt: Date.now() };
+			console.debug('[rate-limits] cached fresh data:', data);
 			return data;
-		} catch {
+		} catch (err) {
+			console.error('[rate-limits] fetch failed:', err);
 			return cached?.data ?? null;
 		} finally {
 			inflight = null;
