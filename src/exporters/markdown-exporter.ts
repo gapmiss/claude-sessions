@@ -85,6 +85,7 @@ function buildMarkdown(
 	lines.push('---');
 	lines.push(`session_id: "${meta.id}"`);
 	if (meta.startTime) lines.push(`date: "${meta.startTime}"`);
+	if (meta.customTitle) lines.push(`title: "${meta.customTitle}"`);
 	lines.push(`project: "${meta.project}"`);
 	if (meta.model) lines.push(`model: "${meta.model}"`);
 	if (meta.branch) lines.push(`branch: "${meta.branch}"`);
@@ -96,7 +97,8 @@ function buildMarkdown(
 	lines.push('');
 
 	// Session header
-	lines.push(`# Session: ${meta.project}`);
+	const displayName = meta.customTitle || meta.project;
+	lines.push(`# Session: ${displayName}`);
 	lines.push('');
 
 	// Build a lookup of tool_use IDs to their blocks for pairing with results

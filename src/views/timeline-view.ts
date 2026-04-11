@@ -85,7 +85,8 @@ export class TimelineView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return this.session?.metadata.project || 'Claude sessions';
+		const meta = this.session?.metadata;
+		return meta?.customTitle || meta?.project || 'Claude sessions';
 	}
 
 	getIcon(): string {
@@ -351,9 +352,9 @@ export class TimelineView extends ItemView {
 		if (pendingTool.id === this.lastNotifiedToolId) return;
 		this.lastNotifiedToolId = pendingTool.id;
 
-		const project = session.metadata.project || 'Claude sessions';
+		const displayName = session.metadata.customTitle || session.metadata.project || 'Claude sessions';
 		const toolName = pendingTool.name;
-		const title = `✦ ${project}`;
+		const title = `✦ ${displayName}`;
 		const body = `"${toolName}" is waiting for permission`;
 
 		new Notice(`${title}: ${body}`, 8000);

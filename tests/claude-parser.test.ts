@@ -386,6 +386,38 @@ describe('metadata extraction', () => {
 
 		expect(session.metadata.model).toBe('claude-opus-4-20250514');
 	});
+
+	it('extracts customTitle from custom-title record', () => {
+		const session = parse(jsonl(
+			userText('hi'),
+			{ type: 'custom-title', customTitle: 'my-session-name', sessionId: 'abc' },
+			assistantText('hello'),
+		));
+
+		expect(session.metadata.customTitle).toBe('my-session-name');
+	});
+
+	it('uses last customTitle when multiple renames occur', () => {
+		const session = parse(jsonl(
+			userText('hi'),
+			{ type: 'custom-title', customTitle: 'first-name', sessionId: 'abc' },
+			assistantText('hello'),
+			{ type: 'custom-title', customTitle: 'second-name', sessionId: 'abc' },
+			userText('more'),
+			{ type: 'custom-title', customTitle: 'final-name', sessionId: 'abc' },
+		));
+
+		expect(session.metadata.customTitle).toBe('final-name');
+	});
+
+	it('leaves customTitle undefined when no custom-title record exists', () => {
+		const session = parse(jsonl(
+			userText('hi'),
+			assistantText('hello'),
+		));
+
+		expect(session.metadata.customTitle).toBeUndefined();
+	});
 });
 
 // ─── Orphaned / Pending Tool Calls ─────────────────────────────

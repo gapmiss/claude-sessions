@@ -205,9 +205,10 @@ function buildHeaderHTML(session: Session): string {
 		metaParts.push(`<span>Cost: ~${escapeHtml(cost)}</span>`);
 	}
 
+	const displayName = m.customTitle || m.project;
 	return `<div class="as-export-header">
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-    <span class="as-export-header-title">${escapeHtml(m.project)}</span>
+    <span class="as-export-header-title">${escapeHtml(displayName)}</span>
     <div class="as-export-header-meta">${metaParts.join('')}</div>
   </div>
   <div style="position:relative">
@@ -334,7 +335,8 @@ export async function exportToHTML(
 		const themeClass = isDark ? 'theme-dark' : 'theme-light';
 
 		// Assemble the HTML document
-		const title = `Session: ${session.metadata.project}`;
+		const sessionName = session.metadata.customTitle || session.metadata.project;
+		const title = `Session: ${sessionName}`;
 		const html = `<!DOCTYPE html>
 <html lang="en" class="${themeClass}">
 <head>

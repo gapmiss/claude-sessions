@@ -2,6 +2,7 @@ import { Platform, Notice } from 'obsidian';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
+import { SKIP_TYPE_STRINGS, CUSTOM_TITLE_PATTERN } from '../constants';
 
 interface ReadProgress {
 	bytesRead: number;
@@ -68,37 +69,30 @@ export interface QuickMetadata {
 	cwd?: string;
 	startTime?: string;
 	hasContent: boolean;
+	/** User-defined session name from /rename command (last value). */
+	customTitle?: string;
 }
 
-/** Substrings that identify large/irrelevant record types — skip without parsing. */
-const SKIP_TYPE_STRINGS = [
-	'"type":"file-history-snapshot"',
-	'"type":"queue-operation"',
-	'"type":"progress"',
-];
 
 /**
  * Read a JSONL file line-by-line and extract metadata from early records.
  * Skips large record types by prefix check to avoid parsing multi-KB JSON.
- * Stops once all fields are populated or after 100 lines. Desktop only.
+ * Extracts sessionId/cwd/startTime from first 100 lines.
+ * Scans entire file for custom-title records (keeps last value). Desktop only.
  */
 export async function extractQuickMetadataAsync(filePath: string): Promise<QuickMetadata> {
 	if (!Platform.isDesktop) return { hasContent: false };
 
 	const result: QuickMetadata = { hasContent: false };
-	const MAX_LINES = 100;
+	const MAX_LINES_FOR_BASIC = 100;
 	let lineCount = 0;
+	let basicMetaDone = false;
 
 	return new Promise((resolve) => {
 		const stream = fs.createReadStream(filePath, { encoding: 'utf-8' });
 		const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
 
-		const cleanup = () => {
-			rl.close();
-			stream.destroy();
-		};
-
-		const isDone = () =>
+		const isBasicDone = () =>
 			result.sessionId !== undefined
 			&& result.cwd !== undefined
 			&& result.startTime !== undefined
@@ -107,13 +101,29 @@ export async function extractQuickMetadataAsync(filePath: string): Promise<Quick
 		rl.on('line', (line: string) => {
 			lineCount++;
 
-			if (lineCount > MAX_LINES) {
-				cleanup();
+			const trimmed = line.trim();
+			if (!trimmed) return;
+
+			// Check for custom-title records throughout the file (keep last)
+			if (trimmed.includes(CUSTOM_TITLE_PATTERN)) {
+				try {
+					const record = JSON.parse(trimmed) as Record<string, unknown>;
+					if (record['type'] === 'custom-title' && typeof record['customTitle'] === 'string') {
+						result.customTitle = record['customTitle'];
+					}
+				} catch {
+					// Malformed JSON — skip
+				}
 				return;
 			}
 
-			const trimmed = line.trim();
-			if (!trimmed) return;
+			// For other metadata, only process first MAX_LINES_FOR_BASIC lines
+			if (basicMetaDone || lineCount > MAX_LINES_FOR_BASIC) {
+				if (!basicMetaDone && lineCount > MAX_LINES_FOR_BASIC) {
+					basicMetaDone = true;
+				}
+				return;
+			}
 
 			// Skip large record types without full parsing — check substring within first 200 chars
 			const head = trimmed.length > 200 ? trimmed.slice(0, 200) : trimmed;
@@ -142,8 +152,8 @@ export async function extractQuickMetadataAsync(filePath: string): Promise<Quick
 				// Malformed JSON — skip
 			}
 
-			if (isDone()) {
-				cleanup();
+			if (isBasicDone()) {
+				basicMetaDone = true;
 			}
 		});
 

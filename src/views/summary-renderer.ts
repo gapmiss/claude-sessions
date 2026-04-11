@@ -159,6 +159,7 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 
 	const metaGrid = metaCard.createDiv({ cls: 'claude-sessions-dash-meta-grid' });
 
+	if (metadata.customTitle) addMetaItem(metaGrid, 'Title', metadata.customTitle);
 	if (metadata.project) addMetaItem(metaGrid, 'Project', metadata.project);
 	if (metadata.model) addMetaItem(metaGrid, 'Model', metadata.model);
 	if (metadata.version) addMetaItem(metaGrid, 'Version', metadata.version);
@@ -198,7 +199,8 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 	addCopyButton(resumeRow, resumeCmd, 'Copy resume command');
 
 	const obsidianUri = `obsidian://claude-sessions?session=${encodeURIComponent(session.rawPath)}`;
-	const mdLink = `[${metadata.project} session](${obsidianUri})`;
+	const displayName = metadata.customTitle || metadata.project;
+	const mdLink = `[${displayName} session](${obsidianUri})`;
 	const uriRow = idSection.createDiv({ cls: 'claude-sessions-dash-id-row' });
 	uriRow.createSpan({ cls: 'claude-sessions-dash-id-label', text: 'URI' });
 	const uriPreview = obsidianUri.length > 50

@@ -92,6 +92,21 @@ describe('extractSearchableContent', () => {
 		expect(extractSearchableContent(line)).toBeNull();
 	});
 
+	it('skips custom-title records via quick check', () => {
+		const line = JSON.stringify({ type: 'custom-title', customTitle: 'my-session', sessionId: 'abc' });
+		expect(extractSearchableContent(line)).toBeNull();
+	});
+
+	it('skips agent-name records via quick check', () => {
+		const line = JSON.stringify({ type: 'agent-name', agentName: 'my-session', sessionId: 'abc' });
+		expect(extractSearchableContent(line)).toBeNull();
+	});
+
+	it('skips last-prompt records via quick check', () => {
+		const line = JSON.stringify({ type: 'last-prompt', prompt: 'test' });
+		expect(extractSearchableContent(line)).toBeNull();
+	});
+
 	it('preserves timestamp', () => {
 		const ts = '2026-01-15T10:30:00.000Z';
 		const line = JSON.stringify(assistantText('test', { timestamp: ts }));

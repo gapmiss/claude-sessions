@@ -61,6 +61,7 @@ export class SearchView extends ItemView {
 	private crossBtn!: HTMLElement;
 	private inSessionBtn!: HTMLElement;
 	private scopeLabel!: HTMLElement;
+	private refreshBtn!: HTMLElement;
 	private inputEl!: HTMLInputElement;
 	private clearBtn!: HTMLElement;
 	private optionsBtn!: HTMLElement;
@@ -106,8 +107,15 @@ export class SearchView extends ItemView {
 		});
 		this.inSessionBtn.addEventListener('click', () => this.setMode('in-session'));
 
-		// Scope label
-		this.scopeLabel = contentEl.createDiv({ cls: 'claude-sessions-search-scope-label' });
+		// Scope label with refresh button
+		const scopeRow = contentEl.createDiv({ cls: 'claude-sessions-search-scope-row' });
+		this.scopeLabel = scopeRow.createDiv({ cls: 'claude-sessions-search-scope-label' });
+		this.refreshBtn = scopeRow.createEl('button', {
+			cls: 'claude-sessions-search-refresh-btn clickable-icon',
+			attr: { 'aria-label': 'Refresh session list' },
+		});
+		setIcon(this.refreshBtn, 'refresh-cw');
+		this.refreshBtn.addEventListener('click', () => this.refreshEntries());
 
 		// Search input row
 		const inputRow = contentEl.createDiv({ cls: 'claude-sessions-search-input-row' });
@@ -281,6 +289,19 @@ export class SearchView extends ItemView {
 		}
 	}
 
+	/** Invalidate cached entries, forcing a re-scan on next cross-session search. */
+	refreshEntries(): void {
+		this.entriesLoaded = false;
+		this.entries = [];
+		this.cachedCrossResults = null;
+		this.cachedCrossKey = '';
+		this.updateScopeLabel();
+		// Re-run search if in cross-session mode with active query
+		if (this.mode === 'cross-session' && this.inputEl?.value.trim().length >= 2) {
+			this.onQueryChange();
+		}
+	}
+
 	onActiveLeafChanged(leaf: WorkspaceLeaf | null): void {
 		// Ignore if the search view itself became active
 		if (leaf?.view instanceof SearchView) return;
@@ -314,6 +335,10 @@ export class SearchView extends ItemView {
 		this.inSessionBtn.toggleClass('active', this.mode === 'in-session');
 		this.inputEl.setAttribute('placeholder',
 			this.mode === 'in-session' ? 'Search in session...' : 'Search across sessions...');
+		// Refresh button only visible in cross-session mode
+		if (this.refreshBtn) {
+			this.refreshBtn.style.display = this.mode === 'cross-session' ? '' : 'none';
+		}
 	}
 
 	private syncClearButton(): void {
@@ -419,7 +444,8 @@ export class SearchView extends ItemView {
 				: 'All sessions');
 		} else {
 			if (this.trackedSession) {
-				this.scopeLabel.setText(`Searching in: ${this.trackedSession.metadata.project}`);
+				const displayName = this.trackedSession.metadata.customTitle || this.trackedSession.metadata.project;
+				this.scopeLabel.setText(`Searching in: ${displayName}`);
 			} else {
 				this.scopeLabel.setText('No session open');
 			}
@@ -649,7 +675,8 @@ export class SearchView extends ItemView {
 
 		// Session header
 		const header = group.createDiv({ cls: 'claude-sessions-search-session-header' });
-		header.createSpan({ cls: 'claude-sessions-search-session-project', text: result.entry.project });
+		const displayName = result.entry.customTitle || result.entry.project;
+		header.createSpan({ cls: 'claude-sessions-search-session-project', text: displayName });
 		if (result.entry.date) {
 			header.createSpan({ cls: 'claude-sessions-search-session-date', text: result.entry.date });
 		}

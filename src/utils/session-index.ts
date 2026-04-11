@@ -2,7 +2,7 @@ import type { CachedSessionMeta, SessionIndexData } from '../types';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const INDEX_VERSION = 1;
+const INDEX_VERSION = 2;
 const INDEX_FILENAME = 'session-index.json';
 
 export class SessionIndex {

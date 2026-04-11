@@ -91,6 +91,7 @@ async function buildEntry(
 			startTime: meta.startTime,
 			hasContent: meta.hasContent,
 			mtime,
+			customTitle: meta.customTitle,
 		};
 		index.set(filePath, cached);
 		wasUpdated = true;
@@ -113,6 +114,7 @@ async function buildEntry(
 			cwd: cached.cwd,
 			startTime: cached.startTime,
 			mtime,
+			customTitle: cached.customTitle,
 		},
 		_updated: wasUpdated,
 	};
@@ -134,7 +136,8 @@ export class SessionBrowserModal extends SuggestModal<SessionListEntry> {
 		if (query) {
 			const q = query.toLowerCase();
 			results = results.filter((e) => {
-				return e.project.toLowerCase().includes(q)
+				const displayName = e.customTitle || e.project;
+				return displayName.toLowerCase().includes(q)
 					|| (e.cwd?.toLowerCase().includes(q) ?? false)
 					|| e.id.toLowerCase().includes(q);
 			});
@@ -155,7 +158,8 @@ export class SessionBrowserModal extends SuggestModal<SessionListEntry> {
 		if (isPinned) el.addClass('is-pinned');
 
 		const line1 = el.createDiv({ cls: 'claude-sessions-suggestion-line1' });
-		line1.createSpan({ cls: 'claude-sessions-suggestion-project', text: item.project });
+		const displayName = item.customTitle || item.project;
+		line1.createSpan({ cls: 'claude-sessions-suggestion-project', text: displayName });
 
 		// Pin toggle button
 		const pinBtn = line1.createSpan({ cls: `claude-sessions-suggestion-pin clickable-icon${isPinned ? ' is-active' : ''}` });

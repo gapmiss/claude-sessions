@@ -11,6 +11,8 @@ export interface SessionMetadata {
 	version?: string;
 	startTime?: string;
 	totalTurns: number;
+	/** User-defined session name from /rename command. */
+	customTitle?: string;
 }
 
 export interface SessionStats {
@@ -235,6 +237,8 @@ export interface SessionListEntry {
 	cwd?: string;
 	startTime?: string;
 	mtime: number;
+	/** User-defined session name from /rename command. */
+	customTitle?: string;
 }
 
 export interface CachedSessionMeta {
@@ -243,6 +247,8 @@ export interface CachedSessionMeta {
 	startTime?: string;
 	hasContent: boolean;
 	mtime: number;
+	/** User-defined session name from /rename command. */
+	customTitle?: string;
 }
 
 export interface SessionIndexData {

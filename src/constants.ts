@@ -4,10 +4,29 @@ export const RT_ASSISTANT = 'assistant';
 export const RT_PROGRESS = 'progress';
 export const RT_QUEUE_OPERATION = 'queue-operation';
 export const RT_FILE_HISTORY = 'file-history-snapshot';
+export const RT_LAST_PROMPT = 'last-prompt';
 export const RT_SUMMARY = 'summary';
 export const RT_SYSTEM = 'system';
+export const RT_CUSTOM_TITLE = 'custom-title';
+export const RT_AGENT_NAME = 'agent-name';
 
-export const SKIP_RECORD_TYPES = new Set([RT_FILE_HISTORY, RT_PROGRESS, RT_QUEUE_OPERATION]);
+export const SKIP_RECORD_TYPES = new Set([RT_FILE_HISTORY, RT_LAST_PROMPT, RT_PROGRESS, RT_QUEUE_OPERATION, RT_AGENT_NAME]);
+
+/**
+ * Substring patterns for quick record type filtering (avoids JSON parsing).
+ * Used by streaming-reader and session-search for performance.
+ */
+export const SKIP_TYPE_STRINGS = [
+	'"type":"file-history-snapshot"',
+	'"type":"queue-operation"',
+	'"type":"progress"',
+	'"type":"last-prompt"',
+	'"type":"custom-title"',
+	'"type":"agent-name"',
+];
+
+/** Substring pattern for custom-title records. */
+export const CUSTOM_TITLE_PATTERN = '"type":"custom-title"';
 
 // ── Content block types ──────────────────────────────────────
 export const BT_TEXT = 'text';

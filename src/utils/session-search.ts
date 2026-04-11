@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as readline from 'readline';
 import type { Turn, TurnRole, SessionListEntry } from '../types';
 import { BM25Index } from './bm25';
+import { SKIP_TYPE_STRINGS } from '../constants';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -30,14 +31,6 @@ export interface SessionSearchResult {
 	matches: SearchMatch[];
 	totalMatches: number;
 }
-
-// ── Skip types (same pattern as streaming-reader.ts) ─────────
-
-const SKIP_TYPE_STRINGS = [
-	'"type":"file-history-snapshot"',
-	'"type":"queue-operation"',
-	'"type":"progress"',
-];
 
 // ── Lightweight per-line content extraction ──────────────────
 

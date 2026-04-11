@@ -7,7 +7,7 @@ import {
 } from '../types';
 import { extractProjectName, projectFromCwd, dirname, basename } from '../utils/path-utils';
 import {
-	RT_USER, RT_ASSISTANT, RT_PROGRESS, RT_QUEUE_OPERATION, RT_FILE_HISTORY, RT_SUMMARY, RT_SYSTEM,
+	RT_USER, RT_ASSISTANT, RT_PROGRESS, RT_QUEUE_OPERATION, RT_FILE_HISTORY, RT_SUMMARY, RT_SYSTEM, RT_CUSTOM_TITLE,
 	SKIP_RECORD_TYPES,
 	BT_TEXT, BT_TOOL_USE, BT_TOOL_RESULT, BT_IMAGE,
 	PROGRESS_AGENT,
@@ -161,6 +161,7 @@ export class ClaudeParser extends BaseParser {
 		let branch = '';
 		let model = '';
 		let startTime = '';
+		let customTitle = '';
 
 		// Collect sub-agent progress records by parentToolUseID
 		const agentProgressMap = new Map<string, ClaudeRecord[]>();
@@ -239,6 +240,13 @@ export class ClaudeParser extends BaseParser {
 				&& record.message.content.startsWith(TAG_TASK_NOTIFICATION)) {
 				const tn = parseTaskNotification(record.message.content);
 				if (tn) taskNotifications.set(tn.toolUseId, tn);
+			}
+
+			// Capture custom-title from /rename command (keep last value)
+			if (record.type === RT_CUSTOM_TITLE) {
+				const title = (record as unknown as { customTitle?: string }).customTitle;
+				if (title) customTitle = title;
+				continue;
 			}
 
 			if (SKIP_RECORD_TYPES.has(record.type)) continue;
@@ -495,6 +503,7 @@ export class ClaudeParser extends BaseParser {
 				version: version || undefined,
 				startTime: this.formatTimestamp(startTime),
 				totalTurns: turns.length,
+				customTitle: customTitle || undefined,
 			},
 			stats,
 			turns,

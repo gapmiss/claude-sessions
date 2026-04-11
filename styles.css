@@ -2382,11 +2382,26 @@
 
 /* ── Scope label ── */
 
-.claude-sessions-search-scope-label {
+.claude-sessions-search-scope-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
 	padding: var(--size-2-2) var(--size-4-4);
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.claude-sessions-search-scope-label {
 	font-size: var(--cs-font-size-xs);
 	color: var(--text-faint);
-	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.claude-sessions-search-refresh-btn {
+	padding: var(--size-2-1);
+	color: var(--text-muted);
+}
+
+.claude-sessions-search-refresh-btn:hover {
+	color: var(--text-normal);
 }
 
 .claude-sessions-search-input-row {
@@ -2457,11 +2472,15 @@
 	justify-content: center;
 	padding: 2px;
 	border: none;
-	border-radius: var(--radius-s);
+	border-radius: 50%;
 	background: transparent;
 	color: var(--text-faint);
 	cursor: pointer;
 	flex-shrink: 0;
+    height: 20px;
+    width: 20px;
+    margin: auto;
+    padding: 0 0;
 }
 
 .claude-sessions-search-clear-btn:hover {
