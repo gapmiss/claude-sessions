@@ -78,6 +78,39 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setHeading()
+			.setName('Distill');
+
+		new Setting(containerEl)
+			.setName('Distill folder')
+			.setDesc('Vault folder for distilled session notes with queryable frontmatter.')
+			.addSearch(search => {
+				search
+					.setPlaceholder('Claude sessions/distilled')
+					.setValue(this.plugin.settings.distillFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.distillFolder = value;
+						await this.plugin.saveSettings();
+					});
+				new FolderSuggest(this.app, search.inputEl);
+			});
+
+		new Setting(containerEl)
+			.setName('Bases folder')
+			// eslint-disable-next-line obsidianmd/ui/sentence-case -- Product name
+			.setDesc('Vault folder for Obsidian Bases dashboard templates.')
+			.addSearch(search => {
+				search
+					.setPlaceholder('Claude sessions/bases')
+					.setValue(this.plugin.settings.basesFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.basesFolder = value;
+						await this.plugin.saveSettings();
+					});
+				new FolderSuggest(this.app, search.inputEl);
+			});
+
+		new Setting(containerEl)
+			.setHeading()
 			.setName('Display');
 
 		new Setting(containerEl)

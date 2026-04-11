@@ -208,6 +208,10 @@ export interface PluginSettings {
 	debugLevel: 'none' | 'error' | 'warn' | 'info' | 'debug';
 	pinnedSessions: string[];
 	showRateLimits: boolean;
+
+	// Distill settings
+	distillFolder: string;
+	basesFolder: string;
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -224,6 +228,10 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	debugLevel: 'warn',
 	pinnedSessions: [],
 	showRateLimits: false,
+
+	// Distill settings
+	distillFolder: 'Claude sessions/distilled',
+	basesFolder: 'Claude sessions/bases',
 };
 
 export interface SessionListEntry {
