@@ -1,4 +1,4 @@
-import { ItemView, Notice, WorkspaceLeaf, setIcon } from 'obsidian';
+import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon } from 'obsidian';
 import type ClaudeSessionsPlugin from '../main';
 import type { Session, SessionListEntry } from '../types';
 import { searchSessions, searchSessionsRanked, searchFile, searchFileRanked, resolveMatchTurn } from '../utils/session-search';
@@ -54,13 +54,16 @@ export class SearchView extends ItemView {
 	// Active result tracking
 	private activeRowEl: HTMLElement | null = null;
 
+	// Filter state
+	private roleFilter: 'all' | 'user' | 'assistant' = 'all';
+
 	// DOM refs
 	private crossBtn!: HTMLElement;
 	private inSessionBtn!: HTMLElement;
 	private scopeLabel!: HTMLElement;
 	private inputEl!: HTMLInputElement;
-	private roleSelect!: HTMLSelectElement;
-	private sortBtn!: HTMLElement;
+	private clearBtn!: HTMLElement;
+	private optionsBtn!: HTMLElement;
 	private progressEl!: HTMLElement;
 	private resultsEl!: HTMLElement;
 
@@ -109,7 +112,12 @@ export class SearchView extends ItemView {
 		// Search input row
 		const inputRow = contentEl.createDiv({ cls: 'claude-sessions-search-input-row' });
 
-		this.inputEl = inputRow.createEl('input', {
+		// Input container with search icon, input, and clear button
+		const inputContainer = inputRow.createDiv({ cls: 'claude-sessions-search-input-container' });
+		const searchIcon = inputContainer.createSpan({ cls: 'claude-sessions-search-icon' });
+		setIcon(searchIcon, 'search');
+
+		this.inputEl = inputContainer.createEl('input', {
 			type: 'text',
 			cls: 'claude-sessions-search-input',
 			attr: {
@@ -118,31 +126,31 @@ export class SearchView extends ItemView {
 			},
 		});
 
-		this.roleSelect = inputRow.createEl('select', {
-			cls: 'claude-sessions-search-role-select',
-			attr: { 'aria-label': 'Filter by role' },
-		});
-		for (const [value, label] of [['all', 'All'], ['user', 'User'], ['assistant', 'Assistant']] as const) {
-			this.roleSelect.createEl('option', { value, text: label });
-		}
-
-		this.sortBtn = inputRow.createEl('button', {
-			cls: 'claude-sessions-search-sort-btn clickable-icon',
+		this.clearBtn = inputContainer.createEl('button', {
+			cls: 'claude-sessions-search-clear-btn',
 			attr: {
-				'aria-label': 'Sort by relevance',
+				'aria-label': 'Clear search',
 				'data-tooltip-position': 'top',
 			},
 		});
-		this.syncSortUI();
-		makeClickable(this.sortBtn, { label: 'Toggle sort mode' });
-		this.sortBtn.addEventListener('click', () => {
-			this.sortMode = this.sortMode === 'relevance' ? 'chronological' : 'relevance';
-			this.syncSortUI();
-			// Re-execute query with new sort
-			if (this.inputEl.value.trim().length >= 2) {
-				this.onQueryChange();
-			}
+		setIcon(this.clearBtn, 'x');
+		this.clearBtn.addEventListener('click', () => {
+			this.inputEl.value = '';
+			this.syncClearButton();
+			this.onQueryChange();
+			this.inputEl.focus();
 		});
+
+		// Options menu button (role filter + sort mode)
+		this.optionsBtn = inputRow.createEl('button', {
+			cls: 'claude-sessions-search-options-btn clickable-icon',
+			attr: {
+				'aria-label': 'Search options',
+				'data-tooltip-position': 'top',
+			},
+		});
+		setIcon(this.optionsBtn, 'more-vertical');
+		this.optionsBtn.addEventListener('click', (e) => this.showOptionsMenu(e));
 
 		// Progress
 		this.progressEl = contentEl.createDiv({ cls: 'claude-sessions-search-progress' });
@@ -151,8 +159,13 @@ export class SearchView extends ItemView {
 		this.resultsEl = contentEl.createDiv({ cls: 'claude-sessions-search-results' });
 
 		// Event handlers
-		this.inputEl.addEventListener('input', () => this.onQueryChange());
-		this.roleSelect.addEventListener('change', () => this.onQueryChange());
+		this.inputEl.addEventListener('input', () => {
+			this.syncClearButton();
+			this.onQueryChange();
+		});
+
+		// Initial clear button state
+		this.syncClearButton();
 
 		// Keyboard navigation within results
 		this.inputEl.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -203,7 +216,7 @@ export class SearchView extends ItemView {
 		return {
 			mode: this.mode,
 			query: this.inputEl?.value ?? '',
-			roleFilter: this.roleSelect?.value ?? 'all',
+			roleFilter: this.roleFilter,
 			sortMode: this.sortMode,
 		};
 	}
@@ -215,13 +228,13 @@ export class SearchView extends ItemView {
 		}
 		if (state.sortMode) {
 			this.sortMode = state.sortMode;
-			this.syncSortUI();
 		}
-		if (state.roleFilter && this.roleSelect) {
-			this.roleSelect.value = state.roleFilter;
+		if (state.roleFilter) {
+			this.roleFilter = state.roleFilter;
 		}
 		if (state.query && this.inputEl) {
 			this.inputEl.value = state.query;
+			this.syncClearButton();
 		}
 		this.resolveTrackedSession();
 		this.updateScopeLabel();
@@ -303,12 +316,69 @@ export class SearchView extends ItemView {
 			this.mode === 'in-session' ? 'Search in session...' : 'Search across sessions...');
 	}
 
-	private syncSortUI(): void {
-		if (!this.sortBtn) return;
-		const isRelevance = this.sortMode === 'relevance';
-		setIcon(this.sortBtn, isRelevance ? 'arrow-up-narrow-wide' : 'clock');
-		this.sortBtn.setAttribute('aria-label', isRelevance ? 'Sorted by relevance' : 'Sorted chronologically');
-		this.sortBtn.toggleClass('active', isRelevance);
+	private syncClearButton(): void {
+		if (!this.clearBtn) return;
+		const hasContent = this.inputEl.value.length > 0;
+		this.clearBtn.toggleClass('is-visible', hasContent);
+	}
+
+	private showOptionsMenu(e: MouseEvent): void {
+		const menu = new Menu();
+
+		// Role filter section
+		menu.addItem((item) => {
+			item.setTitle('Filter by role')
+				.setIcon('filter')
+				.setDisabled(true);
+		});
+
+		for (const [value, label] of [['all', 'All roles'], ['user', 'User only'], ['assistant', 'Assistant only']] as const) {
+			menu.addItem((item) => {
+				item.setTitle(label)
+					.setChecked(this.roleFilter === value)
+					.onClick(() => {
+						this.roleFilter = value;
+						if (this.inputEl.value.trim().length >= 2) {
+							this.onQueryChange();
+						}
+					});
+			});
+		}
+
+		menu.addSeparator();
+
+		// Sort mode section
+		menu.addItem((item) => {
+			item.setTitle('Sort by')
+				.setIcon('arrow-up-down')
+				.setDisabled(true);
+		});
+
+		menu.addItem((item) => {
+			item.setTitle('Relevance')
+				.setIcon('star')
+				.setChecked(this.sortMode === 'relevance')
+				.onClick(() => {
+					this.sortMode = 'relevance';
+					if (this.inputEl.value.trim().length >= 2) {
+						this.onQueryChange();
+					}
+				});
+		});
+
+		menu.addItem((item) => {
+			item.setTitle('Chronological')
+				.setIcon('clock')
+				.setChecked(this.sortMode === 'chronological')
+				.onClick(() => {
+					this.sortMode = 'chronological';
+					if (this.inputEl.value.trim().length >= 2) {
+						this.onQueryChange();
+					}
+				});
+		});
+
+		menu.showAtMouseEvent(e);
 	}
 
 	private resolveTrackedSession(): void {
@@ -408,7 +478,7 @@ export class SearchView extends ItemView {
 		const query: SearchQuery = {
 			text,
 			caseSensitive: false,
-			roleFilter: this.roleSelect.value as 'all' | 'user' | 'assistant',
+			roleFilter: this.roleFilter,
 		};
 
 		this.progressEl.setText('Searching...');
@@ -513,7 +583,7 @@ export class SearchView extends ItemView {
 	// ── Cross-session search ──
 
 	private crossCacheKey(): string {
-		return `${this.inputEl.value.trim()}\0${this.roleSelect.value}\0${this.sortMode}`;
+		return `${this.inputEl.value.trim()}\0${this.roleFilter}\0${this.sortMode}`;
 	}
 
 	private async executeCrossSessionSearch(text: string): Promise<void> {
@@ -544,7 +614,7 @@ export class SearchView extends ItemView {
 		const query: SearchQuery = {
 			text,
 			caseSensitive: false,
-			roleFilter: this.roleSelect.value as 'all' | 'user' | 'assistant',
+			roleFilter: this.roleFilter,
 		};
 
 		let resultCount = 0;

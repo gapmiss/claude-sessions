@@ -2,7 +2,8 @@ import { BaseParser } from './base-parser';
 import {
 	Session, Turn, ContentBlock, TextBlock,
 	ToolUseBlock, ToolResultBlock, ImageBlock, AnsiBlock, CompactionBlock, SlashCommandBlock,
-	BashCommandBlock, SessionStats, SubAgentSession,
+	BashCommandBlock, SessionStats, SubAgentSession, SystemEvent,
+	PermissionModeEvent, SkillListingEvent, HookSuccessEvent, AsyncHookResponseEvent, TaskReminderEvent,
 } from '../types';
 import { extractProjectName, projectFromCwd, dirname, basename } from '../utils/path-utils';
 import {
@@ -79,6 +80,10 @@ interface ClaudeRecord {
 	};
 	error?: string;
 	isApiErrorMessage?: boolean;
+	// permission-mode records
+	permissionMode?: string;
+	// attachment records
+	attachment?: Record<string, unknown>;
 	message?: {
 		role?: string;
 		content?: string | ClaudeContentBlock[];
@@ -281,7 +286,7 @@ export class ClaudeParser extends BaseParser {
 		const unknownBlockTypes = new Map<string, { count: number; sample?: Record<string, unknown> }>();
 
 		// Second pass: build turns from deduplicated records
-		const turns = this.buildTurns(ordered, unknownRecordTypes, unknownBlockTypes);
+		const { turns, systemEvents } = this.buildTurns(ordered, unknownRecordTypes, unknownBlockTypes);
 
 		// Attach sub-agent sessions to their corresponding Agent tool_use blocks
 		if (agentProgressMap.size > 0) {
@@ -493,6 +498,7 @@ export class ClaudeParser extends BaseParser {
 			},
 			stats,
 			turns,
+			systemEvents,
 			rawPath: filePath,
 		};
 	}
@@ -519,8 +525,9 @@ export class ClaudeParser extends BaseParser {
 		ordered: ClaudeRecord[],
 		unknownRecordTypes?: Map<string, { count: number; sample?: Record<string, unknown> }>,
 		unknownBlockTypes?: Map<string, { count: number; sample?: Record<string, unknown> }>,
-	): Turn[] {
+	): { turns: Turn[]; systemEvents: SystemEvent[] } {
 		const turns: Turn[] = [];
+		const systemEvents: SystemEvent[] = [];
 		const toolUseNames = new Map<string, string>();
 		let currentAssistantTurn: Turn | null = null;
 		let pendingCompactMeta: { trigger?: string; preTokens?: number } | null = null;
@@ -763,6 +770,65 @@ export class ClaudeParser extends BaseParser {
 						});
 					}
 				}
+			} else if (record.type === 'permission-mode') {
+				// Permission mode system event
+				systemEvents.push({
+					type: 'permission-mode',
+					uuid: record.uuid || '',
+					timestamp: this.formatTimestamp(record.timestamp) || '',
+					permissionMode: record.permissionMode || 'unknown',
+				} as PermissionModeEvent);
+			} else if (record.type === 'attachment' && record.attachment) {
+				// Attachment system events (hooks, skills, tasks)
+				const att = record.attachment;
+				const str = (v: unknown): string => typeof v === 'string' ? v : '';
+				const baseEvent = {
+					uuid: record.uuid || '',
+					timestamp: this.formatTimestamp(record.timestamp) || '',
+					parentUuid: record.parentUuid,
+				};
+
+				if (att.type === 'skill_listing') {
+					systemEvents.push({
+						...baseEvent,
+						type: 'skill_listing',
+						content: str(att.content),
+						skillCount: typeof att.skillCount === 'number' ? att.skillCount : 0,
+						isInitial: Boolean(att.isInitial),
+					} as SkillListingEvent);
+				} else if (att.type === 'hook_success') {
+					systemEvents.push({
+						...baseEvent,
+						type: 'hook_success',
+						hookName: str(att.hookName),
+						hookEvent: str(att.hookEvent),
+						command: str(att.command),
+						durationMs: typeof att.durationMs === 'number' ? att.durationMs : 0,
+						stdout: str(att.stdout),
+						stderr: str(att.stderr),
+						exitCode: typeof att.exitCode === 'number' ? att.exitCode : 0,
+						toolUseId: typeof att.toolUseID === 'string' ? att.toolUseID : undefined,
+					} as HookSuccessEvent);
+				} else if (att.type === 'async_hook_response') {
+					systemEvents.push({
+						...baseEvent,
+						type: 'async_hook_response',
+						hookName: str(att.hookName),
+						hookEvent: str(att.hookEvent),
+						processId: str(att.processId),
+						stdout: str(att.stdout),
+						stderr: str(att.stderr),
+						exitCode: typeof att.exitCode === 'number' ? att.exitCode : 0,
+					} as AsyncHookResponseEvent);
+				} else if (att.type === 'task_reminder') {
+					systemEvents.push({
+						...baseEvent,
+						type: 'task_reminder',
+						content: Array.isArray(att.content) ? att.content : [],
+						itemCount: typeof att.itemCount === 'number' ? att.itemCount : 0,
+					} as TaskReminderEvent);
+				}
+				// Unknown attachment subtypes are silently ignored
 			} else if (unknownRecordTypes) {
 				const existing = unknownRecordTypes.get(record.type);
 				if (existing) {
@@ -783,7 +849,7 @@ export class ClaudeParser extends BaseParser {
 		}
 
 		flushAssistant();
-		return turns;
+		return { turns, systemEvents };
 	}
 
 
@@ -851,7 +917,7 @@ export class ClaudeParser extends BaseParser {
 		this._pendingSlashCommand = null;
 		this._pendingBashCommand = null;
 		this._pendingCommandResult = false;
-		const turns = this.buildTurns(ordered);
+		const { turns } = this.buildTurns(ordered);
 		this.pendingCommand = savedPending;
 		this._pendingSlashCommand = savedSlash;
 		this._pendingBashCommand = savedBash;

@@ -9,6 +9,7 @@ import {
 } from './render-helpers';
 import { ANSI_PARSE_RE } from '../constants';
 import { renderSummary } from './summary-renderer';
+import { renderSystemEvents } from './system-events-renderer';
 import { renderToolGroup, type ToolRendererDelegate } from './tool-renderer';
 
 const SAFE_IMAGE_TYPES = new Set([
@@ -56,6 +57,7 @@ export class TimelineRenderer {
 
 		if (session) {
 			renderSummary(session, this.container, this.ctx);
+			renderSystemEvents(session, this.container);
 		}
 
 		for (const turn of turns) {
@@ -115,26 +117,30 @@ export class TimelineRenderer {
 	 * Called during incremental reload when stats have changed.
 	 */
 	refreshSummary(session: Session): void {
-		// Capture pin and summary-open state before tearing down
+		// Capture pin and open states before tearing down
 		const wasPinned = this.container.querySelector('.claude-sessions-pinned-heroes')?.hasClass('is-pinned') ?? false;
 		const wasOpen = this.container.querySelector('.claude-sessions-summary')?.hasClass('open') ?? false;
+		const wasEventsOpen = this.container.querySelector('.claude-sessions-system-events')?.hasClass('open') ?? false;
 
-		// Remove existing summary elements
+		// Remove existing summary and system events elements
 		this.container.querySelector('.claude-sessions-pinned-heroes')?.remove();
 		this.container.querySelector('.claude-sessions-summary')?.remove();
+		this.container.querySelector('.claude-sessions-system-events')?.remove();
 
-		// Re-render summary at the top (before the first turn element)
+		// Re-render summary and system events at the top (before the first turn element)
 		const firstTurn = this.turnEls[0];
 		if (firstTurn) {
 			const frag = document.createDocumentFragment();
 			const tempContainer = document.createElement('div');
 			renderSummary(session, tempContainer, this.ctx);
+			renderSystemEvents(session, tempContainer);
 			while (tempContainer.firstChild) {
 				frag.appendChild(tempContainer.firstChild);
 			}
 			this.container.insertBefore(frag, firstTurn);
 		} else {
 			renderSummary(session, this.container, this.ctx);
+			renderSystemEvents(session, this.container);
 		}
 
 		// Restore pin state
@@ -146,6 +152,12 @@ export class TimelineRenderer {
 			const summaryEl = this.container.querySelector('.claude-sessions-summary');
 			summaryEl?.addClass('open');
 			const header = summaryEl?.querySelector('.claude-sessions-summary-header');
+			header?.setAttribute('aria-expanded', 'true');
+		}
+		if (wasEventsOpen) {
+			const eventsEl = this.container.querySelector('.claude-sessions-system-events');
+			eventsEl?.addClass('open');
+			const header = eventsEl?.querySelector('.claude-sessions-system-events-header');
 			header?.setAttribute('aria-expanded', 'true');
 		}
 	}
