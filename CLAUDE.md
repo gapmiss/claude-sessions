@@ -52,7 +52,7 @@ src/
     logger.ts                # Configurable log levels
 ```
 
-## Code Exploration Policy
+## Code Exploration Policy (Mandatory)
 
 Use `cymbal` CLI for code navigation — prefer it over Read, Grep, Glob, or Bash for code exploration.
 - **New to a repo?**: `cymbal structure` — entry points, hotspots, central packages. Start here.
@@ -84,21 +84,3 @@ For detailed architecture, parser logic, and rendering pipeline: `@ARCHITECTURE.
 For known pitfalls and platform-specific behaviors: `@GOTCHAS.md`
 For planned features: `@ROADMAP.md`
 Audit results: `@AUDIT-2026-04-01.md`
-
-## Session State
-<!-- DO NOT edit this section manually. It is managed exclusively by /wrap SKILL. -->
-<!-- auto-updated by /wrap -->
-- **Last session**: 2026-04-08 16:00
-- **Goal**: Fix community plugin scan violations, sub-agent resolution, add tool renderers
-- **Summary**: Fixed \x1b control characters in ANSI regexes by centralizing to constants.ts using String.fromCharCode. Fixed sub-agent session resolution for new JSONL format (Claude Code no longer emits inline agent_progress records; data lives in separate subagents/agent-<id>.jsonl files). Added agentId extraction from tool_result text and meta.json description matching fallback. Added dedicated AskUserQuestion renderer (header badges, option cards, selected state, rejected/clarification, copy raw JSON). Added ToolSearch renderer (matched tools with icons, deferred tool count). Fixed tool_reference content block parsing.
-- **Decisions**:
-  - ANSI regexes use String.fromCharCode(0x1b) to avoid literal control characters in source
-  - Sub-agent resolution: two-phase (agentId from result text, then meta.json description matching)
-  - "Task" tool name kept in SUBAGENT_TOOL_NAMES for backward compat but no longer actively used
-  - AskUserQuestion renders its own results (skipped by generic result renderer)
-  - ToolSearch uses enrichedResult from toolUseResult for structured display
-- **Next steps**:
-  - Monitor Anthropic usage API for stability / official documentation
-- **Blockers**: None
-- **Branch**: main
-- **Uncommitted**: Clean
