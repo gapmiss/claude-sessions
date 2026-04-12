@@ -8,7 +8,7 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
-## [Unreleased]
+## [0.2.13] - 2026-04-12
 
 ### Added
 - Session distillation to structured notes with YAML frontmatter (Layer 0, zero LLM cost)
