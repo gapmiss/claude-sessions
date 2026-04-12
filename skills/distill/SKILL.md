@@ -1,14 +1,37 @@
+---
+name: distill
+description: Distills the current Claude Code session into a structured Obsidian note with queryable YAML frontmatter. Use when the user wants to capture, summarize, or archive a coding session — e.g. at the end of a session, when wrapping up work, when asked to save session notes, or when using the /distill command. Produces a markdown file with session metadata, decisions, learnings, and key exchanges.
+---
+
 # /distill — Live Session Distillation
 
 Distill the current Claude Code session into a structured Obsidian note with queryable frontmatter.
 
-## When to Use
+## Workflow
 
-Run `/distill` at the end of a session to capture:
-- What you accomplished (summary)
-- Key decisions and their reasoning
-- Non-obvious learnings or gotchas
-- Important exchanges that should be preserved
+1. **Gather metadata** — collect session_id, cwd, git branch, model, start time, token counts, cost, tool usage, and files touched from the environment and session context.
+2. **Classify session type** — review the conversation and assign one or more types from the vocabulary below.
+3. **Synthesize content** — extract key decisions (with reasoning), non-obvious learnings, and the most important exchanges from the full conversation.
+4. **Write output** — produce the markdown file to stdout using the exact structure below, then name it per the naming convention.
+5. **Validate output** — verify the YAML frontmatter parses correctly and all required fields are present before finalizing. Confirm `session_id`, `schema_version`, `project`, `cwd`, and `source_path` are populated; check that `session_type` contains at least one valid vocabulary term.
+
+## Handling Missing Metadata
+
+When a metadata field cannot be determined, apply the following fallbacks rather than omitting the field:
+
+| Field | Fallback value |
+|---|---|
+| `session_id` | `"unknown"` |
+| `branch` | `"unknown"` |
+| `source_path` | `"unknown"` |
+| `cost_usd` | `0` |
+| `input_tokens` / `output_tokens` / `cache_read_tokens` | `0` |
+| `duration_min` | `0` |
+| `error_count` | `0` |
+| `tools_used` | `[]` |
+| `files_touched` | *(omit field)* |
+
+If `start_time` is unavailable, use the current timestamp and note it is approximate.
 
 ## Output Format
 
@@ -72,20 +95,9 @@ source_path: "{absolute_path_to_jsonl}"
 
 ## Session Type Vocabulary
 
-Use these values for `session_type` (multi-select):
+Use one or more of these values for `session_type`:
 
-| Type | Description |
-|---|---|
-| `bug-fix` | Diagnosing and fixing a defect |
-| `feature` | Building new functionality |
-| `refactor` | Restructuring without behavior change |
-| `exploration` | Reading/understanding code, research |
-| `discussion` | Brainstorming, design, planning |
-| `config` | CI, deps, build, tooling, settings |
-| `docs` | Documentation, comments, READMEs |
-| `test` | Writing or fixing tests |
-| `review` | Code review, audit, PR review |
-| `deploy` | Release, publish, deploy operations |
+`bug-fix` | `feature` | `refactor` | `exploration` | `discussion` | `config` | `docs` | `test` | `review` | `deploy`
 
 ## Note Naming Convention
 
@@ -103,28 +115,3 @@ Example: `claude-sessions--2026-04-08--a1b2c3d4.md`
 2. **Approximate OK** for: `duration_min`, `cost_usd`, token counts (Layer 0 will correct)
 3. **LLM-only fields**: `session_type` (you classify), Summary/Decisions/Learnings/Key Exchanges sections
 4. **Wikilinks**: `files_touched` uses `[[path]]` syntax for Obsidian linking
-
-## Workflow
-
-Since `/distill` runs in Claude Code (not Obsidian), it outputs to stdout with a placeholder `session_id`. To get accurate metadata merged with your narrative:
-
-1. Run `/distill` at the end of your session
-2. **Copy the output** to clipboard
-3. Open the same session in the Obsidian plugin timeline view
-4. Run command: **"Merge /distill output from clipboard"**
-
-The plugin will:
-- Use the real `session_id` from the active session
-- Replace approximate token/cost values with exact parsed values
-- Preserve your Summary, Decisions, Learnings, Key Exchanges sections
-- Merge `files_touched` and `tags` arrays from both sources
-
-## Installation
-
-To install this skill globally for all projects:
-
-```bash
-cp -r .claude/skills/distill ~/.claude/skills/
-```
-
-Then run `/distill` at the end of any Claude Code session.

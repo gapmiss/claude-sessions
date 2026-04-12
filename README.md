@@ -93,6 +93,31 @@ Distilled notes are ideal for:
 - Finding sessions by project, date, or error count
 - Building personal knowledge bases from Claude conversations
 
+#### `/distill` Workflow
+
+Since `/distill` runs in Claude Code (not Obsidian), it outputs to stdout with a placeholder `session_id`. To get accurate metadata merged with your narrative:
+
+1. Run `/distill` at the end of your session
+2. **Copy the output** to clipboard
+3. Open the same session in the Obsidian plugin timeline view
+4. Run command: **"Merge /distill output from clipboard"**
+
+The plugin will:
+- Use the real `session_id` from the active session
+- Replace approximate token/cost values with exact parsed values
+- Preserve your Summary, Decisions, Learnings, Key Exchanges sections
+- Merge `files_touched` and `tags` arrays from both sources
+
+#### Installation
+
+To install this skill globally for all projects:
+
+```bash
+cp -r .claude/skills/distill ~/.claude/skills/
+```
+
+Then run `/distill` at the end of any Claude Code session.
+
 ### System Events
 
 Collapsible panel showing session-level context:
