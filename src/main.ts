@@ -13,10 +13,14 @@ import { resolveSubAgentSessions } from './parsers/claude-subagent';
 import { expandHome } from './utils/path-utils';
 import { SessionIndex } from './utils/session-index';
 import { Logger } from './utils/logger';
+import { ClaudeSessionsAPI, buildAPI } from './api';
+import { distillSession, mergeWithClipboardContent } from './distill/distill-session';
+import { installBasesTemplates } from './distill/bases-templates';
 
 export default class ClaudeSessionsPlugin extends Plugin {
 	settings: PluginSettings = DEFAULT_SETTINGS;
 	sessionIndex!: SessionIndex;
+	api!: ClaudeSessionsAPI;
 
 	async onload(): Promise<void> {
 		addIcon('claude-sparkle', '<g transform="translate(50,50)" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"><line y1="-12" y2="-44"/><line y1="-12" y2="-44" transform="rotate(45)"/><line y1="-12" y2="-44" transform="rotate(90)"/><line y1="-12" y2="-44" transform="rotate(135)"/><line y1="-12" y2="-44" transform="rotate(180)"/><line y1="-12" y2="-44" transform="rotate(225)"/><line y1="-12" y2="-44" transform="rotate(270)"/><line y1="-12" y2="-44" transform="rotate(315)"/></g>');
@@ -26,6 +30,9 @@ export default class ClaudeSessionsPlugin extends Plugin {
 
 		const adapter = this.app.vault.adapter as unknown as { basePath: string };
 		this.sessionIndex = new SessionIndex(adapter.basePath, this.app.vault.configDir);
+
+		// Expose public API for inter-plugin communication
+		this.api = buildAPI(this as unknown as Parameters<typeof buildAPI>[0]);
 
 		this.registerView(VIEW_TYPE_TIMELINE, (leaf: WorkspaceLeaf) => {
 			return new TimelineView(leaf, this.settings);
@@ -205,6 +212,52 @@ export default class ClaudeSessionsPlugin extends Plugin {
 			},
 		});
 
+		this.addCommand({
+			id: 'distill-session',
+			name: 'Distill session to note',
+			checkCallback: (checking: boolean) => {
+				const view = this.getActiveTimelineView();
+				const session = view?.getSession();
+				if (!session) return false;
+				if (checking) return true;
+				void this.distillActiveSession();
+				return true;
+			},
+		});
+
+		this.addCommand({
+			id: 'merge-distill-clipboard',
+			name: 'Merge /distill output from clipboard',
+			checkCallback: (checking: boolean) => {
+				const view = this.getActiveTimelineView();
+				const session = view?.getSession();
+				if (!session) return false;
+				if (checking) return true;
+				void this.mergeDistillFromClipboard();
+				return true;
+			},
+		});
+
+		this.addCommand({
+			id: 'install-bases-templates',
+			name: 'Install bases dashboard templates',
+			callback: async () => {
+				const result = await installBasesTemplates(
+					this.app,
+					this.settings.basesFolder
+				);
+				if (result.installed.length > 0) {
+					new Notice(`Installed: ${result.installed.join(', ')}`);
+				}
+				if (result.skipped.length > 0) {
+					new Notice(`Skipped (already exist): ${result.skipped.join(', ')}`);
+				}
+				if (result.failed.length > 0) {
+					new Notice(`Failed: ${result.failed.map(f => f.name).join(', ')}`);
+				}
+			},
+		});
+
 		// Protocol handler: obsidian://claude-sessions?session=/path/to/session.jsonl&turn=7
 		this.registerObsidianProtocolHandler('claude-sessions', async (params) => {
 			const p = params as Record<string, string>;
@@ -370,6 +423,68 @@ export default class ClaudeSessionsPlugin extends Plugin {
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			new Notice(`Export failed: ${msg}`);
+		}
+	}
+
+	private async distillActiveSession(): Promise<void> {
+		const view = this.getActiveTimelineView();
+		const session = view?.getSession();
+		if (!session) {
+			new Notice('No active session to distill.');
+			return;
+		}
+
+		try {
+			const result = await distillSession(this.app, session, this.settings.distillFolder);
+			if (!result.success) {
+				new Notice(`Distill failed: ${result.error ?? 'Unknown error'}`);
+				return;
+			}
+			if (!result.updated) {
+				new Notice(`Created: ${result.notePath}`);
+			} else {
+				new Notice(`Updated: ${result.notePath}`);
+			}
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : String(e);
+			new Notice(`Distill failed: ${msg}`);
+		}
+	}
+
+	private async mergeDistillFromClipboard(): Promise<void> {
+		const view = this.getActiveTimelineView();
+		const session = view?.getSession();
+		if (!session) {
+			new Notice('No active session.');
+			return;
+		}
+
+		try {
+			const clipboardText = await navigator.clipboard.readText();
+			if (!clipboardText.trim()) {
+				new Notice('Clipboard is empty.');
+				return;
+			}
+
+			const result = await mergeWithClipboardContent(
+				this.app,
+				session,
+				clipboardText,
+				this.settings.distillFolder
+			);
+
+			if (!result.success) {
+				new Notice(`Merge failed: ${result.error ?? 'Unknown error'}`);
+				return;
+			}
+			if (!result.updated) {
+				new Notice(`Created with merged content: ${result.notePath}`);
+			} else {
+				new Notice(`Merged into: ${result.notePath}`);
+			}
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : String(e);
+			new Notice(`Merge failed: ${msg}`);
 		}
 	}
 }
