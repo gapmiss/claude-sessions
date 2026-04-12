@@ -19,14 +19,15 @@ Reference document for detailed implementation. Not auto-included — use `@ARCH
 ### Parser Pipeline (`claude-parser.ts`)
 
 **First pass** — iterate all lines:
-1. Parse JSON, extract metadata (sessionId, cwd, version, branch, model, startTime)
-2. Capture hook events from `hook_progress` records (before SKIP_TYPES filter)
+1. Parse JSON, extract metadata (sessionId, cwd, version, branch, model, startTime, customTitle)
+2. Capture system events: `system` records with `stop_hook_summary`, `skill_listing`, `task_reminder` subtypes
 3. Capture agent progress from `agent_progress` records
 4. Track token usage per message ID (keep max of each field across streaming dupes)
 5. Capture enriched tool results from `toolUseResult` field
 6. Capture `<task-notification>` from queue-operation and user records
-7. Filter: skip `SKIP_RECORD_TYPES`, `isSidechain` (unless `allowSidechain`), `isMeta` non-user, synthetic model
-8. Deduplicate by uuid — keep last (most complete) version
+7. Capture `<custom-title>` from user records (from `/rename` command)
+8. Filter: skip `SKIP_RECORD_TYPES`, `isSidechain` (unless `allowSidechain`), `isMeta` non-user, synthetic model
+9. Deduplicate by uuid — keep last (most complete) version
 
 **Second pass** (`buildTurns()`):
 1. Merge consecutive assistant records into single Turn
@@ -39,12 +40,14 @@ Reference document for detailed implementation. Not auto-included — use `@ARCH
 8. Handle compaction boundaries (`isCompactSummary`, `summary` records)
 
 **Post-processing:**
-1. Attach hook events to ToolUseBlock.hooks[]
+1. Build hookEventsByToolId map from captured hook events with `toolUseId`
 2. Build sub-agent sessions from agent_progress records via `buildSubAgentSession()`
 3. Attach task-notification results to background agent blocks
 4. Attach enriched results, mark orphaned (mid-session) vs pending (last-turn) tool calls
 5. Compute stats (tokens, costs, tool counts, duration)
-6. Log unknown record/block types for format change detection
+6. Collect system events (skill listings, task reminders, hooks without toolUseId)
+7. Capture custom session title from `/rename` command (`<custom-title>` XML)
+8. Log unknown record/block types for format change detection
 
 ### Parser State Fields
 
@@ -97,9 +100,18 @@ Key systems:
 - `renderToolCall()` → compact bar header (indicator, name, preview, duration, hooks, chevron) + expandable body
 - Tool-specific renderers: `renderBashInput()`, `renderDiffView()` (Edit), `renderWriteView()`, Read (language-specific), Bash diff detection
 - `renderSubAgentSession()` → collapsible PROMPT + flattened blocks + OUTPUT
+- `renderAskUserQuestion()` → question/answer pair with distinct styling
 - `toolPreview()` → compact header previews per tool type
 - `parseMcpToolName()` → splits `mcp__server__tool` format
 - Task tool rendering with cumulative state tracking
+- Inline hook indicators: PreToolUse (zap icon), PermissionRequest (shield icon) — displayed in tool header when `hookEventsByToolId` has events for the tool
+
+### System Events Renderer (`system-events-renderer.ts`)
+
+- Renders collapsible "System events" panel after summary dashboard
+- Displays hooks (PreToolUse, PostToolUse, PermissionRequest), available skills, task reminders
+- Excludes hook events with `toolUseId` (shown inline with tool calls instead)
+- Sections: Hooks (zap icon), Available skills (list icon), Task reminders (check-square icon)
 
 ### Summary Renderer (`summary-renderer.ts`)
 
@@ -121,6 +133,63 @@ Key systems:
 - Role filter, sort toggle (relevance/chronological), debounced input, AbortController cancellation, arrow key navigation
 - Cached cross-session results restored on tab switch when query/role/sort unchanged
 - State persisted via `getState()`/`setState()`
+
+## Distill Pipeline (`distill/`)
+
+Converts parsed sessions into structured Obsidian notes with queryable frontmatter. Zero LLM cost — pure structural extraction (Layer 0).
+
+### Pipeline Steps (`distill-session.ts`)
+
+1. **Extract frontmatter** (`extract-frontmatter.ts`) — pulls metadata from Session: id, project, cwd, branch, model, start_time, duration, tokens, costs, tool counts, files touched, error count
+2. **Find existing note** (`find-existing.ts`) — searches distill folder by session_id to support incremental updates
+3. **Build note** (`build-note.ts`) — generates markdown with YAML frontmatter + placeholder sections (Summary, Key Changes, Learnings, Related)
+4. **Merge content** — preserves user-written content in existing notes while updating frontmatter with fresh session stats
+5. **Write note** — creates or updates note in configured `distillFolder`
+
+### Frontmatter Schema (`types.ts`)
+
+- `session_id`, `schema_version` (v1) — identity
+- `project`, `cwd`, `branch`, `model` — context
+- `start_time`, `duration_min` — timing
+- `cost_usd`, `input_tokens`, `output_tokens`, `cache_read_tokens` — cost tracking
+- `user_turns`, `assistant_turns`, `tools_used[]`, `files_touched[]` — interaction shape
+- `error_count` — error tracking
+- `session_type[]` — LLM-only classification (populated by /distill skill, not Layer 0)
+- `source_path`, `obsidian_uri` — back-references
+
+### Bases Templates (`bases-templates.ts`)
+
+Pre-built Obsidian Bases (.base) dashboards for distilled notes:
+- **Session Dashboard** — all sessions table with cost/tokens/duration summaries
+- **Cost Tracker** — grouped by project with cost sums
+- **Recent Sessions** — last 7 days filter
+- **Error Patterns** — sessions with errors
+
+Installed via `install-bases-templates` command.
+
+### Clipboard Merge Workflow
+
+For LLM-enhanced distillation:
+1. Run `/distill` in Claude Code → output to stdout
+2. Copy output
+3. Open session in timeline
+4. Run "Merge /distill output from clipboard" command
+5. Plugin merges LLM narrative with Layer 0's exact metadata
+
+## Public API (`api.ts`)
+
+Inter-plugin communication interface. Access via:
+```typescript
+const api = app.plugins.plugins['claude-sessions']?.api as ClaudeSessionsAPI;
+```
+
+Methods:
+- `getActiveSession()` — returns parsed Session from active timeline view
+- `parseSessionFile(path)` — parses JSONL at path, returns Session
+- `onSessionParsed(callback)` — registers callback for session load/reload events, returns unsubscribe function
+- `getSessionIndex()` — returns all indexed SessionListEntry items
+
+Event emission via `emitSessionParsed()` called by TimelineView on load/reload.
 
 ## HTML Export Pipeline (`exporters/`)
 
@@ -146,9 +215,10 @@ DOM snapshot approach — captures already-rendered timeline:
 
 - **Outer containers**: `claude-sessions-summary-*` (summary panel, header, chevron, copy buttons)
 - **Dashboard inner**: `claude-sessions-dash-*` (heroes, charts, meta grid, IDs)
-- **Tool blocks**: `claude-sessions-tool-*` (block, header, body, indicator, name, preview, etc.)
+- **Tool blocks**: `claude-sessions-tool-*` (block, header, body, indicator, name, preview, hook-indicator, hook-permission, etc.)
+- **System events**: `claude-sessions-system-events-*` (panel, header, body, section, badge, etc.)
 - **Filtering**: `claude-sessions-filtered` class toggles `display: none`
-- **States**: `open` (tools, thinking, summary, sub-agents, slash commands, compaction), `collapsed` (turns), `is-collapsed` (show-more), `visible` (IntersectionObserver), `is-pinned` (heroes bar), `claude-sessions-read-md-hidden` (markdown preview toggle)
+- **States**: `open` (tools, thinking, summary, sub-agents, slash commands, compaction, system-events), `collapsed` (turns), `is-collapsed` (show-more), `visible` (IntersectionObserver), `is-pinned` (heroes bar), `claude-sessions-read-md-hidden` (markdown preview toggle)
 
 ## Commands
 
@@ -161,10 +231,15 @@ DOM snapshot approach — captures already-rendered timeline:
 | `export-html` | Export session to HTML |
 | `expand-all` | Expand all turns |
 | `collapse-all` | Collapse all turns |
+| `expand-all-blocks` | Expand all blocks (tools, thinking, summary) |
+| `collapse-all-blocks` | Collapse all blocks (tools, thinking, summary) |
 | `refresh-session` | Refresh session |
 | `toggle-live-watch` | Toggle live watch |
 | `search-in-session` | Search in session |
-| `copy-resume-command` | Copy resume command |
+| `copy-resume` | Copy resume to clipboard |
+| `distill-session` | Distill session to note |
+| `merge-distill-clipboard` | Merge /distill output from clipboard |
+| `install-bases-templates` | Install bases dashboard templates |
 
 ## Security Notes
 

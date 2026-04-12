@@ -1,6 +1,13 @@
 /**
  * Inline JSONL fixture builders for parser tests.
  * Each function returns a multi-line string of JSONL records.
+ *
+ * ## Claude Code Version Tracking
+ *
+ * When adding fixtures for new JSONL features, document the CC version:
+ * - Add a JSDoc comment with "CC X.Y.Z+" indicating minimum version
+ * - Update COMPATIBILITY.md with the feature mapping
+ * - See COMPATIBILITY.md for the full version compatibility table
  */
 
 /** Helper: build a JSONL string from an array of record objects. */
@@ -47,7 +54,7 @@ export function assistantThinking(thinking: string, opts?: {
 	};
 }
 
-/** Assistant record with an encrypted thinking block (signature only, no text). */
+/** Assistant record with an encrypted thinking block (signature only, no text). CC 2.1.79+ */
 export function assistantEncryptedThinking(opts?: {
 	uuid?: string;
 	timestamp?: string;
@@ -256,6 +263,81 @@ export function userInterruption(opts?: {
 		message: {
 			role: 'user',
 			content: '[Request interrupted by user] some context',
+		},
+	};
+}
+
+/** User record with custom session title from /rename command. CC ~2.1.90+ */
+export function userCustomTitle(title: string, opts?: {
+	uuid?: string;
+	timestamp?: string;
+}): Record<string, unknown> {
+	return {
+		type: 'user',
+		uuid: opts?.uuid ?? crypto.randomUUID(),
+		timestamp: opts?.timestamp ?? '2026-01-01T00:01:00.000Z',
+		message: {
+			role: 'user',
+			content: `<custom-title>${title}</custom-title>`,
+		},
+	};
+}
+
+/** System record with hook summary. CC ~2.1.90+ */
+export function systemHookSummary(hooks: { hookName: string; hookEvent: string; command: string; durationMs: number; exitCode?: number; stdout?: string; toolUseId?: string }[], opts?: {
+	uuid?: string;
+	timestamp?: string;
+}): Record<string, unknown> {
+	return {
+		type: 'system',
+		subtype: 'stop_hook_summary',
+		uuid: opts?.uuid ?? crypto.randomUUID(),
+		timestamp: opts?.timestamp ?? '2026-01-01T00:01:00.000Z',
+		hookInfos: hooks.map(h => ({
+			hookName: h.hookName,
+			hookEvent: h.hookEvent,
+			command: h.command,
+			durationMs: h.durationMs,
+			exitCode: h.exitCode ?? 0,
+			stdout: h.stdout ?? '',
+			stderr: '',
+			toolUseId: h.toolUseId,
+		})),
+	};
+}
+
+/** System record with skill listing. CC ~2.1.90+ */
+export function systemSkillListing(skills: string[], opts?: {
+	uuid?: string;
+	timestamp?: string;
+}): Record<string, unknown> {
+	const content = skills.map(s => `- ${s}: Description`).join('\n');
+	return {
+		type: 'system',
+		subtype: 'skill_listing',
+		uuid: opts?.uuid ?? crypto.randomUUID(),
+		timestamp: opts?.timestamp ?? '2026-01-01T00:00:00.000Z',
+		content,
+	};
+}
+
+/** Assistant record with tool_reference result (ToolSearch). CC ~2.1.88+ */
+export function assistantToolReference(toolNames: string[], opts?: {
+	uuid?: string;
+	timestamp?: string;
+	toolUseId?: string;
+}): Record<string, unknown> {
+	return {
+		type: 'user',
+		uuid: opts?.uuid ?? crypto.randomUUID(),
+		timestamp: opts?.timestamp ?? '2026-01-01T00:00:30.000Z',
+		message: {
+			role: 'user',
+			content: toolNames.map(name => ({
+				type: 'tool_result',
+				tool_use_id: opts?.toolUseId ?? 'toolu_123',
+				content: [{ type: 'tool_reference', tool_name: name }],
+			})),
 		},
 	};
 }

@@ -5,7 +5,7 @@ An [Obsidian](https://obsidian.md/) plugin for viewing [Claude Code](https://doc
 **Local-first and private.** Claude Sessions reads your JSONL session files directly from disk — no uploads, no syncing, no external services. Your conversations stay on your machine.
 
 > [!IMPORTANT]
-> **v0.2.12** — Desktop-only. Active development; expect frequent changes.
+> **v0.2.13** — Desktop-only. Active development; expect frequent changes.
 
 <!-- ![Claude Sessions — dark mode](screenshots/hero-dark.png) -->
 
@@ -75,6 +75,34 @@ Dual-mode search panel in the right sidebar:
 - **Markdown** — YAML frontmatter + Obsidian callouts
 - **HTML** — self-contained, zero-dependency file with embedded CSS (captures your current theme), inline images, and standalone JS for all interactive features
 
+### Session Distillation
+
+Convert sessions into structured Obsidian notes with queryable frontmatter — zero LLM cost (Layer 0 extraction).
+
+- **Distill to note** — extracts session metadata into YAML frontmatter: project, cost, tokens, duration, tools used, files touched, error count
+- **Clipboard merge** — combine LLM-generated summaries (from Claude Code's `/distill` skill) with exact session stats
+- **Obsidian Bases dashboards** — pre-built `.base` templates for aggregate views:
+  - Session Dashboard — all sessions with cost/tokens/duration summaries
+  - Cost Tracker — grouped by project
+  - Recent Sessions — last 7 days
+  - Error Patterns — sessions with errors
+
+Distilled notes are ideal for:
+- Querying sessions with Dataview or Bases
+- Tracking costs and token usage over time
+- Finding sessions by project, date, or error count
+- Building personal knowledge bases from Claude conversations
+
+### System Events
+
+Collapsible panel showing session-level context:
+
+- **Hooks** — PreToolUse, PostToolUse, PermissionRequest events with duration and exit codes
+- **Available skills** — slash commands available during the session
+- **Task reminders** — background task counts
+
+Inline indicators on tool calls: zap icon for PreToolUse hooks, shield icon for PermissionRequest.
+
 ### Theming
 
 - 42 CSS custom properties (`--cs-*`) for colors, spacing, typography, and dimensions
@@ -140,38 +168,69 @@ Run **Claude Sessions: Import session file** — drag-and-drop a `.jsonl` file, 
 
 With a session open, run **Export session to Markdown** or **Export session to HTML**.
 
+### Distill a session
+
+1. Open a session in the timeline view
+2. Run **Claude Sessions: Distill session to note**
+3. A structured note is created in your distill folder with:
+   - YAML frontmatter (project, cost, tokens, duration, tools, files, errors)
+   - Placeholder sections for Summary, Key Changes, Learnings, Related
+
+**To add LLM-generated summaries:**
+
+1. In Claude Code, run `/distill` on your session
+2. Copy the output to clipboard
+3. In Obsidian, open the same session
+4. Run **Claude Sessions: Merge /distill output from clipboard**
+5. The plugin merges the LLM narrative with exact session stats
+
+### Set up Bases dashboards
+
+1. Run **Claude Sessions: Install bases dashboard templates**
+2. Templates are created in your bases folder
+3. Open a `.base` file to see aggregate session data (requires Obsidian 1.8+ with Bases enabled)
+
 ---
 
 ## Commands
 
-| Command                    | Description                                      |
-| -------------------------- | ------------------------------------------------ |
-| Browse sessions            | Open a session from the fuzzy search modal       |
-| Search sessions            | Open the cross-session search panel              |
-| Search in session          | Search within the active session                 |
-| Import session file        | Open a session from file path or drag-and-drop   |
-| Export session to Markdown | Export as Markdown with frontmatter              |
-| Export session to HTML     | Export as self-contained HTML                    |
-| Expand all                 | Expand all collapsed turns                       |
-| Collapse all               | Collapse all turns                               |
-| Refresh session            | Re-read and re-render the current session        |
-| Toggle live watch          | Start/stop watching the session file for changes |
+| Command                            | Description                                         |
+| ---------------------------------- | --------------------------------------------------- |
+| Browse sessions                    | Open a session from the fuzzy search modal          |
+| Search sessions                    | Open the cross-session search panel                 |
+| Search in session                  | Search within the active session                    |
+| Import session file                | Open a session from file path or drag-and-drop      |
+| Export session to Markdown         | Export as Markdown with frontmatter                 |
+| Export session to HTML             | Export as self-contained HTML                       |
+| Expand all turns                   | Expand all collapsed turns                          |
+| Collapse all turns                 | Collapse all turns                                  |
+| Expand all blocks                  | Expand all tools, thinking blocks, and summary      |
+| Collapse all blocks                | Collapse all tools, thinking blocks, and summary    |
+| Refresh session                    | Re-read and re-render the current session           |
+| Toggle live watch                  | Start/stop watching the session file for changes    |
+| Copy resume to clipboard           | Copy `claude --resume <id>` command                 |
+| Distill session to note            | Create/update a structured note with session stats  |
+| Merge /distill output from clipboard | Combine LLM summary with Layer 0 frontmatter      |
+| Install bases dashboard templates  | Add Obsidian Bases templates to your vault          |
 
 ---
 
 ## Settings
 
-| Setting                | Default              | Description                                                       |
-| ---------------------- | -------------------- | ----------------------------------------------------------------- |
-| Session directories    | `~/.claude/projects` | Directories to scan for JSONL files (supports `~`)                |
-| Export folder          | `Claude sessions`    | Vault folder for exported files                                   |
-| Show thinking blocks   | On                   | Display thinking/reasoning blocks                                 |
-| Show tool calls        | On                   | Display tool use blocks                                           |
-| Show tool results      | On                   | Display tool result output                                        |
-| Tool group threshold   | 4                    | Consecutive tool calls above this collapse into a group           |
-| Auto-scroll on update  | On                   | Scroll to bottom on live watch changes                            |
-| Notify on pending tool | Off                  | System notification when a tool call awaits permission            |
-| Show rate limits       | Off                  | Display Claude account rate limit utilization (5-hour and weekly) |
+| Setting                | Default                      | Description                                                       |
+| ---------------------- | ---------------------------- | ----------------------------------------------------------------- |
+| Session directories    | `~/.claude/projects`         | Directories to scan for JSONL files (supports `~`)                |
+| Export folder          | `Claude sessions`            | Vault folder for exported files                                   |
+| Distill folder         | `Claude sessions/distilled`  | Vault folder for distilled session notes                          |
+| Bases folder           | `Claude sessions/bases`      | Vault folder for Obsidian Bases dashboard templates               |
+| Show thinking blocks   | On                           | Display thinking/reasoning blocks                                 |
+| Show tool calls        | On                           | Display tool use blocks                                           |
+| Show tool results      | On                           | Display tool result output                                        |
+| Content width          | 960px                        | Maximum width of session content (presets: 680–1200px or full)    |
+| Tool group threshold   | 4                            | Consecutive tool calls above this collapse into a group           |
+| Auto-scroll on update  | On                           | Scroll to bottom on live watch changes                            |
+| Notify on pending tool | Off                          | System notification when a tool call awaits permission            |
+| Show rate limits       | Off                          | Display Claude account rate limit utilization (5-hour and weekly) |
 
 ---
 
@@ -184,9 +243,34 @@ The Claude Code JSONL format stores each content block (text, thinking, tool_use
 3. **Attaches** tool results from user records to the preceding assistant turn
 4. **Extracts** token usage, deduplicated by message ID, then summed into session stats
 5. **Resolves** sub-agent sessions from `subagents/agent-<id>.jsonl` files
-6. **Skips** encrypted thinking blocks (Claude Code v2.1.79+) and non-content record types
+6. **Captures** system events (hooks, skills, task reminders) and custom session titles
+7. **Skips** encrypted thinking blocks (Claude Code v2.1.79+) and non-content record types
 
-The timeline view renders all turns immediately into a scrollable container. An `IntersectionObserver` drives scroll-based opacity. Tool-specific renderers handle Bash, Edit, Write, and Read with syntax highlighting and diff views.
+The timeline view renders all turns immediately into a scrollable container. An `IntersectionObserver` drives scroll-based opacity. Tool-specific renderers handle Bash, Edit, Write, Read, AskUserQuestion, and ToolSearch with syntax highlighting, diff views, and structured displays.
+
+---
+
+## Public API
+
+Other plugins can access session data via the public API:
+
+```typescript
+const api = app.plugins.plugins['claude-sessions']?.api as ClaudeSessionsAPI;
+
+// Get the active session
+const session = api.getActiveSession();
+
+// Parse a JSONL file
+const session = await api.parseSessionFile('/path/to/session.jsonl');
+
+// Subscribe to session load/reload events
+const unsubscribe = api.onSessionParsed((session) => {
+  console.log('Session loaded:', session.metadata.project);
+});
+
+// Get all indexed sessions (lightweight metadata)
+const entries = await api.getSessionIndex();
+```
 
 ---
 
