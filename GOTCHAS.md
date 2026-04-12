@@ -92,7 +92,7 @@ Reference document for known pitfalls. Not auto-included — use `@GOTCHAS.md` w
 
 ## Distill
 
-- Layer 0 extraction is zero-LLM-cost — frontmatter values come directly from session stats; `session_type` classification requires LLM and is only populated via `/distill` skill merge
+- Layer 0 extraction is zero-LLM-cost — frontmatter values come directly from session stats; `session_type` classification requires LLM and is only populated via [`/distill`](./skills/distill/SKILL.md) skill merge
 - Distill note names use `{project}-{session_id_prefix}.md` format — the session_id prefix (first 8 chars) ensures uniqueness while keeping names readable
 - Merge logic preserves user-written content: only frontmatter and auto-generated section headers are updated; body text under headers is kept
 - `files_touched` is deduplicated and sorted — extracted from Edit/Write/Read tool inputs, relative to cwd when possible

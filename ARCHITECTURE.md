@@ -6,15 +6,15 @@ Reference document for detailed implementation. Not auto-included — use `@ARCH
 
 ### Record Types (Claude Code JSONL format)
 
-| Type | Handling |
-|---|---|
-| `user` | String content → user turn. Array content → tool results attached to preceding assistant turn |
-| `assistant` | Each content block (thinking, text, tool_use) is a **separate record** with its own uuid. Consecutive records merge into one Turn |
-| `progress` | `agent_progress` → sub-agent blocks. All others skipped |
-| `queue-operation` | `<task-notification>` XML captured for background agents. Others skipped |
-| `summary` | Compaction boundary marker |
-| `system` | `local_command` subtype → slash command display. Others skipped |
-| `file-history-snapshot` | Always skipped (non-content) |
+| Type                    | Handling                                                                                                                          |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `user`                  | String content → user turn. Array content → tool results attached to preceding assistant turn                                     |
+| `assistant`             | Each content block (thinking, text, tool_use) is a **separate record** with its own uuid. Consecutive records merge into one Turn |
+| `progress`              | `agent_progress` → sub-agent blocks. All others skipped                                                                           |
+| `queue-operation`       | `<task-notification>` XML captured for background agents. Others skipped                                                          |
+| `summary`               | Compaction boundary marker                                                                                                        |
+| `system`                | `local_command` subtype → slash command display. Others skipped                                                                   |
+| `file-history-snapshot` | Always skipped (non-content)                                                                                                      |
 
 ### Parser Pipeline (`claude-parser.ts`)
 
@@ -222,24 +222,24 @@ DOM snapshot approach — captures already-rendered timeline:
 
 ## Commands
 
-| ID | Name |
-|---|---|
-| `browse-sessions` | Browse sessions |
-| `search-sessions` | Search sessions |
-| `import-file` | Import session file |
-| `export-markdown` | Export session to Markdown |
-| `export-html` | Export session to HTML |
-| `expand-all` | Expand all turns |
-| `collapse-all` | Collapse all turns |
-| `expand-all-blocks` | Expand all blocks (tools, thinking, summary) |
-| `collapse-all-blocks` | Collapse all blocks (tools, thinking, summary) |
-| `refresh-session` | Refresh session |
-| `toggle-live-watch` | Toggle live watch |
-| `search-in-session` | Search in session |
-| `copy-resume` | Copy resume to clipboard |
-| `distill-session` | Distill session to note |
-| `merge-distill-clipboard` | Merge /distill output from clipboard |
-| `install-bases-templates` | Install bases dashboard templates |
+| ID                        | Name                                           |
+| ------------------------- | ---------------------------------------------- |
+| `browse-sessions`         | Browse sessions                                |
+| `search-sessions`         | Search sessions                                |
+| `import-file`             | Import session file                            |
+| `export-markdown`         | Export session to Markdown                     |
+| `export-html`             | Export session to HTML                         |
+| `expand-all`              | Expand all turns                               |
+| `collapse-all`            | Collapse all turns                             |
+| `expand-all-blocks`       | Expand all blocks (tools, thinking, summary)   |
+| `collapse-all-blocks`     | Collapse all blocks (tools, thinking, summary) |
+| `refresh-session`         | Refresh session                                |
+| `toggle-live-watch`       | Toggle live watch                              |
+| `search-in-session`       | Search in session                              |
+| `copy-resume`             | Copy resume to clipboard                       |
+| `distill-session`         | Distill session to note                        |
+| `merge-distill-clipboard` | Merge /distill output from clipboard           |
+| `install-bases-templates` | Install bases dashboard templates              |
 
 ## Security Notes
 

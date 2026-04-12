@@ -80,7 +80,7 @@ Dual-mode search panel in the right sidebar:
 Convert sessions into structured Obsidian notes with queryable frontmatter — zero LLM cost (Layer 0 extraction).
 
 - **Distill to note** — extracts session metadata into YAML frontmatter: project, cost, tokens, duration, tools used, files touched, error count
-- **Clipboard merge** — combine LLM-generated summaries (from Claude Code's `/distill` skill) with exact session stats
+- **Clipboard merge** — combine LLM-generated summaries (using the [`/distill`](./skills/distill/SKILL.md) skill) with exact session stats
 - **Obsidian Bases dashboards** — pre-built `.base` templates for aggregate views:
   - Session Dashboard — all sessions with cost/tokens/duration summaries
   - Cost Tracker — grouped by project
@@ -178,7 +178,7 @@ With a session open, run **Export session to Markdown** or **Export session to H
 
 **To add LLM-generated summaries:**
 
-1. In Claude Code, run `/distill` on your session
+1. In Claude Code, run [`/distill`](./skills/distill/SKILL.md) on your session
 2. Copy the output to clipboard
 3. In Obsidian, open the same session
 4. Run **Claude Sessions: Merge /distill output from clipboard**
@@ -194,43 +194,43 @@ With a session open, run **Export session to Markdown** or **Export session to H
 
 ## Commands
 
-| Command                            | Description                                         |
-| ---------------------------------- | --------------------------------------------------- |
-| Browse sessions                    | Open a session from the fuzzy search modal          |
-| Search sessions                    | Open the cross-session search panel                 |
-| Search in session                  | Search within the active session                    |
-| Import session file                | Open a session from file path or drag-and-drop      |
-| Export session to Markdown         | Export as Markdown with frontmatter                 |
-| Export session to HTML             | Export as self-contained HTML                       |
-| Expand all turns                   | Expand all collapsed turns                          |
-| Collapse all turns                 | Collapse all turns                                  |
-| Expand all blocks                  | Expand all tools, thinking blocks, and summary      |
-| Collapse all blocks                | Collapse all tools, thinking blocks, and summary    |
-| Refresh session                    | Re-read and re-render the current session           |
-| Toggle live watch                  | Start/stop watching the session file for changes    |
-| Copy resume to clipboard           | Copy `claude --resume <id>` command                 |
-| Distill session to note            | Create/update a structured note with session stats  |
-| Merge /distill output from clipboard | Combine LLM summary with Layer 0 frontmatter      |
-| Install bases dashboard templates  | Add Obsidian Bases templates to your vault          |
+| Command                                                             | Description                                        |
+| ------------------------------------------------------------------- | -------------------------------------------------- |
+| Browse sessions                                                     | Open a session from the fuzzy search modal         |
+| Search sessions                                                     | Open the cross-session search panel                |
+| Search in session                                                   | Search within the active session                   |
+| Import session file                                                 | Open a session from file path or drag-and-drop     |
+| Export session to Markdown                                          | Export as Markdown with frontmatter                |
+| Export session to HTML                                              | Export as self-contained HTML                      |
+| Expand all turns                                                    | Expand all collapsed turns                         |
+| Collapse all turns                                                  | Collapse all turns                                 |
+| Expand all blocks                                                   | Expand all tools, thinking blocks, and summary     |
+| Collapse all blocks                                                 | Collapse all tools, thinking blocks, and summary   |
+| Refresh session                                                     | Re-read and re-render the current session          |
+| Toggle live watch                                                   | Start/stop watching the session file for changes   |
+| Copy resume to clipboard                                            | Copy `claude --resume <id>` command                |
+| Distill session to note                                             | Create/update a structured note with session stats |
+| Merge [`/distill`](./skills/distill/SKILL.md) output from clipboard | Combine LLM summary with Layer 0 frontmatter       |
+| Install bases dashboard templates                                   | Add Obsidian Bases templates to your vault         |
 
 ---
 
 ## Settings
 
-| Setting                | Default                      | Description                                                       |
-| ---------------------- | ---------------------------- | ----------------------------------------------------------------- |
-| Session directories    | `~/.claude/projects`         | Directories to scan for JSONL files (supports `~`)                |
-| Export folder          | `Claude sessions`            | Vault folder for exported files                                   |
-| Distill folder         | `Claude sessions/distilled`  | Vault folder for distilled session notes                          |
-| Bases folder           | `Claude sessions/bases`      | Vault folder for Obsidian Bases dashboard templates               |
-| Show thinking blocks   | On                           | Display thinking/reasoning blocks                                 |
-| Show tool calls        | On                           | Display tool use blocks                                           |
-| Show tool results      | On                           | Display tool result output                                        |
-| Content width          | 960px                        | Maximum width of session content (presets: 680–1200px or full)    |
-| Tool group threshold   | 4                            | Consecutive tool calls above this collapse into a group           |
-| Auto-scroll on update  | On                           | Scroll to bottom on live watch changes                            |
-| Notify on pending tool | Off                          | System notification when a tool call awaits permission            |
-| Show rate limits       | Off                          | Display Claude account rate limit utilization (5-hour and weekly) |
+| Setting                | Default                     | Description                                                       |
+| ---------------------- | --------------------------- | ----------------------------------------------------------------- |
+| Session directories    | `~/.claude/projects`        | Directories to scan for JSONL files (supports `~`)                |
+| Export folder          | `Claude sessions`           | Vault folder for exported files                                   |
+| Distill folder         | `Claude sessions/distilled` | Vault folder for distilled session notes                          |
+| Bases folder           | `Claude sessions/bases`     | Vault folder for Obsidian Bases dashboard templates               |
+| Show thinking blocks   | On                          | Display thinking/reasoning blocks                                 |
+| Show tool calls        | On                          | Display tool use blocks                                           |
+| Show tool results      | On                          | Display tool result output                                        |
+| Content width          | 960px                       | Maximum width of session content (presets: 680–1200px or full)    |
+| Tool group threshold   | 4                           | Consecutive tool calls above this collapse into a group           |
+| Auto-scroll on update  | On                          | Scroll to bottom on live watch changes                            |
+| Notify on pending tool | Off                         | System notification when a tool call awaits permission            |
+| Show rate limits       | Off                         | Display Claude account rate limit utilization (5-hour and weekly) |
 
 ---
 
