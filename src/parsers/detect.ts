@@ -6,7 +6,8 @@ const parsers: BaseParser[] = [
 ];
 
 export function detectParser(content: string): BaseParser | null {
-	const lines = content.split('\n').filter(l => l.trim().length > 0).slice(0, 10);
+	// L4: Increased from 10 to 20 lines — first 10 may all be system/metadata records
+	const lines = content.split('\n').filter(l => l.trim().length > 0).slice(0, 20);
 	if (lines.length === 0) return null;
 
 	for (const parser of parsers) {

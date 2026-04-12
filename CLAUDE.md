@@ -2,7 +2,7 @@
 
 Desktop-only Claude Code JSONL session viewer for Obsidian. Browse, search, and export sessions with rich tool rendering, live watch, and summary dashboards.
 
-**Version**: 0.2.12 | **Branch**: main
+**Version**: 0.2.13 | **Branch**: main
 
 ## Development
 

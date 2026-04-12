@@ -381,6 +381,45 @@
 	margin-bottom: var(--size-4-2);
 }
 
+/* --- H4: Parse warnings banner --- */
+
+.claude-sessions-dash-warnings {
+	background: var(--background-modifier-error);
+	border-color: var(--text-error);
+}
+
+.claude-sessions-dash-warnings-header {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-2);
+	font-weight: 600;
+	color: var(--text-error);
+	margin-bottom: var(--size-2-3);
+}
+
+.claude-sessions-dash-warnings-icon svg {
+	width: 16px;
+	height: 16px;
+}
+
+.claude-sessions-dash-warnings-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-1);
+}
+
+.claude-sessions-dash-warnings-item {
+	font-size: var(--cs-font-size-xs);
+	color: var(--text-muted);
+}
+
+.claude-sessions-dash-warnings-hint {
+	margin-top: var(--size-2-3);
+	font-size: var(--cs-font-size-xs);
+	color: var(--text-faint);
+	font-style: italic;
+}
+
 /* --- Token stacked bar chart --- */
 
 .claude-sessions-dash-bar-row {

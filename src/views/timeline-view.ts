@@ -650,10 +650,9 @@ expandAll(): void {
 		const after = before.splitText(length);
 		void after;
 
-		const mark = document.createElement('mark');
-		mark.className = 'claude-sessions-search-highlight';
+		const mark = createEl('mark', { cls: 'claude-sessions-search-highlight' });
 		before.parentNode!.replaceChild(mark, before);
-		mark.appendChild(document.createTextNode(before.textContent || ''));
+		mark.appendText(before.textContent || '');
 
 		this.activeHighlight = mark;
 		mark.scrollIntoView({ behavior: 'smooth', block: 'center' });

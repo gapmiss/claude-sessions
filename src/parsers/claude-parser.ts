@@ -2,7 +2,7 @@ import { BaseParser } from './base-parser';
 import {
 	Session, Turn, ContentBlock, TextBlock,
 	ToolUseBlock, ToolResultBlock, ImageBlock, AnsiBlock, CompactionBlock, SlashCommandBlock,
-	BashCommandBlock, SessionStats, SubAgentSession, SystemEvent,
+	BashCommandBlock, SessionStats, SubAgentSession, SystemEvent, ParseWarning,
 	PermissionModeEvent, SkillListingEvent, HookSuccessEvent, AsyncHookResponseEvent, TaskReminderEvent,
 } from '../types';
 import { extractProjectName, projectFromCwd, dirname, basename } from '../utils/path-utils';
@@ -153,6 +153,8 @@ export class ClaudeParser extends BaseParser {
 	}
 
 	parse(content: string, filePath: string): Session {
+		// Reset parse error count for this file
+		this.parseErrorCount = 0;
 		const lines = this.splitLines(content);
 		const records: ClaudeRecord[] = [];
 		let sessionId = '';
@@ -195,13 +197,23 @@ export class ClaudeParser extends BaseParser {
 			}
 
 			// Track max token usage per message ID (streaming produces duplicates)
+			// U3: Use content fingerprint for anonymous records to avoid double-counting
 			if (record.type === RT_ASSISTANT && record.message?.usage) {
 				const msgId = (record.message as Record<string, unknown>)['id'] as string | undefined;
-				// Use uuid as fallback key when message.id is absent to avoid losing token data
-				if (!msgId && !record.uuid) {
-					Logger.warn('Assistant record has neither message.id nor uuid — token dedup may double-count', { uuid: record.uuid, type: record.type });
+				let key: string;
+				if (msgId) {
+					key = msgId;
+				} else if (record.uuid) {
+					key = record.uuid;
+				} else {
+					// Generate content fingerprint for anonymous records to deduplicate streaming duplicates
+					const contentSig = typeof record.message.content === 'string'
+						? record.message.content.slice(0, 200)
+						: Array.isArray(record.message.content)
+							? record.message.content.map(b => `${b.type}:${(b.text ?? b.thinking ?? '').slice(0, 50)}`).join('|')
+							: '';
+					key = `__anon_${contentSig}_${anonymousUsageCounter++}`;
 				}
-				const key = msgId ?? record.uuid ?? `__anon_${anonymousUsageCounter++}`;
 				const u = record.message.usage;
 				const prev = usageByMsg.get(key);
 				usageByMsg.set(key, {
@@ -271,19 +283,20 @@ export class ClaudeParser extends BaseParser {
 			records.push(record);
 		}
 
-		// Deduplicate by uuid — keep the most complete (last) record
-		const byUuid = new Map<string, ClaudeRecord>();
+		// U2: Deduplicate by uuid — keep the most complete (last) record
+		// Use Map<uuid, index> for O(1) lookups instead of O(n) indexOf
+		const uuidToIndex = new Map<string, number>();
 		const ordered: ClaudeRecord[] = [];
 		for (const record of records) {
 			if (record.uuid) {
-				if (byUuid.has(record.uuid)) {
-					// Replace with newer version (more content)
-					const idx = ordered.indexOf(byUuid.get(record.uuid)!);
-					if (idx !== -1) ordered[idx] = record;
+				const existingIdx = uuidToIndex.get(record.uuid);
+				if (existingIdx !== undefined) {
+					// Replace with newer version (more content) - O(1) lookup
+					ordered[existingIdx] = record;
 				} else {
+					uuidToIndex.set(record.uuid, ordered.length);
 					ordered.push(record);
 				}
-				byUuid.set(record.uuid, record);
 			} else {
 				ordered.push(record);
 			}
@@ -480,16 +493,35 @@ export class ClaudeParser extends BaseParser {
 			durationMs,
 		};
 
-		// Log diagnostics for unknown record/block types (signals format changes)
+		// H4: Build warnings array for UI surfacing
+		const warnings: ParseWarning[] = [];
 		if (unknownRecordTypes.size > 0) {
-			for (const [type, { count, sample }] of unknownRecordTypes) {
-				Logger.warn(`Skipped unknown record type "${type}" (${count}x)`, sample);
+			for (const [type, { count }] of unknownRecordTypes) {
+				Logger.warn(`Skipped unknown record type "${type}" (${count}x)`);
+				warnings.push({
+					type: 'unknown_record_type',
+					message: `Unknown record type "${type}" — plugin may need update`,
+					count,
+				});
 			}
 		}
 		if (unknownBlockTypes.size > 0) {
-			for (const [type, { count, sample }] of unknownBlockTypes) {
-				Logger.warn(`Skipped unknown block type "${type}" (${count}x)`, sample);
+			for (const [type, { count }] of unknownBlockTypes) {
+				Logger.warn(`Skipped unknown block type "${type}" (${count}x)`);
+				warnings.push({
+					type: 'unknown_block_type',
+					message: `Unknown block type "${type}" — plugin may need update`,
+					count,
+				});
 			}
+		}
+		// M2: Surface parse error count
+		if (this.parseErrorCount > 0) {
+			warnings.push({
+				type: 'parse_errors',
+				message: `${this.parseErrorCount} JSONL line(s) failed to parse`,
+				count: this.parseErrorCount,
+			});
 		}
 
 		return {
@@ -509,6 +541,7 @@ export class ClaudeParser extends BaseParser {
 			turns,
 			systemEvents,
 			rawPath: filePath,
+			warnings: warnings.length > 0 ? warnings : undefined,
 		};
 	}
 
@@ -841,7 +874,7 @@ export class ClaudeParser extends BaseParser {
 					// Walk up the parent chain to find a record with tool_results
 					let resolvedToolUseId: string | undefined;
 					let currentUuid = record.parentUuid;
-					const maxDepth = 10; // Prevent infinite loops
+					const maxDepth = 20; // L3: Increased from 10 to handle deeply nested agent hierarchies
 					for (let depth = 0; depth < maxDepth && currentUuid; depth++) {
 						const parentEntries = uuidToToolResults.get(currentUuid);
 						if (parentEntries && parentEntries.length > 0) {
@@ -936,18 +969,18 @@ export class ClaudeParser extends BaseParser {
 			});
 		}
 
-		// Deduplicate by uuid (same as main parse)
-		const byUuid = new Map<string, ClaudeRecord>();
+		// Deduplicate by uuid (same as main parse) - O(1) lookups
+		const uuidToIndex = new Map<string, number>();
 		const ordered: ClaudeRecord[] = [];
 		for (const record of normalized) {
 			if (record.uuid) {
-				if (byUuid.has(record.uuid)) {
-					const idx = ordered.indexOf(byUuid.get(record.uuid)!);
-					if (idx !== -1) ordered[idx] = record;
+				const existingIdx = uuidToIndex.get(record.uuid);
+				if (existingIdx !== undefined) {
+					ordered[existingIdx] = record;
 				} else {
+					uuidToIndex.set(record.uuid, ordered.length);
 					ordered.push(record);
 				}
-				byUuid.set(record.uuid, record);
 			} else {
 				ordered.push(record);
 			}

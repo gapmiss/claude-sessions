@@ -4,6 +4,23 @@ import {
 	RE_TN_TOOL_USE_ID, RE_TN_TASK_ID, RE_TN_RESULT, RE_TN_SUMMARY, RE_TN_DURATION,
 	BT_TOOL_USE, SUBAGENT_TOOL_NAMES,
 } from '../constants';
+import { Logger } from '../utils/logger';
+
+/** H1: Timeout for sub-agent file reads (ms). */
+const READ_TIMEOUT_MS = 5000;
+
+/** Wrap a promise with a timeout. */
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+	let timeoutId: ReturnType<typeof setTimeout>;
+	const timeoutPromise = new Promise<never>((_, reject) => {
+		timeoutId = setTimeout(() => reject(new Error(`Timeout reading ${label}`)), ms);
+	});
+	try {
+		return await Promise.race([promise, timeoutPromise]);
+	} finally {
+		clearTimeout(timeoutId!);
+	}
+}
 
 /** Parse <task-notification> XML from queue-operation or user records. */
 export function parseTaskNotification(
@@ -68,12 +85,18 @@ export async function resolveSubAgentSessions(
 	for (const { agentId, block } of withId) {
 		const subagentPath = `${subagentsDir}/agent-${agentId}.jsonl`;
 		try {
-			const content = await readFile(subagentPath);
+			const content = await withTimeout(readFile(subagentPath), READ_TIMEOUT_MS, subagentPath);
 			const subSession = parser.parse(content, subagentPath);
 			block.subAgentSession!.turns = subSession.turns;
 			resolvedIds.add(agentId);
-		} catch {
-			// Subagent file may not exist yet if agent is still running
+		} catch (err) {
+			// M3: Distinguish file-not-found (expected) from other errors
+			const msg = err instanceof Error ? err.message : String(err);
+			if (msg.includes('ENOENT') || msg.includes('not found')) {
+				Logger.debug(`Sub-agent file not found (agent may be running): ${subagentPath}`);
+			} else {
+				Logger.warn(`Failed to read sub-agent file: ${subagentPath}`, err);
+			}
 		}
 	}
 
@@ -88,14 +111,16 @@ export async function resolveSubAgentSessions(
 			for (const metaFile of metaFiles) {
 				const agentId = metaFile.replace(/^agent-/, '').replace(/\.meta\.json$/, '');
 				if (resolvedIds.has(agentId)) continue;
+				const metaPath = `${subagentsDir}/${metaFile}`;
 				try {
-					const metaContent = await readFile(`${subagentsDir}/${metaFile}`);
+					const metaContent = await withTimeout(readFile(metaPath), READ_TIMEOUT_MS, metaPath);
 					const meta = tryParseJson(metaContent);
 					if (meta && typeof meta.description === 'string') {
 						descriptionToId.set(meta.description, agentId);
 					}
-				} catch {
-					// Skip unreadable meta files
+				} catch (err) {
+					// M3: Log meta file read failures for diagnostics
+					Logger.debug(`Failed to read sub-agent meta: ${metaPath}`, err);
 				}
 			}
 
@@ -105,18 +130,22 @@ export async function resolveSubAgentSessions(
 				if (!agentId) continue;
 				const subagentPath = `${subagentsDir}/agent-${agentId}.jsonl`;
 				try {
-					const content = await readFile(subagentPath);
+					const content = await withTimeout(readFile(subagentPath), READ_TIMEOUT_MS, subagentPath);
 					const subSession = parser.parse(content, subagentPath);
 					block.subAgentSession!.agentId = agentId;
 					block.subAgentSession!.turns = subSession.turns;
 					descriptionToId.delete(description);
 					resolvedIds.add(agentId);
-				} catch {
-					// Subagent file may not exist
+				} catch (err) {
+					const msg = err instanceof Error ? err.message : String(err);
+					if (!msg.includes('ENOENT') && !msg.includes('not found')) {
+						Logger.warn(`Failed to read sub-agent file: ${subagentPath}`, err);
+					}
 				}
 			}
-		} catch {
-			// subagents directory may not exist
+		} catch (err) {
+			// subagents directory may not exist — expected for sessions without agents
+			Logger.debug('Sub-agents directory not found or inaccessible', err);
 		}
 	}
 }

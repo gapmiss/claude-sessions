@@ -166,7 +166,7 @@ export class TimelineRenderer {
 		const firstTurn = this.turnEls[0];
 		if (firstTurn) {
 			const frag = document.createDocumentFragment();
-			const tempContainer = document.createElement('div');
+			const tempContainer = createDiv();
 			renderSummary(session, tempContainer, this.ctx);
 			renderSystemEvents(session, tempContainer);
 			while (tempContainer.firstChild) {

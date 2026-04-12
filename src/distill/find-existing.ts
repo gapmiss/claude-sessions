@@ -42,37 +42,6 @@ export function findExistingNote(
 }
 
 /**
- * Get all session_ids that have already been distilled.
- * Useful for batch processing to skip already-processed sessions.
- */
-export function getDistilledSessionIds(
-	app: App,
-	distillFolder: string
-): Set<string> {
-	const ids = new Set<string>();
-	const folder = app.vault.getAbstractFileByPath(normalizePath(distillFolder));
-
-	if (!folder || !(folder instanceof TFolder)) {
-		return ids;
-	}
-
-	for (const file of folder.children) {
-		if (!(file instanceof TFile) || file.extension !== 'md') {
-			continue;
-		}
-
-		const cache = app.metadataCache.getFileCache(file);
-		const sessionId = cache?.frontmatter?.['session_id'] as unknown;
-
-		if (typeof sessionId === 'string') {
-			ids.add(sessionId);
-		}
-	}
-
-	return ids;
-}
-
-/**
  * Read existing note content for merge operations.
  */
 export async function readExistingNote(

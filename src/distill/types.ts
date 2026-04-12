@@ -64,14 +64,6 @@ export interface DistilledFrontmatter {
 }
 
 /**
- * Result of merging two frontmatter objects (e.g., Layer 0 + LLM distill).
- */
-export interface MergeResult {
-	frontmatter: DistilledFrontmatter;
-	conflicts: string[];  // field names where values differed
-}
-
-/**
  * Options for the distill pipeline.
  */
 export interface DistillOptions {

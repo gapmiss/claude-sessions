@@ -28,7 +28,7 @@
 - [ ] Mobile support (vault-based session browsing)
 - [ ] Layer 1+ distillation — LLM-powered summarization and classification via Claude API
 
-## Completed (0.2.12+)
+## Completed (0.2.13+)
 
 - [x] System events panel — hooks, skills, task reminders in collapsible panel
 - [x] Inline hook indicators — PreToolUse (zap), PermissionRequest (shield) icons on tool calls

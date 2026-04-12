@@ -104,69 +104,6 @@ export async function distillSession(
 }
 
 /**
- * Batch distill multiple sessions.
- * Skips sessions that already have distilled notes (unless force=true).
- */
-export async function batchDistillSessions(
-	app: App,
-	sessions: Session[],
-	distillFolder: string,
-	options: DistillOptions = {},
-	onProgress?: (done: number, total: number, current: string) => void
-): Promise<BatchDistillResult> {
-	const results: DistillResult[] = [];
-	let created = 0;
-	let updated = 0;
-	let skipped = 0;
-	let failed = 0;
-
-	for (let i = 0; i < sessions.length; i++) {
-		const session = sessions[i];
-		onProgress?.(i, sessions.length, session.metadata.project);
-
-		// Check if already distilled
-		const existing = findExistingNote(app, distillFolder, session.metadata.id);
-		if (existing && !options.force) {
-			skipped++;
-			continue;
-		}
-
-		const result = await distillSession(app, session, distillFolder, options);
-		results.push(result);
-
-		if (result.success) {
-			if (result.updated) {
-				updated++;
-			} else {
-				created++;
-			}
-		} else {
-			failed++;
-		}
-	}
-
-	onProgress?.(sessions.length, sessions.length, 'Done');
-
-	return {
-		results,
-		created,
-		updated,
-		skipped,
-		failed,
-		total: sessions.length,
-	};
-}
-
-export interface BatchDistillResult {
-	results: DistillResult[];
-	created: number;
-	updated: number;
-	skipped: number;
-	failed: number;
-	total: number;
-}
-
-/**
  * Merge LLM-distilled content (from clipboard) with Layer 0 extraction from active session.
  *
  * This is the recommended workflow:

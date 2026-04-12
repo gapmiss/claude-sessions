@@ -152,6 +152,31 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 	renderToolChart(stats, charts);
 
 	// ═══════════════════════════════════════
+	// H4: Parse warnings banner (unknown types, errors)
+	// ═══════════════════════════════════════
+	if (session.warnings && session.warnings.length > 0) {
+		const warningCard = body.createDiv({ cls: 'claude-sessions-dash-card claude-sessions-dash-warnings' });
+		const warningHeader = warningCard.createDiv({ cls: 'claude-sessions-dash-warnings-header' });
+		const warningIcon = warningHeader.createSpan({ cls: 'claude-sessions-dash-warnings-icon' });
+		setIcon(warningIcon, 'alert-triangle');
+		warningHeader.createSpan({ text: 'Parse warnings' });
+
+		const warningList = warningCard.createDiv({ cls: 'claude-sessions-dash-warnings-list' });
+		for (const warning of session.warnings) {
+			const item = warningList.createDiv({ cls: 'claude-sessions-dash-warnings-item' });
+			item.createSpan({ text: `${warning.message} (${warning.count}x)` });
+		}
+
+		// Prompt to update plugin
+		if (session.warnings.some(w => w.type === 'unknown_record_type' || w.type === 'unknown_block_type')) {
+			warningCard.createDiv({
+				cls: 'claude-sessions-dash-warnings-hint',
+				text: 'Some data may be missing. Check for plugin updates.',
+			});
+		}
+	}
+
+	// ═══════════════════════════════════════
 	// Metadata card
 	// ═══════════════════════════════════════
 	const metaCard = body.createDiv({ cls: 'claude-sessions-dash-card claude-sessions-dash-meta' });

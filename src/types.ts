@@ -36,12 +36,21 @@ export interface SessionStats {
 	durationMs: number;
 }
 
+/** H4: Parse warning surfaced to UI. */
+export interface ParseWarning {
+	type: 'unknown_record_type' | 'unknown_block_type' | 'parse_errors';
+	message: string;
+	count: number;
+}
+
 export interface Session {
 	metadata: SessionMetadata;
 	stats: SessionStats;
 	turns: Turn[];
 	systemEvents: SystemEvent[];
 	rawPath: string;
+	/** H4: Parse warnings to surface in UI (unknown types, format changes). */
+	warnings?: ParseWarning[];
 }
 
 // ── System Events ──
