@@ -117,7 +117,7 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
-[Unreleased]: https://github.com/gapmiss/claude-sessions/compare/0.2.12...HEAD
+[0.2.13]: https://github.com/gapmiss/claude-sessions/compare/0.2.12...0.2.13
 [0.2.12]: https://github.com/gapmiss/claude-sessions/compare/0.2.11...0.2.12
 [0.2.11]: https://github.com/gapmiss/claude-sessions/compare/0.2.10...0.2.11
 [0.2.10]: https://github.com/gapmiss/claude-sessions/compare/0.2.9...0.2.10
