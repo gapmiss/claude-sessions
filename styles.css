@@ -969,6 +969,84 @@
 	font-size: 0.75em;
 }
 
+/* Hook indicator (inline PreToolUse events) */
+.claude-sessions-tool-hook-indicator {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	/* color: var(--color-yellow); */
+	flex-shrink: 0;
+	/* cursor: help; */
+}
+
+.claude-sessions-tool-hook-indicator svg {
+	width: 14px;
+	height: 14px;
+}
+
+/* Hook details section in tool body */
+.claude-sessions-tool-hook-section {
+	border-top: 1px solid var(--background-modifier-border);
+	padding: var(--size-4-2);
+	background: var(--background-secondary-alt);
+}
+
+.claude-sessions-tool-hook-item {
+	margin-bottom: var(--size-4-2);
+}
+
+.claude-sessions-tool-hook-item:last-child {
+	margin-bottom: 0;
+}
+
+.claude-sessions-tool-hook-header {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	font-size: var(--font-ui-smaller);
+	margin-bottom: var(--size-2-2);
+}
+
+.claude-sessions-tool-hook-event {
+	background: var(--background-modifier-border);
+	padding: var(--size-2-1) var(--size-2-3);
+	border-radius: var(--radius-s);
+	font-weight: 600;
+	color: var(--text-normal);
+	text-transform: uppercase;
+	font-size: 0.7em;
+}
+
+.claude-sessions-tool-hook-duration {
+	color: var(--text-faint);
+}
+
+.claude-sessions-tool-hook-command {
+	color: var(--text-muted);
+	font-family: var(--font-monospace);
+	font-size: 0.9em;
+}
+
+.claude-sessions-tool-hook-stdout {
+	margin-top: var(--size-2-2);
+}
+
+.claude-sessions-tool-hook-stdout pre {
+	margin: 0;
+	padding: var(--size-4-2);
+	background: var(--background-primary);
+	border-radius: var(--radius-s);
+	overflow-x: auto;
+	font-size: var(--font-ui-smaller);
+}
+
+.claude-sessions-tool-hook-stdout code {
+	font-family: var(--font-monospace);
+	color: var(--text-muted);
+}
+
 .claude-sessions-tool-exit-code {
 	font-size: var(--cs-font-size-xs);
 	color: var(--color-red);

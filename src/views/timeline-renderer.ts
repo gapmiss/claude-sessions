@@ -1,7 +1,7 @@
 import { App, Modal, MarkdownRenderer, Component, setIcon } from 'obsidian';
 import type {
 	Turn, ContentBlock, AnsiBlock, CompactionBlock, SlashCommandBlock, BashCommandBlock,
-	PluginSettings, Session,
+	PluginSettings, Session, HookSuccessEvent,
 } from '../types';
 import {
 	type RenderContext, COLLAPSE_THRESHOLD,
@@ -55,7 +55,21 @@ export class TimelineRenderer {
 		this.sessionStartDate = '';
 		this.delegate.taskState.clear();
 
+		// Build hook events map for inline indicators
 		if (session) {
+			const hookMap = new Map<string, HookSuccessEvent[]>();
+			for (const evt of session.systemEvents) {
+				if (evt.type === 'hook_success' && evt.toolUseId) {
+					const existing = hookMap.get(evt.toolUseId);
+					if (existing) {
+						existing.push(evt);
+					} else {
+						hookMap.set(evt.toolUseId, [evt]);
+					}
+				}
+			}
+			this.ctx.hookEventsByToolId = hookMap;
+
 			renderSummary(session, this.container, this.ctx);
 			renderSystemEvents(session, this.container);
 		}

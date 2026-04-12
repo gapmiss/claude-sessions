@@ -120,6 +120,22 @@ export function renderToolCall(
 			text: 'background',
 		});
 	}
+
+	// Hook indicator (inline PreToolUse events)
+	const hookEvents = ctx.hookEventsByToolId?.get(block.id);
+	if (hookEvents && hookEvents.length > 0) {
+		const hookIndicator = header.createSpan({ cls: 'claude-sessions-tool-hook-indicator' });
+		setIcon(hookIndicator, 'zap');
+		// Build tooltip content
+		const tooltipLines = hookEvents.map(h => {
+			const parts: string[] = [h.hookEvent];
+			if (h.durationMs > 0) parts.push(`${h.durationMs}ms`);
+			return parts.join(' · ');
+		});
+		hookIndicator.setAttribute('aria-label', tooltipLines.join('\n'));
+		hookIndicator.setAttribute('data-tooltip-position', 'top');
+	}
+
 	header.createSpan({ cls: 'claude-sessions-tool-chevron', text: '\u25B6' });
 
 	// Body (hidden by default)
@@ -152,6 +168,38 @@ export function renderToolCall(
 		&& !(block.name === 'Write' && block.input['content'] != null)
 		&& !((block.name === 'Agent' || block.name === 'Task') && block.subAgentSession)) {
 		renderToolResult(block, result, isError, body, ctx, delegate);
+	}
+
+	// Hook details section (inline PreToolUse events)
+	if (hookEvents && hookEvents.length > 0) {
+		const hookSection = body.createDiv({ cls: 'claude-sessions-tool-hook-section' });
+		hookSection.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'HOOKS' });
+		for (const hook of hookEvents) {
+			const hookEl = hookSection.createDiv({ cls: 'claude-sessions-tool-hook-item' });
+			// Header line: event type, duration, command
+			const hookHeader = hookEl.createDiv({ cls: 'claude-sessions-tool-hook-header' });
+			hookHeader.createSpan({ cls: 'claude-sessions-tool-hook-event', text: hook.hookEvent });
+			if (hook.durationMs > 0) {
+				hookHeader.createSpan({ cls: 'claude-sessions-tool-hook-duration', text: `${hook.durationMs}ms` });
+			}
+			if (hook.command) {
+				const cmdName = hook.command.split('/').pop() ?? hook.command;
+				hookHeader.createSpan({ cls: 'claude-sessions-tool-hook-command', text: cmdName });
+			}
+			// Stdout content (if any)
+			if (hook.stdout && hook.stdout.trim()) {
+				const stdoutEl = hookEl.createDiv({ cls: 'claude-sessions-tool-hook-stdout' });
+				// Try to parse as JSON for pretty display
+				try {
+					const parsed: unknown = JSON.parse(hook.stdout);
+					const formatted = JSON.stringify(parsed, null, 2);
+					const codeEl = stdoutEl.createEl('pre');
+					codeEl.createEl('code', { text: formatted });
+				} catch {
+					stdoutEl.createEl('pre').createEl('code', { text: hook.stdout.trim() });
+				}
+			}
+		}
 	}
 
 	makeClickable(header, { label: `Toggle ${block.name} details`, expanded: false });

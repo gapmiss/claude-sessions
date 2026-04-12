@@ -1,11 +1,13 @@
 import { App, Component, setIcon } from 'obsidian';
-import type { PluginSettings } from '../types';
+import type { PluginSettings, HookSuccessEvent } from '../types';
 
 /** Shared context passed to all renderer functions. */
 export interface RenderContext {
 	app: App;
 	component: Component;
 	settings: PluginSettings;
+	/** Map of toolUseId → HookSuccessEvent[] for inline hook indicators */
+	hookEventsByToolId?: Map<string, HookSuccessEvent[]>;
 }
 
 export const COLLAPSE_THRESHOLD = 10;
