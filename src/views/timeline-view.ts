@@ -251,6 +251,9 @@ export class TimelineView extends ItemView {
 			// Incremental DOM path: if the session only grew (append-only),
 			// update just what changed instead of tearing down the whole DOM.
 			if (this.renderer && this.observer && prevCount > 0 && newCount >= prevCount) {
+				// Update hook events map for inline indicators during live watch
+				this.renderer.updateHookEvents(session);
+
 				// Refresh turns containing background agents that just completed
 				if (pendingBgAgents.size > 0) {
 					for (let ti = 0; ti < prevCount - 1; ti++) {

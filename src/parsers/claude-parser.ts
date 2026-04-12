@@ -538,6 +538,10 @@ export class ClaudeParser extends BaseParser {
 		const turns: Turn[] = [];
 		const systemEvents: SystemEvent[] = [];
 		const toolUseNames = new Map<string, string>();
+		// Map record uuid → [{toolUseId, toolName}] for resolving async_hook_response parentUuid
+		const uuidToToolResults = new Map<string, Array<{ toolUseId: string; toolName: string }>>();
+		// Map uuid → parentUuid for walking up the parent chain
+		const uuidToParent = new Map<string, string>();
 		let currentAssistantTurn: Turn | null = null;
 		let pendingCompactMeta: { trigger?: string; preTokens?: number } | null = null;
 
@@ -550,6 +554,11 @@ export class ClaudeParser extends BaseParser {
 		};
 
 		for (const record of ordered) {
+			// Track parent chain for async_hook_response resolution
+			if (record.uuid && record.parentUuid) {
+				uuidToParent.set(record.uuid, record.parentUuid);
+			}
+
 			// Summary records → compaction boundary
 			if (record.type === RT_SUMMARY) {
 				flushAssistant();
@@ -715,6 +724,15 @@ export class ClaudeParser extends BaseParser {
 
 				const toolResults = this.extractToolResultBlocks(record, toolUseNames);
 
+				// Track uuid → tool_use_id for async_hook_response resolution
+				if (toolResults.length > 0 && record.uuid) {
+					const entries = toolResults.map(r => ({
+						toolUseId: r.toolUseId,
+						toolName: r.toolName ?? '',
+					}));
+					uuidToToolResults.set(record.uuid, entries);
+				}
+
 				if (toolResults.length > 0 && currentAssistantTurn) {
 					for (const result of toolResults) {
 						currentAssistantTurn.contentBlocks.push(result);
@@ -819,6 +837,23 @@ export class ClaudeParser extends BaseParser {
 						toolUseId: typeof att.toolUseID === 'string' ? att.toolUseID : undefined,
 					} as HookSuccessEvent);
 				} else if (att.type === 'async_hook_response') {
+					// Resolve toolUseId via parentUuid → tool_result mapping
+					// Walk up the parent chain to find a record with tool_results
+					let resolvedToolUseId: string | undefined;
+					let currentUuid = record.parentUuid;
+					const maxDepth = 10; // Prevent infinite loops
+					for (let depth = 0; depth < maxDepth && currentUuid; depth++) {
+						const parentEntries = uuidToToolResults.get(currentUuid);
+						if (parentEntries && parentEntries.length > 0) {
+							// Extract tool name from hookName (e.g., "PermissionRequest:Bash" → "Bash")
+							const hookToolName = str(att.hookName).split(':')[1] ?? '';
+							const match = parentEntries.find(e => e.toolName === hookToolName);
+							resolvedToolUseId = match?.toolUseId ?? parentEntries[0].toolUseId;
+							break;
+						}
+						// Move up to grandparent
+						currentUuid = uuidToParent.get(currentUuid);
+					}
 					systemEvents.push({
 						...baseEvent,
 						type: 'async_hook_response',
@@ -828,6 +863,7 @@ export class ClaudeParser extends BaseParser {
 						stdout: str(att.stdout),
 						stderr: str(att.stderr),
 						exitCode: typeof att.exitCode === 'number' ? att.exitCode : 0,
+						toolUseId: resolvedToolUseId,
 					} as AsyncHookResponseEvent);
 				} else if (att.type === 'task_reminder') {
 					systemEvents.push({

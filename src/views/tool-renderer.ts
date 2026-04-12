@@ -121,19 +121,31 @@ export function renderToolCall(
 		});
 	}
 
-	// Hook indicator (inline PreToolUse events)
+	// Hook indicators (inline hook events: PreToolUse, PermissionRequest)
 	const hookEvents = ctx.hookEventsByToolId?.get(block.id);
 	if (hookEvents && hookEvents.length > 0) {
-		const hookIndicator = header.createSpan({ cls: 'claude-sessions-tool-hook-indicator' });
-		setIcon(hookIndicator, 'zap');
-		// Build tooltip content
-		const tooltipLines = hookEvents.map(h => {
-			const parts: string[] = [h.hookEvent];
-			if (h.durationMs > 0) parts.push(`${h.durationMs}ms`);
-			return parts.join(' · ');
-		});
-		hookIndicator.setAttribute('aria-label', tooltipLines.join('\n'));
-		hookIndicator.setAttribute('data-tooltip-position', 'top');
+		const hasPreToolUse = hookEvents.some(h => h.hookEvent === 'PreToolUse');
+		const hasPermission = hookEvents.some(h => h.hookEvent === 'PermissionRequest');
+
+		if (hasPreToolUse) {
+			const preToolIndicator = header.createSpan({ cls: 'claude-sessions-tool-hook-indicator' });
+			setIcon(preToolIndicator, 'zap');
+			const preToolEvents = hookEvents.filter(h => h.hookEvent === 'PreToolUse');
+			const tooltip = preToolEvents.map(h => {
+				const parts: string[] = ['PreToolUse'];
+				if (h.type === 'hook_success' && h.durationMs > 0) parts.push(`${h.durationMs}ms`);
+				return parts.join(' · ');
+			}).join('\n');
+			preToolIndicator.setAttribute('aria-label', tooltip);
+			preToolIndicator.setAttribute('data-tooltip-position', 'top');
+		}
+
+		if (hasPermission) {
+			const permIndicator = header.createSpan({ cls: 'claude-sessions-tool-hook-indicator claude-sessions-tool-hook-permission' });
+			setIcon(permIndicator, 'shield-check');
+			permIndicator.setAttribute('aria-label', 'Permission request');
+			permIndicator.setAttribute('data-tooltip-position', 'top');
+		}
 	}
 
 	header.createSpan({ cls: 'claude-sessions-tool-chevron', text: '\u25B6' });
@@ -170,11 +182,12 @@ export function renderToolCall(
 		renderToolResult(block, result, isError, body, ctx, delegate);
 	}
 
-	// Hook details section (inline PreToolUse events)
-	if (hookEvents && hookEvents.length > 0) {
+	// Hook details section (only for PreToolUse - PermissionRequest just shows icon)
+	const preToolUseHooks = hookEvents?.filter(h => h.type === 'hook_success') ?? [];
+	if (preToolUseHooks.length > 0) {
 		const hookSection = body.createDiv({ cls: 'claude-sessions-tool-hook-section' });
 		hookSection.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'HOOKS' });
-		for (const hook of hookEvents) {
+		for (const hook of preToolUseHooks) {
 			const hookEl = hookSection.createDiv({ cls: 'claude-sessions-tool-hook-item' });
 			// Header line: event type, duration, command
 			const hookHeader = hookEl.createDiv({ cls: 'claude-sessions-tool-hook-header' });

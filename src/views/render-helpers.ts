@@ -1,13 +1,16 @@
 import { App, Component, setIcon } from 'obsidian';
-import type { PluginSettings, HookSuccessEvent } from '../types';
+import type { PluginSettings, HookSuccessEvent, AsyncHookResponseEvent } from '../types';
+
+/** Hook events that can be displayed inline with tool calls. */
+export type InlineHookEvent = HookSuccessEvent | AsyncHookResponseEvent;
 
 /** Shared context passed to all renderer functions. */
 export interface RenderContext {
 	app: App;
 	component: Component;
 	settings: PluginSettings;
-	/** Map of toolUseId → HookSuccessEvent[] for inline hook indicators */
-	hookEventsByToolId?: Map<string, HookSuccessEvent[]>;
+	/** Map of toolUseId → InlineHookEvent[] for inline hook indicators */
+	hookEventsByToolId?: Map<string, InlineHookEvent[]>;
 }
 
 export const COLLAPSE_THRESHOLD = 10;

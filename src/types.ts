@@ -87,6 +87,7 @@ export interface AsyncHookResponseEvent extends BaseSystemEvent {
 	stdout: string;
 	stderr: string;
 	exitCode: number;
+	toolUseId?: string;
 }
 
 export interface TaskReminderEvent extends BaseSystemEvent {

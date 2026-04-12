@@ -11,9 +11,9 @@ export function renderSystemEvents(session: Session, container: HTMLElement): vo
 	if (!events || events.length === 0) return;
 
 	// Group events by type
-	// Exclude hook_success events with toolUseId (shown inline with tool calls)
+	// Exclude events with toolUseId (shown inline with tool calls)
 	const hooks = events.filter((e): e is HookSuccessEvent | AsyncHookResponseEvent =>
-		(e.type === 'hook_success' && !e.toolUseId) || e.type === 'async_hook_response');
+		(e.type === 'hook_success' && !e.toolUseId) || (e.type === 'async_hook_response' && !e.toolUseId));
 	const skills = events.filter((e): e is SkillListingEvent => e.type === 'skill_listing');
 	const tasks = events.filter((e): e is TaskReminderEvent => e.type === 'task_reminder' && e.itemCount > 0);
 

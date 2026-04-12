@@ -1,8 +1,9 @@
 import { App, Modal, MarkdownRenderer, Component, setIcon } from 'obsidian';
 import type {
 	Turn, ContentBlock, AnsiBlock, CompactionBlock, SlashCommandBlock, BashCommandBlock,
-	PluginSettings, Session, HookSuccessEvent,
+	PluginSettings, Session,
 } from '../types';
+import type { InlineHookEvent } from './render-helpers';
 import {
 	type RenderContext, COLLAPSE_THRESHOLD,
 	makeClickable, shortModelName, addCopyButton, normalizeMarkdown, fence,
@@ -57,9 +58,10 @@ export class TimelineRenderer {
 
 		// Build hook events map for inline indicators
 		if (session) {
-			const hookMap = new Map<string, HookSuccessEvent[]>();
+			const hookMap = new Map<string, InlineHookEvent[]>();
 			for (const evt of session.systemEvents) {
-				if (evt.type === 'hook_success' && evt.toolUseId) {
+				// Include both hook_success and async_hook_response events with toolUseId
+				if ((evt.type === 'hook_success' || evt.type === 'async_hook_response') && evt.toolUseId) {
 					const existing = hookMap.get(evt.toolUseId);
 					if (existing) {
 						existing.push(evt);
@@ -84,6 +86,25 @@ export class TimelineRenderer {
 		this.processMermaidBlocks(this.container);
 
 		return this.turnEls;
+	}
+
+	/**
+	 * Update the hook events map from the session's system events.
+	 * Call this before refreshing or appending turns during live watch.
+	 */
+	updateHookEvents(session: Session): void {
+		const hookMap = new Map<string, InlineHookEvent[]>();
+		for (const evt of session.systemEvents) {
+			if ((evt.type === 'hook_success' || evt.type === 'async_hook_response') && evt.toolUseId) {
+				const existing = hookMap.get(evt.toolUseId);
+				if (existing) {
+					existing.push(evt);
+				} else {
+					hookMap.set(evt.toolUseId, [evt]);
+				}
+			}
+		}
+		this.ctx.hookEventsByToolId = hookMap;
 	}
 
 	/**

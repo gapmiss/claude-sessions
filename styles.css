@@ -969,21 +969,24 @@
 	font-size: 0.75em;
 }
 
-/* Hook indicator (inline PreToolUse events) */
+/* Hook indicators (inline hook events) */
 .claude-sessions-tool-hook-indicator {
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	width: 20px;
 	height: 20px;
-	/* color: var(--color-yellow); */
+	color: var(--text-faint);
 	flex-shrink: 0;
-	/* cursor: help; */
 }
 
 .claude-sessions-tool-hook-indicator svg {
 	width: 14px;
 	height: 14px;
+}
+
+.claude-sessions-tool-hook-permission {
+	color: var(--color-green);
 }
 
 /* Hook details section in tool body */
