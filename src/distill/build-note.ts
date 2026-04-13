@@ -316,7 +316,7 @@ function quoteIfNeeded(value: string): string {
 		value === '' ||
 		value.startsWith(' ') ||
 		value.endsWith(' ') ||
-		/[:#\[\]{}|>&*!?'"\n\r\t\\]/.test(value) ||
+		/[:#[\]{}|>&*!?'"\n\r\t\\]/.test(value) ||
 		['true', 'false', 'null', 'yes', 'no', 'on', 'off'].includes(value.toLowerCase());
 
 	if (!needsQuote) return value;

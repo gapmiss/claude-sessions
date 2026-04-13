@@ -96,8 +96,7 @@ export class SettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Bases folder')
-			// eslint-disable-next-line obsidianmd/ui/sentence-case -- Product name
-			.setDesc('Vault folder for Obsidian Bases dashboard templates.')
+			.setDesc('Vault folder for dashboard templates.')
 			.addSearch(search => {
 				search
 					.setPlaceholder('Claude sessions/bases')

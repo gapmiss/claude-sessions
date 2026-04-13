@@ -99,7 +99,7 @@ function quote(value: string): string {
 		value === '' ||
 		value.startsWith(' ') ||
 		value.endsWith(' ') ||
-		/[:#\[\]{}|>&*!?'"\n\r\t\\]/.test(value) ||
+		/[:#[\]{}|>&*!?'"\n\r\t\\]/.test(value) ||
 		/^[\d.+-]/.test(value) ||  // Could be parsed as number
 		['true', 'false', 'null', 'yes', 'no', 'on', 'off'].includes(value.toLowerCase());
 
