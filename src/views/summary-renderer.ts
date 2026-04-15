@@ -379,11 +379,11 @@ function formatRelativeTime(date: Date): string {
 	else if (minutes < 60) relative = `${minutes}m`;
 	else if (absDiffMs < 86_400_000) {
 		const h = Math.floor(absDiffMs / 3_600_000);
-		const m = Math.round((absDiffMs % 3_600_000) / 60_000);
+		const m = Math.floor((absDiffMs % 3_600_000) / 60_000);
 		relative = m > 0 ? `${h}h ${m}m` : `${h}h`;
 	} else {
 		const d = Math.floor(absDiffMs / 86_400_000);
-		const h = Math.round((absDiffMs % 86_400_000) / 3_600_000);
+		const h = Math.floor((absDiffMs % 86_400_000) / 3_600_000);
 		relative = h > 0 ? `${d}d ${h}h` : `${d}d`;
 	}
 
