@@ -520,9 +520,18 @@ expandAll(): void {
 				if (h) h.setAttribute('aria-expanded', 'true');
 			}
 		}
+		// Expand collapsible text blocks (show more / show less)
+		for (const wrap of Array.from(this.timelineEl.querySelectorAll<HTMLElement>('.claude-sessions-collapsible-wrap.is-collapsed'))) {
+			wrap.removeClass('is-collapsed');
+			const btn = wrap.querySelector<HTMLElement>('.claude-sessions-collapsible-toggle');
+			if (btn) {
+				btn.setText('Show less');
+				btn.setAttribute('aria-expanded', 'true');
+			}
+		}
 	}
 
-	/** Collapse all collapsible blocks: tools, thinking, summary, sub-agents, slash commands, compaction */
+	/** Collapse all collapsible blocks: tools, thinking, summary, sub-agents, slash commands, compaction, text */
 	collapseAllBlocks(): void {
 		if (!this.timelineEl) return;
 		const selectors = [
@@ -539,6 +548,16 @@ expandAll(): void {
 				el.removeClass('open');
 				const h = el.querySelector(header);
 				if (h) h.setAttribute('aria-expanded', 'false');
+			}
+		}
+		// Collapse collapsible text blocks (show more / show less)
+		for (const wrap of Array.from(this.timelineEl.querySelectorAll<HTMLElement>('.claude-sessions-collapsible-wrap:not(.is-collapsed)'))) {
+			wrap.addClass('is-collapsed');
+			const btn = wrap.querySelector<HTMLElement>('.claude-sessions-collapsible-toggle');
+			if (btn) {
+				const lineCount = btn.getAttribute('data-line-count') ?? '';
+				btn.setText(lineCount ? `Show more (${lineCount} lines)` : 'Show more');
+				btn.setAttribute('aria-expanded', 'false');
 			}
 		}
 	}
