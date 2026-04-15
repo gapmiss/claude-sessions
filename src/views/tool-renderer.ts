@@ -1,7 +1,7 @@
 import { MarkdownRenderer, setIcon } from 'obsidian';
 import { diffLines } from 'diff';
 import type { ContentBlock, ToolUseBlock, ToolResultBlock, ToolResultImage, SubAgentSession } from '../types';
-import { TASK_TOOL_NAMES, ANSI_RE } from '../constants';
+import { TASK_TOOL_NAMES, ANSI_RE, RE_SYSTEM_REMINDER } from '../constants';
 import {
 	type RenderContext, COLLAPSE_THRESHOLD,
 	makeClickable, fence, langFromPath, stripLineNumbers, addCopyButton,
@@ -257,7 +257,7 @@ function renderToolResult(
 	} else if (block.name === 'Read' && !isError) {
 		const filePath = typeof block.input['file_path'] === 'string' ? block.input['file_path'] : '';
 		const lang = langFromPath(filePath);
-		const cleaned = stripLineNumbers(resultText);
+		const cleaned = stripLineNumbers(resultText).replace(RE_SYSTEM_REMINDER, '').trim();
 		const isMarkdownFile = /\.mdx?$/i.test(filePath);
 
 		if (isMarkdownFile) {
