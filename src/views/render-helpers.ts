@@ -33,9 +33,9 @@ const EXT_TO_LANG: Record<string, string> = {
 	tf: 'hcl', hcl: 'hcl', nix: 'nix', zig: 'zig', v: 'v',
 };
 
-/** Strip `cat -n` style line numbers: leading whitespace + digits + arrow/tab */
+/** Strip `cat -n` style line numbers: digits + arrow/tab separator */
 export function stripLineNumbers(text: string): string {
-	return text.replace(/^[ \t]*\d+[\u2192\t][ \t]?/gm, '');
+	return text.replace(/^\d+[\u2192\t]/gm, '');
 }
 
 /** Extract language from a file path's extension. */
