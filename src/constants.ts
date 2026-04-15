@@ -104,3 +104,7 @@ export const ANSI_COMMANDS = new Set(['/context']);
 
 // ── Task management tool names ──────────────────────────────
 export const TASK_TOOL_NAMES = new Set(['TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet']);
+
+// ── Duration calculation ────────────────────────────────────
+/** Gap threshold (30 min) — gaps larger than this are excluded from active duration */
+export const DURATION_GAP_THRESHOLD_MS = 30 * 60 * 1000;

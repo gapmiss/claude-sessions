@@ -21,6 +21,7 @@ import {
 	RE_IMAGE_REF, RE_LOCAL_STDOUT_TAGS,
 	TEXT_SESSION_ENDED, TEXT_INTERRUPTION,
 	ANSI_COMMANDS, ANSI_RE, RE_AGENT_ID,
+	DURATION_GAP_THRESHOLD_MS,
 } from '../constants';
 import { parseTaskNotification } from './claude-subagent';
 import { Logger } from '../utils/logger';
@@ -450,15 +451,31 @@ export class ClaudeParser extends BaseParser {
 			}
 		}
 
-		// Duration from first to last timestamp
+		// Active duration — sum turn durations + gaps <= threshold (excludes idle time from resumed sessions)
 		let durationMs = 0;
 		if (turns.length > 0) {
-			const first = turns[0].timestamp;
-			const lastTurn = turns[turns.length - 1];
-			const last = lastTurn.endTimestamp ?? lastTurn.timestamp;
-			if (first && last) {
-				const d = new Date(last).getTime() - new Date(first).getTime();
-				if (!isNaN(d) && d >= 0) durationMs = d;
+			for (let i = 0; i < turns.length; i++) {
+				const turn = turns[i];
+				if (!turn.timestamp) continue;
+				const turnStart = new Date(turn.timestamp).getTime();
+				const turnEnd = new Date(turn.endTimestamp ?? turn.timestamp).getTime();
+				// Add the turn's own duration
+				if (!isNaN(turnStart) && !isNaN(turnEnd) && turnEnd >= turnStart) {
+					durationMs += turnEnd - turnStart;
+				}
+				// Add gap to next turn if within threshold
+				if (i < turns.length - 1) {
+					const nextTs = turns[i + 1].timestamp;
+					if (nextTs) {
+						const nextStart = new Date(nextTs).getTime();
+						if (!isNaN(turnEnd) && !isNaN(nextStart)) {
+							const gap = nextStart - turnEnd;
+							if (gap > 0 && gap <= DURATION_GAP_THRESHOLD_MS) {
+								durationMs += gap;
+							}
+						}
+					}
+				}
 			}
 		}
 

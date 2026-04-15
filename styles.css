@@ -2506,7 +2506,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: var(--size-2-2) var(--size-4-4);
+	padding: var(--size-4-2) var(--size-4-4);
 	border-bottom: 1px solid var(--background-modifier-border);
 }
 
@@ -2541,6 +2541,7 @@
 	min-height: 32px;
 	padding: 0 var(--size-4-2);
 	background: var(--background-secondary);
+	border: var(--input-border-width) solid var(--background-modifier-border);
 	border-radius: var(--radius-m);
 }
 
