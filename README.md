@@ -275,6 +275,21 @@ The timeline view renders all turns immediately into a scrollable container. An 
 
 ---
 
+## Preserving Session History
+
+> [!WARNING]
+> Claude Code automatically deletes session files older than **30 days** by default. If you're using this plugin for cost tracking, session analysis, or building a knowledge base from past conversations, you'll want to extend this.
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "cleanupPeriodDays": 365
+}
+```
+
+---
+
 ## Public API
 
 Other plugins can access session data via the public API:
