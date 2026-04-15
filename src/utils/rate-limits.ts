@@ -2,6 +2,7 @@ import { Platform, requestUrl } from 'obsidian';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
+import { Logger } from './logger';
 
 export interface RateLimitData {
 	fiveHourPercent: number | null;
@@ -40,13 +41,17 @@ let inflight: Promise<RateLimitData | null> | null = null;
  * or macOS Keychain. Returns null if unavailable or expired.
  */
 function getAccessToken(): string | null {
-	if (!Platform.isDesktop) return null;
+	if (!Platform.isDesktop) {
+		Logger.debug('[rate-limits] not desktop, skipping token retrieval');
+		return null;
+	}
 
 	const home = process.env.HOME || process.env.USERPROFILE || '';
 
 	// Try macOS Keychain first
 	if (process.platform === 'darwin') {
 		try {
+			Logger.debug('[rate-limits] attempting keychain lookup...');
 			const raw = execSync(
 				'security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null',
 				{ encoding: 'utf-8', timeout: 3000 },
@@ -55,24 +60,48 @@ function getAccessToken(): string | null {
 				const parsed = JSON.parse(raw) as CredentialData;
 				const creds = parsed.claudeAiOauth ?? parsed;
 				if (creds.accessToken) {
-					if (creds.expiresAt && creds.expiresAt <= Date.now()) return null;
+					if (creds.expiresAt && creds.expiresAt <= Date.now()) {
+						Logger.warn('[rate-limits] keychain token expired', {
+							expiresAt: new Date(creds.expiresAt).toISOString(),
+							now: new Date().toISOString(),
+						});
+						return null;
+					}
+					Logger.debug('[rate-limits] keychain token found and valid');
 					return creds.accessToken;
 				}
 			}
-		} catch { /* fall through to file */ }
+			Logger.debug('[rate-limits] keychain entry found but no accessToken');
+		} catch (err) {
+			Logger.debug('[rate-limits] keychain lookup failed, trying file', err);
+		}
 	}
 
 	// Fall back to credentials file
 	const credPath = path.join(home, '.claude', '.credentials.json');
+	Logger.debug('[rate-limits] checking credentials file:', credPath);
 	try {
-		if (!fs.existsSync(credPath)) return null;
+		if (!fs.existsSync(credPath)) {
+			Logger.debug('[rate-limits] credentials file not found');
+			return null;
+		}
 		const parsed = JSON.parse(fs.readFileSync(credPath, 'utf-8')) as CredentialData;
 		const creds = parsed.claudeAiOauth ?? parsed;
 		if (creds.accessToken) {
-			if (creds.expiresAt && creds.expiresAt <= Date.now()) return null;
+			if (creds.expiresAt && creds.expiresAt <= Date.now()) {
+				Logger.warn('[rate-limits] file token expired', {
+					expiresAt: new Date(creds.expiresAt).toISOString(),
+					now: new Date().toISOString(),
+				});
+				return null;
+			}
+			Logger.debug('[rate-limits] file token found and valid');
 			return creds.accessToken;
 		}
-	} catch { /* ignore */ }
+		Logger.debug('[rate-limits] credentials file parsed but no accessToken');
+	} catch (err) {
+		Logger.error('[rate-limits] failed to read credentials file', err);
+	}
 
 	return null;
 }
@@ -85,26 +114,26 @@ export async function fetchRateLimits(): Promise<RateLimitData | null> {
 	// Return cached if fresh
 	if (cached && (Date.now() - cached.fetchedAt) < CACHE_TTL_MS) {
 		const age = Math.round((Date.now() - cached.fetchedAt) / 1000);
-		console.debug(`[rate-limits] returning cached data (${age}s old)`);
+		Logger.debug(`[rate-limits] returning cached data (${age}s old)`);
 		return cached.data;
 	}
 
 	// Deduplicate concurrent requests
 	if (inflight) {
-		console.debug('[rate-limits] request already inflight, deduping');
+		Logger.debug('[rate-limits] request already inflight, deduping');
 		return inflight;
 	}
 
-	console.debug('[rate-limits] fetching fresh data...');
+	Logger.debug('[rate-limits] fetching fresh data...');
 
 	inflight = (async () => {
 		try {
 			const token = getAccessToken();
 			if (!token) {
-				console.warn('[rate-limits] no OAuth token found');
+				Logger.warn('[rate-limits] no OAuth token found');
 				return cached?.data ?? null;
 			}
-			console.debug('[rate-limits] token found, calling API...');
+			Logger.debug('[rate-limits] token found, calling API...');
 
 			const response = await requestUrl({
 				url: 'https://api.anthropic.com/api/oauth/usage',
@@ -117,12 +146,12 @@ export async function fetchRateLimits(): Promise<RateLimitData | null> {
 			});
 
 			if (response.status !== 200) {
-				console.warn(`[rate-limits] API returned status ${response.status}`, response.text);
+				Logger.warn(`[rate-limits] API returned status ${response.status}`, response.text);
 				return cached?.data ?? null;
 			}
 
 			const body = response.json as UsageResponse;
-			console.debug('[rate-limits] API response:', JSON.stringify(body, null, 2));
+			Logger.debug('[rate-limits] API response:', JSON.stringify(body, null, 2));
 
 			const clamp = (v: unknown): number | null => {
 				if (v == null || typeof v !== 'number' || !isFinite(v)) return null;
@@ -137,10 +166,10 @@ export async function fetchRateLimits(): Promise<RateLimitData | null> {
 			};
 
 			cached = { data, fetchedAt: Date.now() };
-			console.debug('[rate-limits] cached fresh data:', data);
+			Logger.debug('[rate-limits] cached fresh data:', data);
 			return data;
 		} catch (err) {
-			console.error('[rate-limits] fetch failed:', err);
+			Logger.error('[rate-limits] fetch failed:', err);
 			return cached?.data ?? null;
 		} finally {
 			inflight = null;
