@@ -300,6 +300,7 @@ export class TimelineView extends ItemView {
 				}
 
 				// Update session reference and stats
+				const oldTitle = this.session?.metadata?.customTitle || this.session?.metadata?.project;
 				this.session = session;
 				this.computeTiming();
 				if (newCount > prevCount) {
@@ -308,6 +309,14 @@ export class TimelineView extends ItemView {
 				this.renderer.refreshSummary(session);
 				this.renderTurnDots();
 				this.updateControls();
+
+				// Update tab title if session was renamed
+				const newTitle = session.metadata?.customTitle || session.metadata?.project;
+				if (newTitle !== oldTitle) {
+					(this.leaf as unknown as { updateHeader?(): void }).updateHeader?.();
+					const titleEl = this.containerEl.parentElement?.querySelector<HTMLElement>('.view-header-title');
+					if (titleEl) titleEl.textContent = this.getDisplayText();
+				}
 
 				// Auto-scroll to bottom (matches loadSession behavior)
 				if (this.settings.autoScrollOnUpdate && this.timelineEl) {
