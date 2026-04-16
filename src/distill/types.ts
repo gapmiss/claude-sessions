@@ -35,6 +35,7 @@ export interface DistilledFrontmatter {
 	cwd: string;
 	branch?: string;
 	model?: string;
+	title?: string;
 
 	// Timing
 	start_time?: string;
@@ -42,6 +43,7 @@ export interface DistilledFrontmatter {
 
 	// Cost & tokens
 	cost_usd?: number;
+	context_tokens?: number;
 	input_tokens?: number;
 	output_tokens?: number;
 	cache_read_tokens?: number;

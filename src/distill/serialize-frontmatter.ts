@@ -27,6 +27,7 @@ export function serializeFrontmatter(fm: DistilledFrontmatter): string {
 	lines.push(`cwd: ${quote(fm.cwd)}`);
 	if (fm.branch) lines.push(`branch: ${quote(fm.branch)}`);
 	if (fm.model) lines.push(`model: ${quote(fm.model)}`);
+	if (fm.title) lines.push(`title: ${quote(fm.title)}`);
 
 	// Timing
 	if (fm.start_time || fm.duration_min !== undefined) {
@@ -39,6 +40,7 @@ export function serializeFrontmatter(fm: DistilledFrontmatter): string {
 	if (fm.cost_usd !== undefined || fm.input_tokens !== undefined) {
 		lines.push('');
 		if (fm.cost_usd !== undefined) lines.push(`cost_usd: ${fm.cost_usd}`);
+		if (fm.context_tokens !== undefined) lines.push(`context_tokens: ${fm.context_tokens}`);
 		if (fm.input_tokens !== undefined) lines.push(`input_tokens: ${fm.input_tokens}`);
 		if (fm.output_tokens !== undefined) lines.push(`output_tokens: ${fm.output_tokens}`);
 		if (fm.cache_read_tokens !== undefined) lines.push(`cache_read_tokens: ${fm.cache_read_tokens}`);

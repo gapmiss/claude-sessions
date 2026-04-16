@@ -43,6 +43,7 @@ export function extractFrontmatter(
 	// Optional metadata fields
 	if (metadata.branch) frontmatter.branch = metadata.branch;
 	if (metadata.model) frontmatter.model = metadata.model;
+	if (metadata.customTitle) frontmatter.title = metadata.customTitle;
 	if (metadata.startTime) frontmatter.start_time = metadata.startTime;
 
 	// Timing
@@ -54,6 +55,7 @@ export function extractFrontmatter(
 	if (stats.costUSD > 0) {
 		frontmatter.cost_usd = Math.round(stats.costUSD * 100) / 100;
 	}
+	if (stats.contextWindowTokens > 0) frontmatter.context_tokens = stats.contextWindowTokens;
 	if (stats.inputTokens > 0) frontmatter.input_tokens = stats.inputTokens;
 	if (stats.outputTokens > 0) frontmatter.output_tokens = stats.outputTokens;
 	if (stats.cacheReadTokens > 0) frontmatter.cache_read_tokens = stats.cacheReadTokens;
