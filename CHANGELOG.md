@@ -8,6 +8,42 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.2.15]
+
+### Added
+- `context_tokens` field in distill frontmatter (context window size from session stats)
+- `title` field in distill frontmatter (custom session name from `/rename` command)
+- Logger-based debugging for rate limits module
+
+### Fixed
+- Duration calculation now uses active time instead of wall-clock time — resumed sessions no longer show inflated durations (e.g., 17,000+ minutes for sessions spanning multiple days)
+- Tab title updates correctly when session is renamed during live watch
+- Line number indentation preserved when stripping from Read tool output
+- System-reminder tags stripped from Read tool results
+- Expand/collapse all now includes text blocks
+- Relative time formatting no longer shows "3h 60m"
+- Distill merge serialization preserves field ordering for new fields
+
+### Changed
+- Updated `/distill` skill template with new frontmatter fields
+- Updated GOTCHAS.md with frontmatter serialization touchpoints
+- Added warning about Claude Code's 30-day session cleanup to docs
+
+---
+
+## [0.2.14] - 2026-04-12
+
+### Fixed
+- Obsidian reviewbot scan issues
+- Rate limit TTL changed from 5 mins to 1 min
+- All AUDIT-2026-04-12 priority items addressed
+
+### Changed
+- README.md refactored
+- Distill SKILL.md optimized
+
+---
+
 ## [0.2.13] - 2026-04-12
 
 ### Added
@@ -117,6 +153,8 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+[0.2.15]: https://github.com/gapmiss/claude-sessions/compare/0.2.14...HEAD
+[0.2.14]: https://github.com/gapmiss/claude-sessions/compare/0.2.13...0.2.14
 [0.2.13]: https://github.com/gapmiss/claude-sessions/compare/0.2.12...0.2.13
 [0.2.12]: https://github.com/gapmiss/claude-sessions/compare/0.2.11...0.2.12
 [0.2.11]: https://github.com/gapmiss/claude-sessions/compare/0.2.10...0.2.11

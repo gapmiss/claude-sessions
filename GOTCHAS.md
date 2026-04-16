@@ -51,6 +51,7 @@ Reference document for known pitfalls. Not auto-included — use `@GOTCHAS.md` w
 - Custom session titles from `/rename` command are stored as `<custom-title>text</custom-title>` XML in a user record. Parser captures into `metadata.customTitle`
 - `ToolSearch` results use `tool_reference` content blocks (`{"type":"tool_reference","tool_name":"..."}`) instead of text blocks — must extract `tool_name` or result appears empty
 - System events (hooks, skills, task reminders) are captured during first pass but rendered after summary panel, not with turns — they provide session-level context
+- Session duration must use **active time**, not wall-clock (`lastTimestamp - firstTimestamp`). Resumed sessions can span days/weeks of idle time. Calculate by summing turn durations + gaps ≤ 30 minutes, excluding larger gaps as session breaks
 
 ## Slash Commands / Skills
 
@@ -99,6 +100,8 @@ Reference document for known pitfalls. Not auto-included — use `@GOTCHAS.md` w
 - `obsidian_uri` encodes the full session path for protocol handler linking — special characters must be URI-encoded
 - Bases templates use `.base` extension (Obsidian Bases format) — requires Obsidian 1.8+ with Bases feature enabled
 - Template formulas like `cost_display` use Bases expression syntax, not JavaScript — see Obsidian Bases docs
+- **Adding a frontmatter field requires FOUR file updates**: `types.ts` (interface), `extract-frontmatter.ts` (extraction), `serialize-frontmatter.ts` (primary serialization), and `build-note.ts` `orderedKeys` + section-end logic (merge serialization). Missing any one causes silent field omission or misordering
+- Merge serializer (`serializeMergedFrontmatter`) has its own `orderedKeys` array separate from the primary `serializeFrontmatter` — both must be updated when adding fields
 
 ## Rendering
 
