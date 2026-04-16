@@ -29,9 +29,10 @@ interface UsageResponse {
 }
 
 /** How often to re-fetch from the API (5 minutes). */
-// const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL_MS = 5 * 60 * 1000;
 /** How often to re-fetch from the API (1 minute). */
-const CACHE_TTL_MS = 1 * 60 * 1000;
+// const CACHE_TTL_MS = 1 * 60 * 1000;
+// CAUSING TOO MANY REQUEST error 429
 
 let cached: CacheEntry | null = null;
 let inflight: Promise<RateLimitData | null> | null = null;
