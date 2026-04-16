@@ -254,9 +254,9 @@ function serializeMergedFrontmatter(fields: Map<string, string | string[]>): str
 	// Ordered keys for consistent output
 	const orderedKeys = [
 		'tags', 'session_id', 'schema_version',
-		'project', 'cwd', 'branch', 'model',
+		'project', 'cwd', 'branch', 'model', 'title',
 		'start_time', 'duration_min',
-		'cost_usd', 'input_tokens', 'output_tokens', 'cache_read_tokens',
+		'cost_usd', 'context_tokens', 'input_tokens', 'output_tokens', 'cache_read_tokens',
 		'user_turns', 'assistant_turns',
 		'tools_used', 'files_touched', 'error_count',
 		'session_type', 'source_path', 'obsidian_uri',
@@ -272,8 +272,10 @@ function serializeMergedFrontmatter(fields: Map<string, string | string[]>): str
 		const value = fields.get(key)!;
 		lines.push(formatField(key, value));
 
-		// Add blank line after sections
-		if (['schema_version', 'model', 'duration_min', 'cache_read_tokens', 'assistant_turns', 'session_type'].includes(key)) {
+		// Add blank line after sections (title is optional, so check both model and title)
+		const sectionEnds = ['schema_version', 'duration_min', 'cache_read_tokens', 'assistant_turns', 'session_type'];
+		const isProjectSectionEnd = (key === 'title') || (key === 'model' && !fields.has('title'));
+		if (sectionEnds.includes(key) || isProjectSectionEnd) {
 			lines.push('');
 		}
 	}
