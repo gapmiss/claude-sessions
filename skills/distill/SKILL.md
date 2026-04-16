@@ -25,11 +25,12 @@ When a metadata field cannot be determined, apply the following fallbacks rather
 | `branch` | `"unknown"` |
 | `source_path` | `"unknown"` |
 | `cost_usd` | `0` |
-| `input_tokens` / `output_tokens` / `cache_read_tokens` | `0` |
+| `context_tokens` / `input_tokens` / `output_tokens` / `cache_read_tokens` | `0` |
 | `duration_min` | `0` |
 | `error_count` | `0` |
 | `tools_used` | `[]` |
 | `files_touched` | *(omit field)* |
+| `title` | *(omit field)* |
 
 If `start_time` is unavailable, use the current timestamp and note it is approximate.
 
@@ -49,11 +50,13 @@ project: "{project_name}"
 cwd: "{working_directory}"
 branch: "{git_branch}"
 model: "{model_name}"
+title: "{custom_title}"          # only if session was renamed
 
 start_time: {ISO8601_timestamp}
 duration_min: {minutes}
 
 cost_usd: {cost}
+context_tokens: {context}
 input_tokens: {input}
 output_tokens: {output}
 cache_read_tokens: {cache_read}
