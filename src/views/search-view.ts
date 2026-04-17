@@ -1,8 +1,8 @@
 import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon } from 'obsidian';
 import type ClaudeSessionsPlugin from '../main';
 import type { Session, SessionListEntry } from '../types';
-import { searchSessions, searchSessionsRanked, searchFile, searchFileRanked, resolveMatchTurn } from '../utils/session-search';
-import type { SearchQuery, SearchMatch, SessionSearchResult } from '../utils/session-search';
+import { searchSessions, searchSessionsRanked, searchTurns, searchTurnsRanked, resolveMatchTurn } from '../utils/session-search';
+import type { SearchQuery, SearchMatch, InSessionMatch, SessionSearchResult } from '../utils/session-search';
 import { readFileContent, listDirectoryFiles } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
 import { resolveSubAgentSessions } from '../parsers/claude-subagent';
@@ -488,18 +488,15 @@ export class SearchView extends ItemView {
 
 	// ── In-session search ──
 
-	private async executeInSessionSearch(text: string): Promise<void> {
+	private executeInSessionSearch(text: string): void {
 		this.abortSearch();
 		this.resultsEl.empty();
 		this.activeRowEl = null;
 
-		if (!this.trackedFilePath || !this.trackedSession) {
+		if (!this.trackedSession) {
 			this.progressEl.setText('No session open.');
 			return;
 		}
-
-		const controller = new AbortController();
-		this.abortController = controller;
 
 		const query: SearchQuery = {
 			text,
@@ -507,14 +504,11 @@ export class SearchView extends ItemView {
 			roleFilter: this.roleFilter,
 		};
 
-		this.progressEl.setText('Searching...');
-
-		const searchFn = this.sortMode === 'relevance' ? searchFileRanked : searchFile;
-		const { matches, totalMatches } = await searchFn(
-			this.trackedFilePath, query, SINGLE_SESSION_MAX_MATCHES, controller.signal,
+		// Turn-based search is synchronous over in-memory turns — no signal needed.
+		const searchFn = this.sortMode === 'relevance' ? searchTurnsRanked : searchTurns;
+		const { matches, totalMatches } = searchFn(
+			this.trackedSession.turns, query, SINGLE_SESSION_MAX_MATCHES,
 		);
-
-		if (controller.signal.aborted) return;
 
 		if (matches.length === 0) {
 			this.progressEl.setText('No matches found.');
@@ -528,7 +522,7 @@ export class SearchView extends ItemView {
 
 		const visibleCount = Math.min(SINGLE_SESSION_VISIBLE, matches.length);
 		for (let i = 0; i < visibleCount; i++) {
-			this.renderInSessionMatchRow(matches[i], query);
+			this.renderInSessionMatchRow(matches[i]);
 		}
 
 		if (matches.length > SINGLE_SESSION_VISIBLE) {
@@ -541,23 +535,21 @@ export class SearchView extends ItemView {
 			moreBtn.addEventListener('click', () => {
 				moreBtn.remove();
 				for (let i = SINGLE_SESSION_VISIBLE; i < matches.length; i++) {
-					this.renderInSessionMatchRow(matches[i], query);
+					this.renderInSessionMatchRow(matches[i]);
 				}
 			});
 		}
 	}
 
-	private renderInSessionMatchRow(match: SearchMatch, query: SearchQuery): void {
+	private renderInSessionMatchRow(match: InSessionMatch): void {
 		const session = this.trackedSession;
 		if (!session) return;
 
 		const row = this.resultsEl.createDiv({ cls: 'claude-sessions-search-match-row' });
 		makeClickable(row, { label: 'Go to match' });
 
-		const resolvedTurn = resolveMatchTurn(match, session.turns);
-
-		// Turn label
-		row.createSpan({ cls: 'claude-sessions-search-match-turn', text: `#${resolvedTurn + 1}` });
+		// Turn-based search returns the precise turn index — no re-resolution needed.
+		row.createSpan({ cls: 'claude-sessions-search-match-turn', text: `#${match.turnIndex + 1}` });
 
 		// Score indicator (only in relevance mode)
 		if (match.score !== undefined) {
@@ -592,17 +584,17 @@ export class SearchView extends ItemView {
 
 		row.addEventListener('click', () => {
 			this.setActiveRow(row);
-			this.navigateToInSessionMatch(resolvedTurn, query.text, match.contextBefore);
+			this.navigateToInSessionMatch(match);
 		});
 	}
 
-	private navigateToInSessionMatch(turnIndex: number, query: string, matchContext?: string): void {
+	private navigateToInSessionMatch(match: InSessionMatch): void {
 		if (!this.trackedTimelineLeaf) return;
 		const view = this.trackedTimelineLeaf.view;
 		if (view instanceof TimelineView) {
 			// Reveal the timeline leaf so the user sees the result
 			void this.app.workspace.revealLeaf(this.trackedTimelineLeaf);
-			view.navigateToMatch(turnIndex, query, matchContext);
+			view.navigateToMatch(match.turnIndex, match.contentBlockIndex, match.matchText, match.occurrenceInBlock);
 		}
 	}
 
@@ -771,7 +763,17 @@ export class SearchView extends ItemView {
 			const session = parser.parse(content, entry.path);
 			await resolveSubAgentSessions(session, readFileContent, listDirectoryFiles);
 			const turnIndex = resolveMatchTurn(match, session.turns);
-			await this.plugin.openSession(session, turnIndex, query, match.contextBefore);
+
+			// Re-resolve the streaming match to precise (contentBlockIndex, charOffset, charLength)
+			// coordinates using the parsed turns. Prefer matches in the streaming-resolved turn,
+			// disambiguated by contextBefore when the turn has multiple hits (Gotcha C).
+			const { matches: precise } = searchTurns(session.turns, { text: query, caseSensitive: false });
+			const best = pickBestMatch(precise, turnIndex, match.contextBefore);
+			const highlight = best
+				? { contentBlockIndex: best.contentBlockIndex, text: best.matchText, occurrenceInBlock: best.occurrenceInBlock }
+				: undefined;
+
+			await this.plugin.openSession(session, turnIndex, highlight);
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			new Notice(`Failed to load session: ${msg}`);
@@ -801,4 +803,30 @@ function prevFocusable(current: HTMLElement, container: HTMLElement): HTMLElemen
 	const all = Array.from(container.querySelectorAll('.claude-sessions-search-match-row'));
 	const idx = all.indexOf(current);
 	return idx > 0 ? all[idx - 1] as HTMLElement : null;
+}
+
+/**
+ * Given precise turn-based matches and the streaming result's
+ * (turnIndex, contextBefore), pick the best coordinate target. Prefers
+ * matches in the same turn; when multiple, disambiguates by contextBefore
+ * suffix (Phase 2 Gotcha C). Returns undefined when no matches exist.
+ */
+function pickBestMatch(
+	matches: InSessionMatch[],
+	preferredTurnIndex: number,
+	contextBefore: string,
+): InSessionMatch | undefined {
+	if (matches.length === 0) return undefined;
+
+	const sameTurn = matches.filter(m => m.turnIndex === preferredTurnIndex);
+	if (sameTurn.length === 0) return matches[0];
+	if (sameTurn.length === 1) return sameTurn[0];
+
+	// Disambiguate multi-hit turns by the trailing characters of contextBefore.
+	const suffix = contextBefore.slice(-20).toLowerCase();
+	if (suffix) {
+		const byContext = sameTurn.find(m => m.contextBefore.toLowerCase().endsWith(suffix));
+		if (byContext) return byContext;
+	}
+	return sameTurn[0];
 }

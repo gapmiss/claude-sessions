@@ -57,7 +57,7 @@ export class TimelineView extends ItemView {
 	private watchBtn: HTMLButtonElement | null = null;
 
 	// Search highlight
-	private activeHighlight: HTMLElement | null = null;
+	private activeHighlights: HTMLElement[] = [];
 	private highlightTimer: number | null = null;
 
 	// Pending tool notification dedup
@@ -594,21 +594,26 @@ expandAll(): void {
 		}
 	}
 
-	navigateToMatch(turnIndex: number, query: string, matchContext?: string): void {
+	navigateToMatch(turnIndex: number, contentBlockIndex: number, needle: string, occurrenceInBlock: number): void {
 		this.clearHighlight();
 		this.scrollToTurn(turnIndex);
 		// Allow scroll to settle before highlighting
 		requestAnimationFrame(() => {
 			requestAnimationFrame(() => {
-				this.highlightMatchInTurn(turnIndex, query, matchContext);
+				this.highlightMatchInBlock(turnIndex, contentBlockIndex, needle, occurrenceInBlock);
 			});
 		});
 	}
 
-	private highlightMatchInTurn(turnIndex: number, query: string, matchContext?: string): void {
+	private highlightMatchInBlock(
+		turnIndex: number,
+		contentBlockIndex: number,
+		needle: string,
+		occurrenceInBlock: number,
+	): void {
 		const turnEls = this.renderer?.getTurnElements() || [];
 		const turnEl = turnEls[turnIndex];
-		if (!turnEl) return;
+		if (!turnEl || !needle) return;
 
 		// Expand the turn if collapsed
 		if (turnEl.hasClass('collapsed')) {
@@ -617,73 +622,73 @@ expandAll(): void {
 			if (header) header.setAttribute('aria-expanded', 'true');
 		}
 
-		const lowerQuery = query.toLowerCase();
-		// Use trailing context chars to disambiguate multiple occurrences
-		const contextSuffix = matchContext
-			? matchContext.slice(-20).toLowerCase()
-			: '';
+		// Locate the content-block element stamped by the renderer. Missing
+		// element means this content block's render path isn't stamped yet
+		// (e.g. Edit/Write diff, AskUserQuestion, Agent branches) — we've
+		// already scrolled to the turn, which is the graceful fallback.
+		const blockEl = turnEl.querySelector<HTMLElement>(
+			`[data-content-block-idx="${contentBlockIndex}"]`,
+		);
+		if (!blockEl) return;
 
-		const walker = document.createTreeWalker(turnEl, NodeFilter.SHOW_TEXT);
-		let node: Text | null;
-		let fallbackNode: Text | null = null;
-		let fallbackIdx = -1;
+		// Text-search the rendered DOM (not indexed offsets) because markdown
+		// syntax like **bold** is in the indexed text but stripped from the DOM.
+		// Pick the Nth occurrence, matching the search layer's occurrenceInBlock
+		// rank — ordering matches indexed-space even when characters are dropped.
+		const textNodes: Text[] = [];
+		const walker = document.createTreeWalker(blockEl, NodeFilter.SHOW_TEXT);
+		let n: Text | null;
+		while ((n = walker.nextNode() as Text | null)) textNodes.push(n);
 
-		while ((node = walker.nextNode() as Text | null)) {
+		const combined = textNodes.map(t => t.textContent || '').join('');
+		const lowerCombined = combined.toLowerCase();
+		const lowerNeedle = needle.toLowerCase();
+
+		const occurrences: number[] = [];
+		let from = 0;
+		while (true) {
+			const idx = lowerCombined.indexOf(lowerNeedle, from);
+			if (idx === -1) break;
+			occurrences.push(idx);
+			from = idx + 1;
+		}
+		if (occurrences.length === 0) return;
+
+		const targetIdx = Math.min(occurrenceInBlock, occurrences.length - 1);
+		const matchStart = occurrences[targetIdx];
+		const matchEnd = matchStart + needle.length;
+
+		const marks: HTMLElement[] = [];
+		let consumed = 0;
+
+		for (const node of textNodes) {
 			const text = node.textContent || '';
-			const lowerText = text.toLowerCase();
-			let searchFrom = 0;
+			const nodeStart = consumed;
+			const nodeEnd = consumed + text.length;
+			consumed = nodeEnd;
 
-			while (true) {
-				const idx = lowerText.indexOf(lowerQuery, searchFrom);
-				if (idx === -1) break;
+			if (nodeEnd <= matchStart) continue;
+			if (nodeStart >= matchEnd) break;
 
-				if (contextSuffix && idx > 0) {
-					const preceding = lowerText.slice(Math.max(0, idx - 20), idx);
-					if (preceding.includes(contextSuffix.slice(-preceding.length))) {
-						this.applyHighlight(node, idx, query.length, turnEl);
-						return;
-					}
-					if (!fallbackNode) {
-						fallbackNode = node;
-						fallbackIdx = idx;
-					}
-					searchFrom = idx + 1;
-					continue;
-				}
+			const localStart = Math.max(0, matchStart - nodeStart);
+			const localEnd = Math.min(text.length, matchEnd - nodeStart);
+			if (localEnd <= localStart) continue;
 
-				// No context — use first match
-				if (!contextSuffix) {
-					this.applyHighlight(node, idx, query.length, turnEl);
-					return;
-				}
+			// Isolate [localStart, localEnd) as its own text node, then wrap in <mark>
+			const middle = localStart > 0 ? node.splitText(localStart) : node;
+			middle.splitText(localEnd - localStart);
 
-				if (!fallbackNode) {
-					fallbackNode = node;
-					fallbackIdx = idx;
-				}
-				searchFrom = idx + 1;
-			}
+			const mark = createEl('mark', { cls: 'claude-sessions-search-highlight' });
+			middle.parentNode?.replaceChild(mark, middle);
+			mark.appendText(middle.textContent || '');
+			marks.push(mark);
 		}
 
-		// Fall back to first occurrence if context didn't disambiguate
-		if (fallbackNode) {
-			this.applyHighlight(fallbackNode, fallbackIdx, query.length, turnEl);
-		}
-	}
+		if (marks.length === 0) return;
 
-	private applyHighlight(node: Text, idx: number, length: number, turnEl: HTMLElement): void {
-		this.expandAncestors(node, turnEl);
-
-		const before = node.splitText(idx);
-		const after = before.splitText(length);
-		void after;
-
-		const mark = createEl('mark', { cls: 'claude-sessions-search-highlight' });
-		before.parentNode!.replaceChild(mark, before);
-		mark.appendText(before.textContent || '');
-
-		this.activeHighlight = mark;
-		mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		this.expandAncestors(marks[0], turnEl);
+		this.activeHighlights = marks;
+		marks[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
 
 		this.highlightTimer = window.setTimeout(() => this.clearHighlight(), 5000);
 	}
@@ -750,13 +755,14 @@ expandAll(): void {
 	}
 
 	private clearHighlight(): void {
-		if (this.activeHighlight) {
-			const text = this.activeHighlight.textContent || '';
-			const textNode = document.createTextNode(text);
-			this.activeHighlight.parentNode?.replaceChild(textNode, this.activeHighlight);
-			textNode.parentNode?.normalize();
-			this.activeHighlight = null;
+		for (const mark of this.activeHighlights) {
+			const parent = mark.parentNode;
+			if (!parent) continue;
+			const text = mark.textContent || '';
+			parent.replaceChild(document.createTextNode(text), mark);
+			parent.normalize();
 		}
+		this.activeHighlights = [];
 		if (this.highlightTimer !== null) {
 			window.clearTimeout(this.highlightTimer);
 			this.highlightTimer = null;

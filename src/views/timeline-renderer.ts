@@ -340,15 +340,20 @@ export class TimelineRenderer {
 		const userBlocks = turn.role === 'user' ? turn.contentBlocks : [];
 		const assistantBlocks = turn.role === 'assistant' ? turn.contentBlocks : [];
 
-		// User section
+		// User section. User blocks map 1:1 to turn.contentBlocks, so the
+		// segment index and the content-block index are the same.
 		let blockIdx = 0;
 		if (userBlocks.length > 0) {
 			const userSection = body.createDiv({ cls: 'claude-sessions-role-section claude-sessions-role-user' });
 
 			for (const block of userBlocks) {
+				const contentBlockIdx = blockIdx;
 				const wrapper = userSection.createDiv({
 					cls: 'claude-sessions-block-wrapper',
-					attr: { 'data-block-idx': String(blockIdx++) },
+					attr: {
+						'data-block-idx': String(blockIdx++),
+						'data-content-block-idx': String(contentBlockIdx),
+					},
 				});
 				if (block.type === 'text') {
 					this.renderTextContent(block.text, wrapper, 'claude-sessions-user-text');
@@ -383,36 +388,50 @@ export class TimelineRenderer {
 	}
 
 	private renderAssistantBlocks(blocks: ContentBlock[], container: HTMLElement, startBlockIdx = 0, groupThreshold?: number): void {
-		const segments: Array<{ type: 'single'; block: ContentBlock } | { type: 'tools'; blocks: ContentBlock[] }> = [];
+		type Segment =
+			| { type: 'single'; block: ContentBlock; contentBlockIdx: number }
+			| { type: 'tools'; blocks: ContentBlock[]; contentBlockIndices: number[] };
+		const segments: Segment[] = [];
 		let toolRun: ContentBlock[] = [];
+		let toolRunIndices: number[] = [];
 
 		const flushTools = () => {
 			if (toolRun.length > 0) {
-				segments.push({ type: 'tools', blocks: [...toolRun] });
+				segments.push({ type: 'tools', blocks: [...toolRun], contentBlockIndices: [...toolRunIndices] });
 				toolRun = [];
+				toolRunIndices = [];
 			}
 		};
 
-		for (const block of blocks) {
+		for (let i = 0; i < blocks.length; i++) {
+			const block = blocks[i];
 			if (block.type === 'tool_use' || block.type === 'tool_result') {
 				toolRun.push(block);
+				toolRunIndices.push(i);
 			} else {
 				flushTools();
-				segments.push({ type: 'single', block });
+				segments.push({ type: 'single', block, contentBlockIdx: i });
 			}
 		}
 		flushTools();
 
 		let blockIdx = startBlockIdx;
 		for (const seg of segments) {
-			const wrapper = container.createDiv({
-				cls: 'claude-sessions-block-wrapper',
-				attr: { 'data-block-idx': String(blockIdx++) },
-			});
 			if (seg.type === 'single') {
+				const wrapper = container.createDiv({
+					cls: 'claude-sessions-block-wrapper',
+					attr: {
+						'data-block-idx': String(blockIdx++),
+						'data-content-block-idx': String(seg.contentBlockIdx),
+					},
+				});
 				this.renderSingleBlock(seg.block, wrapper);
 			} else {
-				renderToolGroup(seg.blocks, wrapper, this.ctx, this.delegate, groupThreshold);
+				const wrapper = container.createDiv({
+					cls: 'claude-sessions-block-wrapper',
+					attr: { 'data-block-idx': String(blockIdx++) },
+				});
+				renderToolGroup(seg.blocks, wrapper, this.ctx, this.delegate, groupThreshold, seg.contentBlockIndices);
 			}
 		}
 	}

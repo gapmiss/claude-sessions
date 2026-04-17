@@ -29,6 +29,7 @@ export function renderToolGroup(
 	ctx: RenderContext,
 	delegate: ToolRendererDelegate,
 	groupThreshold?: number,
+	contentBlockIndices?: number[],
 ): void {
 	const toolUses = blocks.filter((b): b is ToolUseBlock => b.type === 'tool_use');
 	const toolResults = blocks.filter((b): b is ToolResultBlock => b.type === 'tool_result');
@@ -38,12 +39,25 @@ export function renderToolGroup(
 		resultMap.set(r.toolUseId, r);
 	}
 
+	// Parallel-index maps: toolUseId → its own content-block index, and
+	// toolUseId → the matching tool_result's content-block index. Used to
+	// stamp per-content-block DOM locators for in-session search (Phase 2).
+	const toolUseIdxMap = new Map<string, number>();
+	const toolResultIdxMap = new Map<string, number>();
+	if (contentBlockIndices && contentBlockIndices.length === blocks.length) {
+		for (let i = 0; i < blocks.length; i++) {
+			const b = blocks[i];
+			if (b.type === 'tool_use') toolUseIdxMap.set(b.id, contentBlockIndices[i]);
+			else if (b.type === 'tool_result') toolResultIdxMap.set(b.toolUseId, contentBlockIndices[i]);
+		}
+	}
+
 	if (!ctx.settings.showToolCalls) return;
 
 	const threshold = groupThreshold ?? ctx.settings.toolGroupThreshold;
 	if (toolUses.length <= threshold) {
 		for (const tu of toolUses) {
-			renderToolCall(tu, resultMap.get(tu.id), container, ctx, delegate);
+			renderToolCall(tu, resultMap.get(tu.id), container, ctx, delegate, toolUseIdxMap.get(tu.id), toolResultIdxMap.get(tu.id));
 		}
 	} else {
 		const groupEl = container.createDiv({ cls: 'claude-sessions-tool-group' });
@@ -68,7 +82,7 @@ export function renderToolGroup(
 		});
 
 		for (const tu of toolUses) {
-			renderToolCall(tu, resultMap.get(tu.id), groupBody, ctx, delegate);
+			renderToolCall(tu, resultMap.get(tu.id), groupBody, ctx, delegate, toolUseIdxMap.get(tu.id), toolResultIdxMap.get(tu.id));
 		}
 	}
 }
@@ -79,6 +93,8 @@ export function renderToolCall(
 	container: HTMLElement,
 	ctx: RenderContext,
 	delegate: ToolRendererDelegate,
+	toolUseContentBlockIdx?: number,
+	toolResultContentBlockIdx?: number,
 ): void {
 	const toolEl = container.createDiv({ cls: 'claude-sessions-tool-block' });
 
@@ -96,7 +112,10 @@ export function renderToolCall(
 	} else {
 		header.createSpan({ cls: 'claude-sessions-tool-name', text: block.name });
 	}
-	header.createSpan({ cls: 'claude-sessions-tool-preview', text: toolPreview(block) });
+	const previewSpan = header.createSpan({ cls: 'claude-sessions-tool-preview', text: toolPreview(block) });
+	if (toolUseContentBlockIdx !== undefined) {
+		previewSpan.setAttribute('data-content-block-idx', String(toolUseContentBlockIdx));
+	}
 	if (block.isPending) {
 		header.createSpan({ cls: 'claude-sessions-tool-duration claude-sessions-tool-orphaned-label', text: 'in progress' });
 	} else if (block.isOrphaned) {
@@ -159,9 +178,9 @@ export function renderToolCall(
 	} else if ((block.name === 'Agent' || block.name === 'Task') && block.subAgentSession) {
 		renderSubAgentSession(block.subAgentSession, body, result, ctx, delegate);
 	} else if (block.name === 'Edit' && block.input['old_string'] != null) {
-		renderDiffView(block, result, body, ctx);
+		renderDiffView(block, result, body, ctx, toolResultContentBlockIdx);
 	} else if (block.name === 'Write' && block.input['content'] != null) {
-		renderWriteView(block, result, body, ctx);
+		renderWriteView(block, result, body, ctx, toolResultContentBlockIdx);
 	} else if (block.name === 'Bash') {
 		renderBashInput(block, body, ctx);
 	} else if (Object.keys(block.input).length > 0) {
@@ -173,13 +192,23 @@ export function renderToolCall(
 		void MarkdownRenderer.render(ctx.app, inputMd, inputMdContainer, '', ctx.component);
 	}
 
-	// Result section (skip for Edit/Write/Agent/AskUserQuestion which render their own results)
+	// Result section (skip for Edit/Write/Agent/AskUserQuestion which render their own results).
+	// Per-content-block stamping for tool_result is done via a wrapper div here so the
+	// in-session search highlighter can query `[data-content-block-idx=N]` precisely.
+	// Edit/Write/AskUserQuestion/Agent branches do not stamp their tool_result containers
+	// yet — highlighting those would need per-branch wrappers (follow-up).
 	if (result && ctx.settings.showToolResults
 		&& block.name !== 'AskUserQuestion'
 		&& !(block.name === 'Edit' && block.input['old_string'] != null)
 		&& !(block.name === 'Write' && block.input['content'] != null)
 		&& !((block.name === 'Agent' || block.name === 'Task') && block.subAgentSession)) {
-		renderToolResult(block, result, isError, body, ctx, delegate);
+		const resultContainer = toolResultContentBlockIdx !== undefined
+			? body.createDiv({
+				cls: 'claude-sessions-tool-result-wrapper',
+				attr: { 'data-content-block-idx': String(toolResultContentBlockIdx) },
+			})
+			: body;
+		renderToolResult(block, result, isError, resultContainer, ctx, delegate);
 	}
 
 	// Hook details section (only for PreToolUse - PermissionRequest just shows icon)
@@ -633,7 +662,13 @@ function isBashDiffResult(block: ToolUseBlock, resultText: string): boolean {
 	return /^(diff\s|---\s|@@\s)/m.test(resultText);
 }
 
-function renderDiffView(block: ToolUseBlock, result: ToolResultBlock | undefined, container: HTMLElement, ctx: RenderContext): void {
+function renderDiffView(
+	block: ToolUseBlock,
+	result: ToolResultBlock | undefined,
+	container: HTMLElement,
+	ctx: RenderContext,
+	toolResultContentBlockIdx?: number,
+): void {
 	const diffEl = container.createDiv({ cls: 'claude-sessions-diff-view' });
 
 	if (block.input['file_path']) {
@@ -661,11 +696,17 @@ function renderDiffView(block: ToolUseBlock, result: ToolResultBlock | undefined
 	void MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
 
 	if (result?.isError) {
-		renderErrorOutput(result, container, ctx);
+		renderErrorOutput(result, container, ctx, toolResultContentBlockIdx);
 	}
 }
 
-function renderWriteView(block: ToolUseBlock, result: ToolResultBlock | undefined, container: HTMLElement, ctx: RenderContext): void {
+function renderWriteView(
+	block: ToolUseBlock,
+	result: ToolResultBlock | undefined,
+	container: HTMLElement,
+	ctx: RenderContext,
+	toolResultContentBlockIdx?: number,
+): void {
 	const writeEl = container.createDiv({ cls: 'claude-sessions-tool-input' });
 
 	const filePath = typeof block.input['file_path'] === 'string' ? block.input['file_path'] : '';
@@ -686,15 +727,23 @@ function renderWriteView(block: ToolUseBlock, result: ToolResultBlock | undefine
 	}
 
 	if (result?.isError) {
-		renderErrorOutput(result, container, ctx);
+		renderErrorOutput(result, container, ctx, toolResultContentBlockIdx);
 	}
 }
 
 /** Render a tool error as an OUTPUT section with error styling. */
-function renderErrorOutput(result: ToolResultBlock, container: HTMLElement, ctx: RenderContext): void {
+function renderErrorOutput(
+	result: ToolResultBlock,
+	container: HTMLElement,
+	ctx: RenderContext,
+	toolResultContentBlockIdx?: number,
+): void {
 	const el = container.createDiv({
 		cls: 'claude-sessions-tool-result claude-sessions-tool-result-error',
 	});
+	if (toolResultContentBlockIdx !== undefined) {
+		el.setAttribute('data-content-block-idx', String(toolResultContentBlockIdx));
+	}
 	el.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'OUTPUT' });
 	const md = fence(result.content);
 	const mdContainer = el.createDiv({ cls: 'claude-sessions-tool-result-code' });

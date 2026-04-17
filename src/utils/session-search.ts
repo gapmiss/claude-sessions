@@ -1,9 +1,9 @@
 import { Platform } from 'obsidian';
 import * as fs from 'fs';
 import * as readline from 'readline';
-import type { Turn, TurnRole, SessionListEntry } from '../types';
+import type { Turn, TurnRole, SessionListEntry, ContentBlock } from '../types';
 import { BM25Index } from './bm25';
-import { SKIP_TYPE_STRINGS, SUBTYPE_LOCAL_COMMAND, RE_COMMAND_NAME, RE_COMMAND_ARGS } from '../constants';
+import { SKIP_TYPE_STRINGS, SUBTYPE_LOCAL_COMMAND, RE_COMMAND_NAME, RE_COMMAND_ARGS, ANSI_STRIP_RE, RE_SYSTEM_REMINDER } from '../constants';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -24,6 +24,26 @@ export interface SearchMatch {
 	timestamp?: string;
 	/** BM25 relevance score (only set when using ranked search). */
 	score?: number;
+}
+
+/**
+ * In-session match with precise coordinates into the parsed content block.
+ * `turnIndex` is the parsed `Turn.index` (no drift vs. the streaming path),
+ * `contentBlockIndex` indexes `Turn.contentBlocks`, and `charOffset`/`charLength`
+ * locate the match within `indexTextForBlock(block)` — which the rendered DOM
+ * mirrors via `data-content-block-idx` stamps.
+ */
+export interface InSessionMatch extends SearchMatch {
+	contentBlockIndex: number;
+	charOffset: number;
+	charLength: number;
+	/**
+	 * 0-based rank of this match among all matches in the same content block.
+	 * The highlighter uses this (not `charOffset`) to pick the Nth DOM
+	 * occurrence, since indexed-space offsets drift from rendered DOM when
+	 * the renderer strips markdown/ANSI/line-number syntax.
+	 */
+	occurrenceInBlock: number;
 }
 
 export interface SessionSearchResult {
@@ -86,6 +106,62 @@ function extractToolInputText(toolName: string, input: Record<string, unknown> |
 				.join(' ')
 				.slice(0, 200);
 		}
+	}
+}
+
+// ── In-session indexed text (Phase 2) ────────────────────────
+
+/** Matches `cat -n` style line numbers: digits + arrow or tab separator. */
+const RE_LINE_NUMBERS = /^\d+[\u2192\t]/gm;
+
+/**
+ * Replicates the cleaning applied by tool-renderer.ts when rendering a
+ * successful Read tool_result so the indexed text equals the rendered text.
+ */
+function cleanReadResult(content: string): string {
+	return content.replace(RE_LINE_NUMBERS, '').replace(RE_SYSTEM_REMINDER, '').trim();
+}
+
+/**
+ * Canonical indexed text for a parsed content block. The rendered DOM's
+ * textContent under the block element must equal this string (modulo
+ * whitespace) so in-session search coordinates line up at highlight time.
+ *
+ * Known divergences (Phase 2 Gotcha D):
+ * - Read tool_result (non-error): line numbers + <system-reminder> tags stripped + trimmed
+ * - ANSI blocks + bash stdout/stderr: escape codes stripped
+ * - bash_command: Gotcha B (i) — command + stdout + stderr joined by '\n', empties skipped
+ */
+export function indexTextForBlock(block: ContentBlock): string {
+	switch (block.type) {
+		case 'text':
+			return block.text ?? '';
+		case 'thinking':
+			return block.thinking ?? '';
+		case 'tool_use':
+			return extractToolInputText(block.name, block.input);
+		case 'tool_result':
+			if (block.toolName === 'Read' && !block.isError) {
+				return cleanReadResult(block.content ?? '');
+			}
+			return block.content ?? '';
+		case 'slash_command':
+			return block.text ?? '';
+		case 'bash_command': {
+			const parts: string[] = [];
+			if (block.command) parts.push(block.command);
+			const stdout = (block.stdout ?? '').replace(ANSI_STRIP_RE, '');
+			if (stdout) parts.push(stdout);
+			const stderr = (block.stderr ?? '').replace(ANSI_STRIP_RE, '');
+			if (stderr) parts.push(stderr);
+			return parts.join('\n');
+		}
+		case 'ansi':
+			return (block.text ?? '').replace(ANSI_STRIP_RE, '');
+		case 'compaction':
+			return block.summary ?? '';
+		case 'image':
+			return '';
 	}
 }
 
@@ -469,4 +545,147 @@ export async function searchSessionsRanked(
 
 		onProgress(i + 1, entries.length);
 	}
+}
+
+// ── In-session turn-based search (Phase 2) ───────────────────
+
+/** Build a match object for a single occurrence of `needle` in `indexedText`. */
+function buildInSessionMatch(
+	turn: Turn,
+	block: ContentBlock,
+	contentBlockIndex: number,
+	indexedText: string,
+	idx: number,
+	needleLen: number,
+	occurrenceInBlock: number,
+): InSessionMatch {
+	const matchEnd = idx + needleLen;
+	const toolName = block.type === 'tool_use' ? block.name
+		: block.type === 'tool_result' ? block.toolName
+		: undefined;
+	return {
+		turnIndex: turn.index,
+		role: turn.role,
+		blockType: block.type,
+		toolName,
+		matchText: indexedText.slice(idx, matchEnd),
+		contextBefore: indexedText.slice(Math.max(0, idx - CONTEXT_CHARS), idx),
+		contextAfter: indexedText.slice(matchEnd, matchEnd + CONTEXT_CHARS),
+		timestamp: turn.timestamp,
+		contentBlockIndex,
+		charOffset: idx,
+		charLength: needleLen,
+		occurrenceInBlock,
+	};
+}
+
+/**
+ * Search already-parsed turns for literal substring matches, returning precise
+ * `(turnIndex, contentBlockIndex, charOffset, charLength)` coordinates.
+ *
+ * Operates on in-memory `Turn[]` — no file I/O, no streaming, synchronous.
+ * Results are in document order; use `searchTurnsRanked` for BM25 relevance order.
+ */
+export function searchTurns(
+	turns: Turn[],
+	query: SearchQuery,
+	maxMatches = DEFAULT_MAX_MATCHES,
+): { matches: InSessionMatch[]; totalMatches: number } {
+	if (!query.text) return { matches: [], totalMatches: 0 };
+
+	const needle = query.caseSensitive ? query.text : query.text.toLowerCase();
+	const roleFilter = query.roleFilter ?? 'all';
+	const matches: InSessionMatch[] = [];
+	let totalMatches = 0;
+
+	for (const turn of turns) {
+		if (roleFilter !== 'all' && turn.role !== roleFilter) continue;
+
+		for (let i = 0; i < turn.contentBlocks.length; i++) {
+			const block = turn.contentBlocks[i];
+			const indexedText = indexTextForBlock(block);
+			if (!indexedText) continue;
+
+			const haystack = query.caseSensitive ? indexedText : indexedText.toLowerCase();
+			let searchFrom = 0;
+			let occurrenceInBlock = 0;
+			while (true) {
+				const idx = haystack.indexOf(needle, searchFrom);
+				if (idx === -1) break;
+
+				totalMatches++;
+				if (matches.length < maxMatches) {
+					matches.push(buildInSessionMatch(turn, block, i, indexedText, idx, needle.length, occurrenceInBlock));
+				}
+
+				occurrenceInBlock++;
+				searchFrom = idx + 1;
+			}
+		}
+	}
+
+	return { matches, totalMatches };
+}
+
+/**
+ * Same as `searchTurns` but ranks results by BM25 relevance. Each content
+ * block is one BM25 document; all matches in a block share that block's score.
+ */
+export function searchTurnsRanked(
+	turns: Turn[],
+	query: SearchQuery,
+	maxMatches = DEFAULT_MAX_MATCHES,
+): { matches: InSessionMatch[]; totalMatches: number } {
+	if (!query.text) return { matches: [], totalMatches: 0 };
+
+	const needle = query.caseSensitive ? query.text : query.text.toLowerCase();
+	const roleFilter = query.roleFilter ?? 'all';
+	const index = new BM25Index<null>();
+	const matchesWithDocId: Array<InSessionMatch & { docId: string }> = [];
+	let totalMatches = 0;
+
+	for (const turn of turns) {
+		if (roleFilter !== 'all' && turn.role !== roleFilter) continue;
+
+		for (let i = 0; i < turn.contentBlocks.length; i++) {
+			const block = turn.contentBlocks[i];
+			const indexedText = indexTextForBlock(block);
+			if (!indexedText) continue;
+
+			const docId = `${turn.index}:${i}`;
+			index.add(docId, indexedText, null);
+
+			const haystack = query.caseSensitive ? indexedText : indexedText.toLowerCase();
+			let searchFrom = 0;
+			let occurrenceInBlock = 0;
+			while (true) {
+				const idx = haystack.indexOf(needle, searchFrom);
+				if (idx === -1) break;
+
+				totalMatches++;
+				matchesWithDocId.push({
+					docId,
+					...buildInSessionMatch(turn, block, i, indexedText, idx, needle.length, occurrenceInBlock),
+				});
+
+				occurrenceInBlock++;
+				searchFrom = idx + 1;
+			}
+		}
+	}
+
+	const scoreMap = new Map<string, number>();
+	const ranked = index.search(query.text, index.size);
+	for (const r of ranked) {
+		scoreMap.set(r.id, r.score);
+	}
+
+	matchesWithDocId.sort((a, b) => (scoreMap.get(b.docId) ?? 0) - (scoreMap.get(a.docId) ?? 0));
+
+	const result: InSessionMatch[] = matchesWithDocId.slice(0, maxMatches).map(({ docId: id, ...m }) => ({
+		...m,
+		score: scoreMap.get(id) ?? 0,
+	}));
+
+	return { matches: result, totalMatches };
 }
