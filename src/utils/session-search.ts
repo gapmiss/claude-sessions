@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as readline from 'readline';
 import type { Turn, TurnRole, SessionListEntry } from '../types';
 import { BM25Index } from './bm25';
-import { SKIP_TYPE_STRINGS } from '../constants';
+import { SKIP_TYPE_STRINGS, SUBTYPE_LOCAL_COMMAND, RE_COMMAND_NAME, RE_COMMAND_ARGS } from '../constants';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -43,6 +43,53 @@ interface ExtractedContent {
 }
 
 /**
+ * Extract human-readable text from tool input, matching how toolPreview() renders it.
+ */
+function extractToolInputText(toolName: string, input: Record<string, unknown> | undefined): string {
+	if (!input) return '';
+
+	const str = (key: string): string => {
+		const val = input[key];
+		return typeof val === 'string' ? val : '';
+	};
+
+	switch (toolName) {
+		case 'Bash':
+			return str('command') || str('description');
+		case 'Read':
+		case 'Write':
+		case 'Edit':
+			return str('file_path');
+		case 'Grep':
+		case 'Glob':
+			return str('pattern');
+		case 'Agent':
+		case 'Task':
+			return [str('description'), str('prompt')].filter(Boolean).join(' ');
+		case 'WebFetch':
+			return str('url');
+		case 'WebSearch':
+			return str('query');
+		case 'AskUserQuestion': {
+			const qs = input['questions'] as Array<Record<string, unknown>> | undefined;
+			if (qs?.length) {
+				return qs.map(q => typeof q['question'] === 'string' ? q['question'] : '').join(' ');
+			}
+			return '';
+		}
+		default: {
+			const nameField = input['name'] ?? input['path'] ?? input['file'] ?? input['query'] ?? input['command'];
+			if (typeof nameField === 'string') return nameField;
+			return Object.entries(input)
+				.filter(([, v]) => typeof v === 'string')
+				.map(([, v]) => v as string)
+				.join(' ')
+				.slice(0, 200);
+		}
+	}
+}
+
+/**
  * Extract searchable text from a single JSONL line without full parsing.
  * Returns null for non-content records.
  */
@@ -70,9 +117,9 @@ export function extractSearchableContent(line: string): ExtractedContent | null 
 	const recordType = record['type'] as string | undefined;
 	const timestamp = record['timestamp'] as string | undefined;
 	const message = record['message'] as Record<string, unknown> | undefined;
-	if (!message) return null;
 
 	if (recordType === 'assistant') {
+		if (!message) return null;
 		// Skip synthetic model
 		if (message['model'] === '<synthetic>') return null;
 
@@ -91,15 +138,15 @@ export function extractSearchableContent(line: string): ExtractedContent | null 
 			if (blockType === 'tool_use') {
 				const name = (block['name'] as string) || '';
 				const input = block['input'] as Record<string, unknown> | undefined;
-				// Concatenate tool name + stringified input for search
-				const inputStr = input ? JSON.stringify(input) : '';
-				return { role: 'assistant', blockType: 'tool_use', text: `${name} ${inputStr}`, toolName: name, timestamp };
+				const inputText = extractToolInputText(name, input);
+				return { role: 'assistant', blockType: 'tool_use', text: `${name} ${inputText}`, toolName: name, timestamp };
 			}
 		}
 		return null;
 	}
 
 	if (recordType === 'user') {
+		if (!message) return null;
 		const content = message['content'];
 		// String content = actual user text
 		if (typeof content === 'string') {
@@ -116,6 +163,24 @@ export function extractSearchableContent(line: string): ExtractedContent | null 
 			}
 			if (texts.length > 0) {
 				return { role: 'assistant', blockType: 'tool_result', text: texts.join('\n'), timestamp };
+			}
+		}
+		return null;
+	}
+
+	// Handle system records with slash commands
+	if (recordType === 'system') {
+		const subtype = record['subtype'] as string | undefined;
+		const content = record['content'] as string | undefined;
+
+		if (subtype === SUBTYPE_LOCAL_COMMAND && content) {
+			const cmdMatch = content.match(RE_COMMAND_NAME);
+			if (cmdMatch) {
+				const commandName = cmdMatch[1];
+				const argsMatch = content.match(RE_COMMAND_ARGS);
+				const args = argsMatch ? argsMatch[1].trim() : '';
+				const text = args ? `${commandName} ${args}` : commandName;
+				return { role: 'user', blockType: 'slash_command', text, timestamp };
 			}
 		}
 		return null;
