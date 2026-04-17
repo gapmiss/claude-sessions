@@ -445,7 +445,7 @@ export class SearchView extends ItemView {
 		} else {
 			if (this.trackedSession) {
 				const displayName = this.trackedSession.metadata.customTitle || this.trackedSession.metadata.project;
-				this.scopeLabel.setText(`Searching in: ${displayName}`);
+				this.scopeLabel.setText(`Session: ${displayName}`);
 			} else {
 				this.scopeLabel.setText('No session open');
 			}

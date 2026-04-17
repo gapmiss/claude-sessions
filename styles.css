@@ -2516,7 +2516,7 @@
 }
 
 .claude-sessions-search-refresh-btn {
-	padding: var(--size-2-1);
+	/* padding: var(--size-2-1); */
 	color: var(--text-muted);
 }
 
@@ -2768,8 +2768,8 @@
 .claude-sessions-search-snippet mark {
 	background: var(--text-highlight-bg);
 	color: var(--text-normal);
-	padding: 1px 2px;
-	border-radius: 2px;
+	/* padding: 1px 2px; */
+	border-radius: var(--radius-s);
 }
 
 /* ── More button ── */
@@ -2821,8 +2821,8 @@
 .claude-sessions-search-highlight {
 	background: var(--text-highlight-bg);
 	color: var(--text-normal);
-	padding: 1px 2px;
-	border-radius: 2px;
+	/* padding: 1px 2px; */
+	border-radius: var(--radius-s);
 	animation: claude-sessions-highlight-fade 5s ease-out forwards;
 }
 
