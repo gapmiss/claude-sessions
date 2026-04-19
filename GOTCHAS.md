@@ -75,6 +75,8 @@ Reference document for known pitfalls. Not auto-included — use `@GOTCHAS.md` w
 - `expandAncestors()` must handle all collapsible element types: tool blocks, tool groups, thinking blocks, show-more wraps (`.claude-sessions-collapsible-toggle`, NOT `.claude-sessions-show-more-btn`), sub-agent prompts, slash command blocks, compaction summaries, and markdown preview toggles
 - When the pinned dashboard is visible, turns need `scroll-margin-top` (CSS sibling combinator on `.is-pinned`) to prevent `scrollIntoView` from placing content behind the sticky bar
 - Multiple occurrences of the same query in a turn require `matchContext` (trailing chars of `contextBefore`) for disambiguation — without it, highlighting always lands on the first occurrence
+- Tool INPUT sections must be stamped with `data-content-block-idx` for search highlighting to work — the stamp must be on the container with the searchable text, not on preview spans in collapsed headers. `renderBashInput`, `renderDiffView`, `renderWriteView`, and generic input all stamp their containers
+- Edit/Write success messages ("The file X has been updated/created successfully") are filtered from the search index via `RE_EDIT_WRITE_SUCCESS` because they're not rendered (the diff view shows instead)
 
 ## Live Watch / UI State
 

@@ -8,6 +8,25 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.0] - 2026-04-18
+
+### Added
+- **Compaction tracking** — stats now include compaction event count and peak context window size
+- **mjs/cjs syntax highlighting** — JavaScript module extensions recognized in code blocks
+
+### Fixed
+- **Search highlight precision** — clicking search results now highlights the exact match text within INPUT blocks (Bash, Edit, Write, generic), not just scrolling to the turn
+- **Edit/Write search noise** — filtered out "The file has been updated successfully" boilerplate from search index (these messages aren't rendered)
+- **Closed session detection** — search panel detects when tracked session is closed and clears stale state
+- **Search keyboard navigation** — options menu positioning fixed, proper focus management
+- **Search view styles** — consistent styling across light/dark themes
+
+### Changed
+- **Turn-based in-session search** — refactored to use precise content-block coordinates with `data-content-block-idx` stamps for DOM highlighting
+- Rate limit cache TTL reduced to 1 minute (was 5 minutes) to reduce 429 errors
+
+---
+
 ## [0.2.15]
 
 ### Added
@@ -153,7 +172,8 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
-[0.2.15]: https://github.com/gapmiss/claude-sessions/compare/0.2.14...HEAD
+[0.3.0]: https://github.com/gapmiss/claude-sessions/compare/0.2.15...HEAD
+[0.2.15]: https://github.com/gapmiss/claude-sessions/compare/0.2.14...0.2.15
 [0.2.14]: https://github.com/gapmiss/claude-sessions/compare/0.2.13...0.2.14
 [0.2.13]: https://github.com/gapmiss/claude-sessions/compare/0.2.12...0.2.13
 [0.2.12]: https://github.com/gapmiss/claude-sessions/compare/0.2.11...0.2.12
