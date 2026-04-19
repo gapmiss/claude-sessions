@@ -851,6 +851,7 @@ expandAll(): void {
 		heroesPinned: boolean;
 		openTools: Set<string>;
 		openToolGroups: Set<string>;
+		openThinking: Set<string>;
 		expandedText: Set<string>;
 		previewToggles: Set<string>;
 		scrollTop: number;
@@ -889,6 +890,17 @@ expandAll(): void {
 			}
 		}
 
+		// Expanded thinking blocks: keyed by "turnIndex-thinkingIndex"
+		const openThinking = new Set<string>();
+		for (let t = 0; t < turnEls.length; t++) {
+			const thinking = turnEls[t].querySelectorAll('.claude-sessions-thinking-block');
+			for (let k = 0; k < thinking.length; k++) {
+				if (thinking[k].hasClass('open')) {
+					openThinking.add(`${t}-${k}`);
+				}
+			}
+		}
+
 		// Expanded "show more" blocks: keyed by "turnIndex-wrapIndex"
 		const expandedText = new Set<string>();
 		for (let t = 0; t < turnEls.length; t++) {
@@ -914,7 +926,7 @@ expandAll(): void {
 
 		const scrollTop = this.timelineEl?.scrollTop ?? 0;
 
-		return { collapsedTurns, summaryOpen, heroesPinned, openTools, openToolGroups, expandedText, previewToggles, scrollTop };
+		return { collapsedTurns, summaryOpen, heroesPinned, openTools, openToolGroups, openThinking, expandedText, previewToggles, scrollTop };
 	}
 
 	/** Restore full UI state after re-render. */
@@ -970,6 +982,19 @@ expandAll(): void {
 			}
 		}
 
+		// Restore expanded thinking blocks
+		for (const key of state.openThinking) {
+			const [t, k] = key.split('-').map(Number);
+			if (t < turnEls.length) {
+				const thinking = turnEls[t].querySelectorAll('.claude-sessions-thinking-block');
+				if (k < thinking.length) {
+					thinking[k].addClass('open');
+					const header = thinking[k].querySelector('.claude-sessions-thinking-header');
+					header?.setAttribute('aria-expanded', 'true');
+				}
+			}
+		}
+
 		// Restore expanded "show more" blocks
 		for (const key of state.expandedText) {
 			const [t, w] = key.split('-').map(Number);
@@ -1009,6 +1034,7 @@ expandAll(): void {
 		collapsed: boolean;
 		openTools: number[];
 		openGroups: number[];
+		openThinking: number[];
 		expandedWraps: number[];
 		previewToggles: number[];
 	} {
@@ -1019,6 +1045,10 @@ expandAll(): void {
 		const openGroups: number[] = [];
 		el.querySelectorAll('.claude-sessions-tool-group').forEach((g, i) => {
 			if (g.hasClass('open')) openGroups.push(i);
+		});
+		const openThinking: number[] = [];
+		el.querySelectorAll('.claude-sessions-thinking-block').forEach((t, i) => {
+			if (t.hasClass('open')) openThinking.push(i);
 		});
 		const expandedWraps: number[] = [];
 		el.querySelectorAll('.claude-sessions-collapsible-wrap').forEach((w, i) => {
@@ -1031,7 +1061,7 @@ expandAll(): void {
 		});
 		return {
 			collapsed: el.hasClass('collapsed'),
-			openTools, openGroups, expandedWraps, previewToggles,
+			openTools, openGroups, openThinking, expandedWraps, previewToggles,
 		};
 	}
 
@@ -1055,6 +1085,13 @@ expandAll(): void {
 			if (i < groups.length) {
 				groups[i].addClass('open');
 				groups[i].querySelector('.claude-sessions-tool-group-header')?.setAttribute('aria-expanded', 'true');
+			}
+		}
+		const thinking = el.querySelectorAll('.claude-sessions-thinking-block');
+		for (const i of state.openThinking) {
+			if (i < thinking.length) {
+				thinking[i].addClass('open');
+				thinking[i].querySelector('.claude-sessions-thinking-header')?.setAttribute('aria-expanded', 'true');
 			}
 		}
 		const wraps = el.querySelectorAll('.claude-sessions-collapsible-wrap');
