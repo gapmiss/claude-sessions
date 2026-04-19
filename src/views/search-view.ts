@@ -518,6 +518,14 @@ export class SearchView extends ItemView {
 		this.resultsEl.empty();
 		this.activeRowEl = null;
 
+		// Always fetch fresh session from the live view to pick up live-watch reloads
+		const freshSession = this.trackedTimelineLeaf?.view instanceof TimelineView
+			? this.trackedTimelineLeaf.view.getSession()
+			: null;
+		if (freshSession) {
+			this.trackedSession = freshSession;
+		}
+
 		if (!this.trackedSession) {
 			this.progressEl.setText('No session open.');
 			return;
