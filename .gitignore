@@ -28,6 +28,4 @@ data.json
 .claude
 
 copy-to-vaults.sh
-
-plans/
-search-bugs/
+AUDIT*
