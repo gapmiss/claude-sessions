@@ -8,11 +8,16 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
-## [0.3.1] - 2026-04-18
+## [0.3.2] - 2026-04-19
 
 ### Fixed
 - **Rate limits** - return null on error instead of stale cached data
 - **Timeline thinking blocks** - preserve thinking block state across UI refreshes
+
+## [0.3.1] - 2026-04-18
+
+### Fixed
+- **Search** - Refresh session from live view before in-session search
 
 ## [0.3.0] - 2026-04-18
 
@@ -178,7 +183,8 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
-[0.3.1]: https://github.com/gapmiss/claude-sessions/compare/0.3.0...HEAD
+[0.3.2]: https://github.com/gapmiss/claude-sessions/compare/0.3.1...HEAD
+[0.3.1]: https://github.com/gapmiss/claude-sessions/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/gapmiss/claude-sessions/compare/0.2.15...0.3.0
 [0.2.15]: https://github.com/gapmiss/claude-sessions/compare/0.2.14...0.2.15
 [0.2.14]: https://github.com/gapmiss/claude-sessions/compare/0.2.13...0.2.14
