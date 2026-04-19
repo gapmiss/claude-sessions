@@ -9,7 +9,7 @@ import { resolveSubAgentSessions } from '../parsers/claude-subagent';
 import { makeClickable } from './render-helpers';
 import { shortenPath } from '../utils/path-utils';
 import { scanSessionDirs } from './session-browser-modal';
-import { TimelineView } from './timeline-view';
+import { TimelineView, VIEW_TYPE_TIMELINE } from './timeline-view';
 
 export const VIEW_TYPE_SEARCH = 'claude-sessions-search';
 
@@ -327,6 +327,25 @@ export class SearchView extends ItemView {
 		}
 	}
 
+	onLayoutChanged(): void {
+		if (this.mode !== 'in-session') return;
+		if (!this.trackedTimelineLeaf) return;
+
+		// Check if the tracked leaf is still in the workspace
+		const allLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_TIMELINE);
+		const stillExists = allLeaves.some((l) => l === this.trackedTimelineLeaf);
+
+		if (!stillExists) {
+			this.trackedTimelineLeaf = null;
+			this.trackedSession = null;
+			this.trackedFilePath = null;
+			this.updateScopeLabel();
+			this.resultsEl.empty();
+			this.progressEl.setText('');
+			this.activeRowEl = null;
+		}
+	}
+
 	// ── Mode UI ──
 
 	private syncModeUI(): void {
@@ -403,7 +422,13 @@ export class SearchView extends ItemView {
 				});
 		});
 
-		menu.showAtMouseEvent(e);
+		// Keyboard-triggered clicks have clientX/clientY of 0
+		if (e.clientX === 0 && e.clientY === 0) {
+			const rect = this.optionsBtn.getBoundingClientRect();
+			menu.showAtPosition({ x: rect.left, y: rect.bottom });
+		} else {
+			menu.showAtMouseEvent(e);
+		}
 	}
 
 	private resolveTrackedSession(): void {

@@ -54,6 +54,18 @@ export default class ClaudeSessionsPlugin extends Plugin {
 			})
 		);
 
+		// Detect when timeline views are closed
+		this.registerEvent(
+			this.app.workspace.on('layout-change', () => {
+				const searchLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_SEARCH);
+				for (const sl of searchLeaves) {
+					if (sl.view instanceof SearchView) {
+						sl.view.onLayoutChanged();
+					}
+				}
+			})
+		);
+
 		this.addSettingTab(new SettingsTab(this.app, this));
 
 		this.addCommand({
