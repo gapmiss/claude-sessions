@@ -29,6 +29,8 @@ function makeSession(overrides: Partial<{
 			cacheCreationTokens: 0,
 			totalTokens: 1700,
 			contextWindowTokens: 1200,
+			peakContextTokens: 0,
+			compactionCount: 0,
 			costUSD: 0.05,
 			toolUseCounts: {},
 			durationMs: 60000,

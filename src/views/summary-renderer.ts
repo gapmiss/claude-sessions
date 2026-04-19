@@ -251,7 +251,12 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 
 function buildHeroCards(container: HTMLElement, stats: SessionStats, metadata: SessionMetadata, _rl: RateLimitData | null): void {
 	if (stats.costUSD > 0) addHeroCard(container, formatCost(stats.costUSD), 'Cost', 'receipt');
-	if (stats.contextWindowTokens > 0) addHeroCard(container, formatTokens(stats.contextWindowTokens), 'Context', 'layers');
+	if (stats.contextWindowTokens > 0) {
+		const subtitle = stats.compactionCount > 0 && stats.peakContextTokens > 0
+			? `Peak: ${formatTokens(stats.peakContextTokens)}`
+			: undefined;
+		addHeroCard(container, formatTokens(stats.contextWindowTokens), 'Context', 'layers', subtitle);
+	}
 	if (metadata.totalTurns > 0) addHeroCard(container, String(metadata.totalTurns), 'Turns', 'message-circle');
 	if (stats.durationMs > 0) addHeroCard(container, formatDuration(stats.durationMs), 'Duration', 'clock');
 }
@@ -292,12 +297,15 @@ function addRateLimitCard(container: HTMLElement, percent: number, label: string
 	}
 }
 
-function addHeroCard(container: HTMLElement, value: string, label: string, iconName: string): void {
+function addHeroCard(container: HTMLElement, value: string, label: string, iconName: string, subtitle?: string): void {
 	const card = container.createDiv({ cls: 'claude-sessions-dash-hero' });
 	const iconEl = card.createDiv({ cls: 'claude-sessions-dash-hero-icon' });
 	setIcon(iconEl, iconName);
 	card.createDiv({ cls: 'claude-sessions-dash-hero-value', text: value });
 	card.createDiv({ cls: 'claude-sessions-dash-hero-label', text: label });
+	if (subtitle) {
+		card.createDiv({ cls: 'claude-sessions-dash-hero-subtitle', text: subtitle });
+	}
 }
 
 function addLegendItem(container: HTMLElement, cls: string, label: string, value: string): void {

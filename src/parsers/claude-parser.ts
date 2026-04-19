@@ -178,6 +178,10 @@ export class ClaudeParser extends BaseParser {
 		let lastCallCacheRead = 0;
 		let lastCallCacheWrite = 0;
 
+		// Track compaction events
+		let compactionCount = 0;
+		let peakContextTokens = 0;
+
 		// Enriched tool results by sourceToolUseID
 		const enrichedResults = new Map<string, Record<string, unknown>>();
 
@@ -253,6 +257,14 @@ export class ClaudeParser extends BaseParser {
 				&& record.message.content.startsWith(TAG_TASK_NOTIFICATION)) {
 				const tn = parseTaskNotification(record.message.content);
 				if (tn) taskNotifications.set(tn.toolUseId, tn);
+			}
+
+			// Track compact_boundary events for peak context detection
+			if (record.type === RT_SYSTEM && record.subtype === 'compact_boundary' && record.compactMetadata) {
+				compactionCount++;
+				if (typeof record.compactMetadata.preTokens === 'number') {
+					peakContextTokens = Math.max(peakContextTokens, record.compactMetadata.preTokens);
+				}
 			}
 
 			// Capture custom-title from /rename command (keep last value)
@@ -505,6 +517,8 @@ export class ClaudeParser extends BaseParser {
 			cacheCreationTokens: totalCacheCreationTokens,
 			totalTokens: totalInputTokens + totalOutputTokens + totalCacheReadTokens + totalCacheCreationTokens,
 			contextWindowTokens,
+			peakContextTokens,
+			compactionCount,
 			costUSD,
 			toolUseCounts,
 			durationMs,

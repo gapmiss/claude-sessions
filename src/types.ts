@@ -30,6 +30,10 @@ export interface SessionStats {
 	totalTokens: number;
 	/** Context window size at the final API call (input + cache read + cache write). */
 	contextWindowTokens: number;
+	/** Peak context window size before any compaction (0 if never compacted). */
+	peakContextTokens: number;
+	/** Number of times the session was compacted. */
+	compactionCount: number;
 	/** Estimated session cost in USD (model-aware pricing). */
 	costUSD: number;
 	toolUseCounts: Record<string, number>;
