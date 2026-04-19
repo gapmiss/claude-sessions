@@ -631,6 +631,9 @@ expandAll(): void {
 		);
 		if (!blockEl) return;
 
+		// Expand any collapsed ancestors (tool blocks, groups) before text search
+		this.expandAncestors(blockEl, turnEl);
+
 		// Text-search the rendered DOM (not indexed offsets) because markdown
 		// syntax like **bold** is in the indexed text but stripped from the DOM.
 		// Pick the Nth occurrence, matching the search layer's occurrenceInBlock

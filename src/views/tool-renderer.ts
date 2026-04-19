@@ -112,10 +112,7 @@ export function renderToolCall(
 	} else {
 		header.createSpan({ cls: 'claude-sessions-tool-name', text: block.name });
 	}
-	const previewSpan = header.createSpan({ cls: 'claude-sessions-tool-preview', text: toolPreview(block) });
-	if (toolUseContentBlockIdx !== undefined) {
-		previewSpan.setAttribute('data-content-block-idx', String(toolUseContentBlockIdx));
-	}
+	header.createSpan({ cls: 'claude-sessions-tool-preview', text: toolPreview(block) });
 	if (block.isPending) {
 		header.createSpan({ cls: 'claude-sessions-tool-duration claude-sessions-tool-orphaned-label', text: 'in progress' });
 	} else if (block.isOrphaned) {
@@ -178,13 +175,16 @@ export function renderToolCall(
 	} else if ((block.name === 'Agent' || block.name === 'Task') && block.subAgentSession) {
 		renderSubAgentSession(block.subAgentSession, body, result, ctx, delegate);
 	} else if (block.name === 'Edit' && block.input['old_string'] != null) {
-		renderDiffView(block, result, body, ctx, toolResultContentBlockIdx);
+		renderDiffView(block, result, body, ctx, toolUseContentBlockIdx, toolResultContentBlockIdx);
 	} else if (block.name === 'Write' && block.input['content'] != null) {
-		renderWriteView(block, result, body, ctx, toolResultContentBlockIdx);
+		renderWriteView(block, result, body, ctx, toolUseContentBlockIdx, toolResultContentBlockIdx);
 	} else if (block.name === 'Bash') {
-		renderBashInput(block, body, ctx);
+		renderBashInput(block, body, ctx, toolUseContentBlockIdx);
 	} else if (Object.keys(block.input).length > 0) {
 		const inputEl = body.createDiv({ cls: 'claude-sessions-tool-input' });
+		if (toolUseContentBlockIdx !== undefined) {
+			inputEl.setAttribute('data-content-block-idx', String(toolUseContentBlockIdx));
+		}
 		inputEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'INPUT' });
 		const inputText = formatInput(block.input);
 		const inputMd = fence(inputText, 'json');
@@ -542,8 +542,16 @@ function renderAskUserQuestion(
 	}
 }
 
-function renderBashInput(block: ToolUseBlock, container: HTMLElement, ctx: RenderContext): void {
+function renderBashInput(
+	block: ToolUseBlock,
+	container: HTMLElement,
+	ctx: RenderContext,
+	toolUseContentBlockIdx?: number,
+): void {
 	const inputEl = container.createDiv({ cls: 'claude-sessions-tool-input' });
+	if (toolUseContentBlockIdx !== undefined) {
+		inputEl.setAttribute('data-content-block-idx', String(toolUseContentBlockIdx));
+	}
 	inputEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'INPUT' });
 	const command = typeof block.input['command'] === 'string' ? block.input['command'] : '';
 	const md = fence(command, 'bash');
@@ -667,9 +675,13 @@ function renderDiffView(
 	result: ToolResultBlock | undefined,
 	container: HTMLElement,
 	ctx: RenderContext,
+	toolUseContentBlockIdx?: number,
 	toolResultContentBlockIdx?: number,
 ): void {
 	const diffEl = container.createDiv({ cls: 'claude-sessions-diff-view' });
+	if (toolUseContentBlockIdx !== undefined) {
+		diffEl.setAttribute('data-content-block-idx', String(toolUseContentBlockIdx));
+	}
 
 	if (block.input['file_path']) {
 		diffEl.createDiv({
@@ -705,9 +717,13 @@ function renderWriteView(
 	result: ToolResultBlock | undefined,
 	container: HTMLElement,
 	ctx: RenderContext,
+	toolUseContentBlockIdx?: number,
 	toolResultContentBlockIdx?: number,
 ): void {
 	const writeEl = container.createDiv({ cls: 'claude-sessions-tool-input' });
+	if (toolUseContentBlockIdx !== undefined) {
+		writeEl.setAttribute('data-content-block-idx', String(toolUseContentBlockIdx));
+	}
 
 	const filePath = typeof block.input['file_path'] === 'string' ? block.input['file_path'] : '';
 	if (filePath) {

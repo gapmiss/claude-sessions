@@ -114,6 +114,16 @@ function extractToolInputText(toolName: string, input: Record<string, unknown> |
 /** Matches `cat -n` style line numbers: digits + arrow or tab separator. */
 const RE_LINE_NUMBERS = /^\d+[\u2192\t]/gm;
 
+const RE_EDIT_WRITE_SUCCESS = /^The file .+ has been (?:updated|created) successfully\.?$/;
+
+/**
+ * Returns true if content is a boilerplate Edit/Write success message that
+ * the renderer doesn't display (it shows the diff instead).
+ */
+function isEditWriteSuccessMessage(content: string): boolean {
+	return RE_EDIT_WRITE_SUCCESS.test(content.trim());
+}
+
 /**
  * Replicates the cleaning applied by tool-renderer.ts when rendering a
  * successful Read tool_result so the indexed text equals the rendered text.
@@ -143,6 +153,11 @@ export function indexTextForBlock(block: ContentBlock): string {
 		case 'tool_result':
 			if (block.toolName === 'Read' && !block.isError) {
 				return cleanReadResult(block.content ?? '');
+			}
+			if ((block.toolName === 'Edit' || block.toolName === 'Write') && !block.isError) {
+				if (isEditWriteSuccessMessage(block.content ?? '')) {
+					return '';
+				}
 			}
 			return block.content ?? '';
 		case 'slash_command':
@@ -234,7 +249,9 @@ export function extractSearchableContent(line: string): ExtractedContent | null 
 			for (const block of content) {
 				if ((block as Record<string, unknown>)['type'] === 'tool_result') {
 					const c = (block as Record<string, unknown>)['content'];
-					if (typeof c === 'string') texts.push(c);
+					if (typeof c === 'string' && !isEditWriteSuccessMessage(c)) {
+						texts.push(c);
+					}
 				}
 			}
 			if (texts.length > 0) {
