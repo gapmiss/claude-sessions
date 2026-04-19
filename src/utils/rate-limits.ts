@@ -30,9 +30,8 @@ interface UsageResponse {
 
 /** How often to re-fetch from the API (5 minutes). */
 const CACHE_TTL_MS = 5 * 60 * 1000;
-/** How often to re-fetch from the API (1 minute). */
-// const CACHE_TTL_MS = 1 * 60 * 1000;
-// CAUSING TOO MANY REQUEST error 429
+/** Maximum age before cached data is considered too stale to display (15 minutes). */
+const MAX_STALE_MS = 15 * 60 * 1000;
 
 let cached: CacheEntry | null = null;
 let inflight: Promise<RateLimitData | null> | null = null;
@@ -119,6 +118,13 @@ export async function fetchRateLimits(): Promise<RateLimitData | null> {
 		return cached.data;
 	}
 
+	// Clear stale cache to avoid showing outdated data
+	if (cached && (Date.now() - cached.fetchedAt) >= MAX_STALE_MS) {
+		const age = Math.round((Date.now() - cached.fetchedAt) / 1000 / 60);
+		Logger.debug(`[rate-limits] clearing stale cache (${age}m old)`);
+		cached = null;
+	}
+
 	// Deduplicate concurrent requests
 	if (inflight) {
 		Logger.debug('[rate-limits] request already inflight, deduping');
@@ -132,7 +138,7 @@ export async function fetchRateLimits(): Promise<RateLimitData | null> {
 			const token = getAccessToken();
 			if (!token) {
 				Logger.warn('[rate-limits] no OAuth token found');
-				return cached?.data ?? null;
+				return null;
 			}
 			Logger.debug('[rate-limits] token found, calling API...');
 
@@ -148,7 +154,7 @@ export async function fetchRateLimits(): Promise<RateLimitData | null> {
 
 			if (response.status !== 200) {
 				Logger.warn(`[rate-limits] API returned status ${response.status}`, response.text);
-				return cached?.data ?? null;
+				return null;
 			}
 
 			const body = response.json as UsageResponse;
@@ -171,7 +177,7 @@ export async function fetchRateLimits(): Promise<RateLimitData | null> {
 			return data;
 		} catch (err) {
 			Logger.error('[rate-limits] fetch failed:', err);
-			return cached?.data ?? null;
+			return null;
 		} finally {
 			inflight = null;
 		}
