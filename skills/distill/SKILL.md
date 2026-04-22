@@ -7,12 +7,14 @@ description: Distills the current Claude Code session into a structured Obsidian
 
 Distill the current Claude Code session into a structured Obsidian note with queryable frontmatter.
 
+**CRITICAL**: Output the markdown content directly in your text response. Do NOT use Write, Edit, or any file-writing tools. The user will copy the output themselves.
+
 ## Workflow
 
-1. **Gather metadata** — collect session_id, cwd, git branch, model, start time, token counts, cost, tool usage, and files touched from the environment and session context.
+1. **Gather metadata** — extract session_id, cwd, git branch, model, start time, token counts, cost, tool usage, and files touched from what is already visible in the conversation (system reminders, git status, prior tool results). Do NOT run Bash or other tools to fetch metadata — use fallbacks for anything unavailable.
 2. **Classify session type** — review the conversation and assign one or more types from the vocabulary below.
 3. **Synthesize content** — extract key decisions (with reasoning), non-obvious learnings, and the most important exchanges from the full conversation.
-4. **Write output** — produce the markdown file to stdout using the exact structure below, then name it per the naming convention.
+4. **Write output** — output the markdown content directly in your response (NOT using Write or Edit tools). Include the suggested filename per the naming convention.
 5. **Validate output** — verify the YAML frontmatter parses correctly and all required fields are present before finalizing. Confirm `session_id`, `schema_version`, `project`, `cwd`, and `source_path` are populated; check that `session_type` contains at least one valid vocabulary term.
 
 ## Handling Missing Metadata
