@@ -60,14 +60,16 @@ function getAccessToken(): string | null {
 				const parsed = JSON.parse(raw) as CredentialData;
 				const creds = parsed.claudeAiOauth ?? parsed;
 				if (creds.accessToken) {
+					// Don't preemptively reject expired tokens — let the API decide.
+					// OAuth tokens often have grace periods, and Claude Code may have
+					// refreshed the token since we last checked.
 					if (creds.expiresAt && creds.expiresAt <= Date.now()) {
-						Logger.warn('[rate-limits] keychain token expired', {
+						Logger.debug('[rate-limits] keychain token past expiresAt, trying anyway', {
 							expiresAt: new Date(creds.expiresAt).toISOString(),
-							now: new Date().toISOString(),
 						});
-						return null;
+					} else {
+						Logger.debug('[rate-limits] keychain token found and valid');
 					}
-					Logger.debug('[rate-limits] keychain token found and valid');
 					return creds.accessToken;
 				}
 			}
@@ -88,14 +90,14 @@ function getAccessToken(): string | null {
 		const parsed = JSON.parse(fs.readFileSync(credPath, 'utf-8')) as CredentialData;
 		const creds = parsed.claudeAiOauth ?? parsed;
 		if (creds.accessToken) {
+			// Don't preemptively reject expired tokens — let the API decide.
 			if (creds.expiresAt && creds.expiresAt <= Date.now()) {
-				Logger.warn('[rate-limits] file token expired', {
+				Logger.debug('[rate-limits] file token past expiresAt, trying anyway', {
 					expiresAt: new Date(creds.expiresAt).toISOString(),
-					now: new Date().toISOString(),
 				});
-				return null;
+			} else {
+				Logger.debug('[rate-limits] file token found and valid');
 			}
-			Logger.debug('[rate-limits] file token found and valid');
 			return creds.accessToken;
 		}
 		Logger.debug('[rate-limits] credentials file parsed but no accessToken');
@@ -153,7 +155,11 @@ export async function fetchRateLimits(): Promise<RateLimitData | null> {
 			});
 
 			if (response.status !== 200) {
-				Logger.warn(`[rate-limits] API returned status ${response.status}`, response.text);
+				if (response.status === 401) {
+					Logger.warn('[rate-limits] API returned 401 - token truly expired or invalid');
+				} else {
+					Logger.warn(`[rate-limits] API returned status ${response.status}`, response.text);
+				}
 				return null;
 			}
 
