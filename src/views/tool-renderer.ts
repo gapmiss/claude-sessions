@@ -1,6 +1,6 @@
 import { MarkdownRenderer, setIcon } from 'obsidian';
 import { diffLines } from 'diff';
-import type { ContentBlock, ToolUseBlock, ToolResultBlock, ToolResultImage, SubAgentSession } from '../types';
+import type { ContentBlock, ToolUseBlock, ToolResultBlock, ToolResultImage, SubAgentSession, HookSuccessEvent } from '../types';
 import { TASK_TOOL_NAMES, ANSI_RE, RE_SYSTEM_REMINDER } from '../constants';
 import {
 	type RenderContext, COLLAPSE_THRESHOLD,
@@ -212,7 +212,7 @@ export function renderToolCall(
 	}
 
 	// Hook details section (only for PreToolUse - PermissionRequest just shows icon)
-	const preToolUseHooks = hookEvents?.filter(h => h.type === 'hook_success') ?? [];
+	const preToolUseHooks = hookEvents?.filter((h): h is HookSuccessEvent => h.type === 'hook_success') ?? [];
 	if (preToolUseHooks.length > 0) {
 		const hookSection = body.createDiv({ cls: 'claude-sessions-tool-hook-section' });
 		hookSection.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'HOOKS' });

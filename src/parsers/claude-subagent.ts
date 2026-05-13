@@ -11,14 +11,14 @@ const READ_TIMEOUT_MS = 5000;
 
 /** Wrap a promise with a timeout. */
 async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-	let timeoutId: ReturnType<typeof setTimeout>;
+	let timeoutId: number;
 	const timeoutPromise = new Promise<never>((_, reject) => {
-		timeoutId = setTimeout(() => reject(new Error(`Timeout reading ${label}`)), ms);
+		timeoutId = activeWindow.setTimeout(() => reject(new Error(`Timeout reading ${label}`)), ms);
 	});
 	try {
 		return await Promise.race([promise, timeoutPromise]);
 	} finally {
-		clearTimeout(timeoutId!);
+		activeWindow.clearTimeout(timeoutId!);
 	}
 }
 

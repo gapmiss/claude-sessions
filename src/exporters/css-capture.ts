@@ -14,12 +14,12 @@ const NEEDED_SELECTORS = [
 
 /** Scrape all CSS custom properties from the document, resolved to computed values. */
 function captureThemeVariables(): string {
-	const rootStyle = getComputedStyle(document.documentElement);
-	const bodyStyle = getComputedStyle(document.body);
+	const rootStyle = getComputedStyle(activeDocument.documentElement);
+	const bodyStyle = getComputedStyle(activeDocument.body);
 
 	// Collect all custom property names from all stylesheets
 	const varNames = new Set<string>();
-	const sheets = Array.from(document.styleSheets);
+	const sheets = Array.from(activeDocument.styleSheets);
 	for (const sheet of sheets) {
 		try {
 			const rules = Array.from(sheet.cssRules);
@@ -52,7 +52,7 @@ function captureThemeVariables(): string {
 function captureMarkdownStyles(): string {
 	const result: string[] = [];
 
-	const sheets = Array.from(document.styleSheets);
+	const sheets = Array.from(activeDocument.styleSheets);
 	for (const sheet of sheets) {
 		// Only process app.css (linked stylesheet from obsidian.md)
 		if (!(sheet.ownerNode instanceof HTMLLinkElement)) continue;
@@ -78,7 +78,7 @@ function captureMarkdownStyles(): string {
 function capturePluginStyles(): string {
 	const result: string[] = [];
 
-	const sheets = Array.from(document.styleSheets);
+	const sheets = Array.from(activeDocument.styleSheets);
 	for (const sheet of sheets) {
 		try {
 			const rules = Array.from(sheet.cssRules);
@@ -100,7 +100,7 @@ function capturePluginStyles(): string {
 function captureFontFaces(): string {
 	const result: string[] = [];
 
-	const sheets = Array.from(document.styleSheets);
+	const sheets = Array.from(activeDocument.styleSheets);
 	for (const sheet of sheets) {
 		try {
 			const rules = Array.from(sheet.cssRules);
@@ -126,14 +126,14 @@ function captureFontFaces(): string {
  * capturePluginStyles() misses since it only grabs the main plugin stylesheet.
  */
 function capturePluginThemeOverrides(): string {
-	const container = document.querySelector('.claude-sessions-timeline-container');
+	const container = activeDocument.querySelector('.claude-sessions-timeline-container');
 	if (!container) return '';
 
 	const computed = getComputedStyle(container);
 
 	// Collect all --cs-* variable names from all stylesheets
 	const csVarNames = new Set<string>();
-	for (const sheet of Array.from(document.styleSheets)) {
+	for (const sheet of Array.from(activeDocument.styleSheets)) {
 		try {
 			for (const rule of Array.from(sheet.cssRules)) {
 				if (rule instanceof CSSStyleRule && rule.style) {

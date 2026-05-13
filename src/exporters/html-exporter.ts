@@ -331,7 +331,7 @@ export async function exportToHTML(
 		const script = getStandaloneScript();
 
 		// Detect current theme
-		const isDark = document.body.classList.contains('theme-dark');
+		const isDark = activeDocument.body.classList.contains('theme-dark');
 		const themeClass = isDark ? 'theme-dark' : 'theme-light';
 
 		// Assemble the HTML document

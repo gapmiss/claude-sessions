@@ -639,7 +639,7 @@ expandAll(): void {
 		// Pick the Nth occurrence, matching the search layer's occurrenceInBlock
 		// rank — ordering matches indexed-space even when characters are dropped.
 		const textNodes: Text[] = [];
-		const walker = document.createTreeWalker(blockEl, NodeFilter.SHOW_TEXT);
+		const walker = activeDocument.createTreeWalker(blockEl, NodeFilter.SHOW_TEXT);
 		let n: Text | null;
 		while ((n = walker.nextNode() as Text | null)) textNodes.push(n);
 
@@ -762,7 +762,7 @@ expandAll(): void {
 			const parent = mark.parentNode;
 			if (!parent) continue;
 			const text = mark.textContent || '';
-			parent.replaceChild(document.createTextNode(text), mark);
+			parent.replaceChild(activeDocument.createTextNode(text), mark);
 			parent.normalize();
 		}
 		this.activeHighlights = [];

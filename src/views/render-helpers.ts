@@ -113,6 +113,6 @@ export function addCopyButton(container: HTMLElement, text: string, label: strin
 		e.stopPropagation();
 		void navigator.clipboard.writeText(text);
 		setIcon(btn, 'check');
-		setTimeout(() => setIcon(btn, 'copy'), 1500);
+		activeWindow.setTimeout(() => setIcon(btn, 'copy'), 1500);
 	});
 }

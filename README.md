@@ -7,6 +7,9 @@ An [Obsidian](https://obsidian.md/) plugin for viewing [Claude Code](https://doc
 > [!IMPORTANT]
 > **v0.3.2** — Desktop-only. Active development; expect frequent changes.
 
+> [!NOTE]
+> **System identity access:** This plugin reads `HOME` environment variable and `os.homedir()` to locate Claude Code's session files at `~/.claude/projects/` and OAuth credentials for rate limit display. No data is transmitted — these values are used only to construct local file paths.
+
 <!-- ![Claude Sessions — dark mode](screenshots/hero-dark.png) -->
 
 ---

@@ -165,7 +165,7 @@ export class TimelineRenderer {
 		// Re-render summary and system events at the top (before the first turn element)
 		const firstTurn = this.turnEls[0];
 		if (firstTurn) {
-			const frag = document.createDocumentFragment();
+			const frag = activeDocument.createDocumentFragment();
 			const tempContainer = createDiv();
 			renderSummary(session, tempContainer, this.ctx);
 			renderSystemEvents(session, tempContainer);
@@ -770,7 +770,7 @@ class ImagePreviewModal extends Modal {
 					new ClipboardItem({ [this.mediaType]: blob }),
 				]);
 				copyBtn.setText('Copied!');
-				setTimeout(() => copyBtn.setText('Copy'), 1500);
+				activeWindow.setTimeout(() => copyBtn.setText('Copy'), 1500);
 			})();
 		});
 	}
@@ -803,7 +803,7 @@ class MermaidPreviewModal extends Modal {
 			svgString = svgString.split(origId).join('mermaid-preview-' + Date.now());
 		}
 		const doc = new DOMParser().parseFromString(svgString, 'image/svg+xml');
-		const svgNode = document.importNode(doc.documentElement, true) as unknown as HTMLElement;
+		const svgNode = activeDocument.importNode(doc.documentElement, true) as unknown as HTMLElement;
 		// Mermaid sets an inline max-width that caps the SVG size — remove it so it fills the modal
 		svgNode.style.removeProperty('max-width');
 
@@ -839,7 +839,7 @@ class MermaidPreviewModal extends Modal {
 				const svgString = new XMLSerializer().serializeToString(this.svgEl);
 				await navigator.clipboard.writeText(svgString);
 				copyBtn.setText('Copied!');
-				setTimeout(() => copyBtn.setText('Copy SVG'), 1500);
+				activeWindow.setTimeout(() => copyBtn.setText('Copy SVG'), 1500);
 			})();
 		});
 	}

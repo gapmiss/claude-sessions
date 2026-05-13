@@ -275,6 +275,7 @@ function addRateLimitCard(container: HTMLElement, percent: number, label: string
 	const iconEl = card.createDiv({ cls: 'claude-sessions-dash-hero-icon' });
 	setIcon(iconEl, iconName);
 	card.createDiv({ cls: 'claude-sessions-dash-hero-value', text: `${Math.round(percent)}%` });
+	card.createDiv({ cls: 'claude-sessions-dash-hero-label', text: label });
 
 	// Mini progress bar
 	const track = card.createDiv({ cls: 'claude-sessions-dash-hero-bar-track' });

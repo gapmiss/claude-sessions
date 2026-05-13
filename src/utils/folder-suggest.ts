@@ -24,7 +24,7 @@ export class FolderSuggest extends AbstractInputSuggest<string> {
 	}
 
 	renderSuggestion(folder: string, el: HTMLElement): void {
-		el.createEl('div', { text: folder });
+		el.createDiv({ text: folder });
 	}
 
 	selectSuggestion(folder: string): void {
