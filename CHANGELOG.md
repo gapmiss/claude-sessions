@@ -14,10 +14,14 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 - **Obsidian community plugin review compliance**
   - Bump `minAppVersion` to 1.7.2 (required for `revealLeaf`, `createFolder`, `getAllFolders`, `AbstractInputSuggest`, `showAtPosition`)
   - Replace `document` with `activeDocument` for popout window compatibility (14 locations)
-  - Replace `setTimeout`/`clearTimeout` with `activeWindow.setTimeout`/`clearTimeout` (6 locations)
+  - Replace `setTimeout`/`clearTimeout` with `window.setTimeout`/`clearTimeout` (6 locations)
+  - Replace `requestAnimationFrame` with `window.requestAnimationFrame` (7 locations)
   - Replace `builtin-modules` package with Node's built-in `module.builtinModules`
+  - Replace `instanceof HTMLLinkElement` with `nodeName === 'LINK'` check
   - Add type guard for `HookSuccessEvent` filter narrowing (fixes unsafe `any` warnings)
   - Use `el.createDiv()` instead of `el.createEl('div')` in folder suggest
+  - Remove all 25 `!important` CSS declarations by increasing selector specificity
+  - Remove duplicate `padding` property in search clear button styles
 - **Rate limit cards** — missing label text now displayed (was defined but unused)
 
 ### Added

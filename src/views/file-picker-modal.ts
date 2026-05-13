@@ -106,7 +106,7 @@ export class FilePickerModal extends Modal {
 					}
 				});
 				// Focus the input
-				activeWindow.setTimeout(() => text.inputEl.focus(), 50);
+				window.setTimeout(() => text.inputEl.focus(), 50);
 			});
 
 		new Setting(contentEl)

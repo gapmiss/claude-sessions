@@ -208,7 +208,7 @@ export class SearchView extends ItemView {
 		this.resolveTrackedSession();
 		this.updateScopeLabel();
 
-		requestAnimationFrame(() => this.inputEl.focus());
+		window.requestAnimationFrame(() => this.inputEl.focus());
 		return Promise.resolve();
 	}
 

@@ -55,7 +55,7 @@ function captureMarkdownStyles(): string {
 	const sheets = Array.from(activeDocument.styleSheets);
 	for (const sheet of sheets) {
 		// Only process app.css (linked stylesheet from obsidian.md)
-		if (!(sheet.ownerNode instanceof HTMLLinkElement)) continue;
+		if (sheet.ownerNode?.nodeName !== 'LINK') continue;
 		if (!sheet.href?.includes('app.css')) continue;
 
 		try {

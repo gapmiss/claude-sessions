@@ -349,7 +349,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 		if (view instanceof TimelineView) {
 			view.loadSession(session);
 			if (turnIndex !== undefined) {
-				requestAnimationFrame(() => {
+				window.requestAnimationFrame(() => {
 					if (highlight) {
 						view.navigateToMatch(turnIndex, highlight.contentBlockIndex, highlight.text, highlight.occurrenceInBlock);
 					} else {

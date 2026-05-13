@@ -176,7 +176,7 @@ export class TimelineView extends ItemView {
 		this.updateControls();
 
 		if (opts?.scrollToEnd && this.timelineEl) {
-			requestAnimationFrame(() => {
+			window.requestAnimationFrame(() => {
 				if (this.timelineEl) {
 					this.timelineEl.scrollTop = this.timelineEl.scrollHeight;
 				}
@@ -320,7 +320,7 @@ export class TimelineView extends ItemView {
 
 				// Auto-scroll to bottom (matches loadSession behavior)
 				if (this.settings.autoScrollOnUpdate && this.timelineEl) {
-					requestAnimationFrame(() => {
+					window.requestAnimationFrame(() => {
 						if (this.timelineEl) {
 							this.timelineEl.scrollTop = this.timelineEl.scrollHeight;
 						}
@@ -598,8 +598,8 @@ expandAll(): void {
 		this.clearHighlight();
 		this.scrollToTurn(turnIndex);
 		// Allow scroll to settle before highlighting
-		requestAnimationFrame(() => {
-			requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
+			window.requestAnimationFrame(() => {
 				this.highlightMatchInBlock(turnIndex, contentBlockIndex, needle, occurrenceInBlock);
 			});
 		});

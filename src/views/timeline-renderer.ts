@@ -225,7 +225,7 @@ export class TimelineRenderer {
 		this.destroyMermaidObserver();
 		this.mermaidObserver = new MutationObserver(() => {
 			if (!this.mermaidRafId) {
-				this.mermaidRafId = requestAnimationFrame(() => {
+				this.mermaidRafId = window.requestAnimationFrame(() => {
 					this.mermaidRafId = 0;
 					this.processMermaidBlocks(this.container);
 				});
@@ -770,7 +770,7 @@ class ImagePreviewModal extends Modal {
 					new ClipboardItem({ [this.mediaType]: blob }),
 				]);
 				copyBtn.setText('Copied!');
-				activeWindow.setTimeout(() => copyBtn.setText('Copy'), 1500);
+				window.setTimeout(() => copyBtn.setText('Copy'), 1500);
 			})();
 		});
 	}
@@ -839,7 +839,7 @@ class MermaidPreviewModal extends Modal {
 				const svgString = new XMLSerializer().serializeToString(this.svgEl);
 				await navigator.clipboard.writeText(svgString);
 				copyBtn.setText('Copied!');
-				activeWindow.setTimeout(() => copyBtn.setText('Copy SVG'), 1500);
+				window.setTimeout(() => copyBtn.setText('Copy SVG'), 1500);
 			})();
 		});
 	}

@@ -225,13 +225,13 @@
 
 /* --- Pinned heroes (sticky bar at top of timeline) --- */
 
-.claude-sessions-pinned-heroes {
+.claude-sessions-timeline-container .claude-sessions-pinned-heroes {
 	display: none;
 	position: sticky;
 	top: 0;
 	z-index: 10;
 	/* Break out of max-width centering */
-	max-width: none !important;
+	max-width: none;
 	width: calc(100% + 2 * var(--size-4-4));
 	margin-left: calc(-1 * var(--size-4-4));
 	margin-top: calc(-1 * var(--size-4-4));
@@ -905,7 +905,7 @@
 	display: none;
 }
 
-.claude-sessions-collapsible-toggle {
+.claude-sessions-timeline-container .claude-sessions-collapsible-toggle {
 	display: block;
 	width: 100%;
 	text-align: center;
@@ -917,7 +917,7 @@
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-s);
 	/* background: var(--background-secondary); */
-	background-color: transparent !important;
+	background-color: transparent;
 	font-family: var(--cs-font-family-ui);
 	min-height: 44px;
 	position: relative;
@@ -1643,12 +1643,12 @@
  * font-size:12px, white-space:pre-wrap, font-family:monospace,
  * line-height:1.6, color:green — all must be overridden.
  */
-.claude-sessions-read-md-preview {
-	font-family: var(--font-text) !important;
-	font-size: var(--font-text-size) !important;
-	line-height: var(--line-height-normal) !important;
-	color: var(--text-normal) !important;
-	white-space: normal !important;
+.claude-sessions-timeline-container .claude-sessions-read-md-preview {
+	font-family: var(--font-text);
+	font-size: var(--font-text-size);
+	line-height: var(--line-height-normal);
+	color: var(--text-normal);
+	white-space: normal;
 }
 
 /* ═══════════════════════════════════════════
@@ -2126,8 +2126,8 @@
    Drop zone (file picker modal)
    ═══════════════════════════════════════════ */
 
-.claude-sessions-file-picker-modal .setting-item {
-	border-top: none !important;
+.modal.claude-sessions-file-picker-modal .setting-item {
+	border-top: none;
 }
 
 .claude-sessions-drop-zone {
@@ -2456,17 +2456,17 @@
 	border-bottom: 1px solid var(--background-modifier-border);
 }
 
-.claude-sessions-search-mode-btn {
+.claude-sessions-search-view .claude-sessions-search-mode-btn {
 	position: relative;
 	padding: var(--size-2-2) var(--size-2-1);
 	padding-bottom: var(--size-4-2);
 	margin: 0;
-	border: none !important;
-	border-radius: 0 !important;
-	outline: none !important;
-	box-shadow: none !important;
-	background: none !important;
-	background-color: transparent !important;
+	border: none;
+	border-radius: 0;
+	outline: none;
+	box-shadow: none;
+	background: none;
+	background-color: transparent;
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
 	cursor: pointer;
@@ -2474,18 +2474,18 @@
 	appearance: none;
 }
 
-.claude-sessions-search-mode-btn:hover {
+.claude-sessions-search-view .claude-sessions-search-mode-btn:hover {
 	color: var(--text-normal);
-	background: none !important;
+	background: none;
 }
 
-.claude-sessions-search-mode-btn.active {
+.claude-sessions-search-view .claude-sessions-search-mode-btn.active {
 	color: var(--text-normal);
-	background: none !important;
+	background: none;
 }
 
-.claude-sessions-search-mode-btn:active {
-	background: none !important;
+.claude-sessions-search-view .claude-sessions-search-mode-btn:active {
+	background: none;
 }
 
 .claude-sessions-search-mode-btn::after {
@@ -2567,25 +2567,25 @@
 	height: 16px;
 }
 
-.claude-sessions-search-input {
+.claude-sessions-search-view .claude-sessions-search-input {
 	flex: 1;
 	min-width: 0;
 	padding: var(--size-4-1) 0;
-	border: none !important;
-	border-radius: 0 !important;
-	outline: none !important;
-	box-shadow: none !important;
-	background: transparent !important;
+	border: none;
+	border-radius: 0;
+	outline: none;
+	box-shadow: none;
+	background: transparent;
 	color: var(--text-normal);
 	font-family: var(--cs-font-family);
 	font-size: var(--font-ui-small);
 	line-height: var(--line-height-tight);
 }
 
-.claude-sessions-search-input:focus {
-	border: none !important;
-	outline: none !important;
-	box-shadow: none !important;
+.claude-sessions-search-view .claude-sessions-search-input:focus {
+	border: none;
+	outline: none;
+	box-shadow: none;
 }
 
 .claude-sessions-search-input::placeholder {
@@ -2597,7 +2597,6 @@
 	display: none;
 	align-items: center;
 	justify-content: center;
-	padding: 2px;
 	border: none;
 	border-radius: 50%;
 	background: transparent;
