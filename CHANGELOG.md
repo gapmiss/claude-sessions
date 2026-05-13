@@ -8,6 +8,27 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.3] - 2026-05-12
+
+### Fixed
+- **Obsidian community plugin review compliance**
+  - Bump `minAppVersion` to 1.7.2 (required for `revealLeaf`, `createFolder`, `getAllFolders`, `AbstractInputSuggest`, `showAtPosition`)
+  - Replace `document` with `activeDocument` for popout window compatibility (14 locations)
+  - Replace `setTimeout`/`clearTimeout` with `activeWindow.setTimeout`/`clearTimeout` (6 locations)
+  - Replace `builtin-modules` package with Node's built-in `module.builtinModules`
+  - Add type guard for `HookSuccessEvent` filter narrowing (fixes unsafe `any` warnings)
+  - Use `el.createDiv()` instead of `el.createEl('div')` in folder suggest
+- **Rate limit cards** — missing label text now displayed (was defined but unused)
+
+### Added
+- **GitHub Actions release workflow** — artifact attestations for `main.js` and `styles.css` on tag push
+- **README callout** — explains system identity access (`HOME`, `os.homedir()`) for locating Claude files
+
+### Changed
+- `release.mjs` now delegates release creation to GitHub Actions (local script only bumps, builds, tags, and pushes)
+
+---
+
 ## [0.3.2] - 2026-04-19
 
 ### Fixed
@@ -183,7 +204,8 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
-[0.3.2]: https://github.com/gapmiss/claude-sessions/compare/0.3.1...HEAD
+[0.3.3]: https://github.com/gapmiss/claude-sessions/compare/0.3.2...HEAD
+[0.3.2]: https://github.com/gapmiss/claude-sessions/compare/0.3.1...0.3.2
 [0.3.1]: https://github.com/gapmiss/claude-sessions/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/gapmiss/claude-sessions/compare/0.2.15...0.3.0
 [0.2.15]: https://github.com/gapmiss/claude-sessions/compare/0.2.14...0.2.15
