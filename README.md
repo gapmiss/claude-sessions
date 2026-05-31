@@ -317,6 +317,28 @@ const entries = await api.getSessionIndex();
 
 ---
 
+## Security notices
+
+[Community scorecard](https://community.obsidian.md/plugins/claude-sessions#scorecard)
+
+This plugin is flagged by the Obsidian community scanner for two patterns. Both originate in the **opt-in, beta** rate limit feature (`src/utils/rate-limits.ts`) and are used solely to read your existing Claude Code OAuth credential. No data is collected, transmitted to third parties, or used for fingerprinting.
+
+| Warning | What triggers it | Why it exists |
+|---------|-----------------|---------------|
+| Shell execution (`child_process`) | `execSync` calls macOS `security` CLI (line 55) | Reads your Claude OAuth token from macOS Keychain to query your account's rate limit utilization. Only runs on macOS, only when the "Show rate limits" setting is enabled. |
+| System identity / environment variables | `process.env.HOME` (line 49) | Locates `~/.claude/.credentials.json` as a fallback credential source on Linux. Not used for identification or telemetry. |
+
+**Scope of access:**
+
+- The Keychain query targets exactly one entry: `"Claude Code-credentials"`.
+- The token is sent only to `api.anthropic.com/api/oauth/usage` via Obsidian's `requestUrl()`.
+- Both paths are gated behind `Platform.isDesktop` and the "Show rate limits" toggle (off by default).
+- No data leaves the plugin except the single Anthropic API call above.
+
+If you prefer not to grant these capabilities, leave the "Show rate limits" setting disabled and the code paths are never reached.
+
+---
+
 ## Development
 
 ```bash
