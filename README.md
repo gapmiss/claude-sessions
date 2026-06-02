@@ -10,7 +10,32 @@ An [Obsidian](https://obsidian.md/) plugin for viewing [Claude Code](https://doc
 > [!NOTE]
 > **System identity access:** This plugin reads `HOME` environment variable and `os.homedir()` to locate Claude Code's session files at `~/.claude/projects/` and OAuth credentials for rate limit display. No data is transmitted — these values are used only to construct local file paths.
 
-<!-- ![Claude Sessions — dark mode](screenshots/hero-dark.png) -->
+---
+
+## Installation
+
+[Install from community.obsidian.md](https://community.obsidian.md/plugins/claude-sessions)
+
+From Obsidian's settings or preferences:
+
+1. Community Plugins > Browse
+2. Search for "Claude Sessions"
+
+Manually:
+
+1. download the latest [release](https://github.com/gapmiss/claude-sessions/releases/latest) archive
+2. uncompress the downloaded archive
+3. move the `claude-sessions` folder to `/path/to/vault/.obsidian/plugins/` 
+4.  Settings > Community plugins > reload **Installed plugins**
+5.  enable plugin
+
+or:
+
+1.  download `main.js`, `manifest.json` & `styles.css` from the latest [release](https://github.com/gapmiss/claude-sessions/releases/latest)
+2.  create a new folder `/path/to/vault/.obsidian/plugins/claude-sessions`
+3.  move all 3 files to `/path/to/vault/.obsidian/plugins/claude-sessions`
+4.  Settings > Community plugins > reload **Installed plugins**
+5.  enable plugin
 
 ---
 
