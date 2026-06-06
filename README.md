@@ -175,36 +175,6 @@ Paths can use `~` for the home directory, e.g. `obsidian://claude-sessions?sessi
 
 ---
 
-## Installation
-
-### BRAT (recommended for beta)
-
-1. Install the [BRAT](https://github.com/TfTHacker/obsidian42-brat) plugin
-2. Open BRAT settings → **Add Beta plugin**
-3. Enter: `gapmiss/claude-sessions`
-4. Enable the plugin under Settings → Community plugins
-
-### Manual
-
-Copy `main.js`, `styles.css`, and `manifest.json` into:
-
-```
-<your-vault>/.obsidian/plugins/claude-sessions/
-```
-
-Restart Obsidian and enable the plugin under Settings → Community plugins.
-
-### From source
-
-```bash
-git clone https://github.com/gapmiss/claude-sessions.git
-cd claude-sessions
-npm install
-npm run build
-```
-
----
-
 ## Usage
 
 ### Browse sessions
