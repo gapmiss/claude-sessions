@@ -24,7 +24,7 @@
 		"@eslint/json": "^0.14.0",
 		"@types/diff": "^7.0.2",
 		"@types/node": "^20.0.0",
-		"esbuild": "^0.27.7",
+		"esbuild": "^0.28.1",
 		"eslint-plugin-obsidianmd": "^0.1.9",
 		"globals": "14.0.0",
 		"jiti": "2.6.1",
@@ -36,5 +36,9 @@
 	"dependencies": {
 		"diff": "^8.0.3",
 		"obsidian": "latest"
+	},
+	"allowScripts": {
+		"esbuild": true,
+		"fsevents": true
 	}
 }
