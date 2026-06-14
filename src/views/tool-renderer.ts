@@ -506,6 +506,8 @@ function renderAskUserQuestion(
 		const answer = answers.get(q.question) ?? '';
 		const selectedLabels = new Set(answer.split(', ').map(s => s.trim()).filter(Boolean));
 
+		const optionLabels = new Set(q.options.map(o => o.label));
+
 		for (const opt of q.options) {
 			const isSelected = selectedLabels.has(opt.label);
 			const optEl = optionsEl.createDiv({
@@ -520,6 +522,16 @@ function renderAskUserQuestion(
 			if (opt.description) {
 				optEl.createDiv({ cls: 'claude-sessions-ask-option-desc', text: opt.description });
 			}
+		}
+
+		if (answer && !Array.from(selectedLabels).some(l => optionLabels.has(l))) {
+			const customEl = optionsEl.createDiv({
+				cls: 'claude-sessions-ask-option claude-sessions-ask-option-selected claude-sessions-ask-option-custom',
+			});
+			const labelRow = customEl.createDiv({ cls: 'claude-sessions-ask-option-label' });
+			labelRow.createSpan({ text: answer });
+			const check = labelRow.createSpan({ cls: 'claude-sessions-ask-option-check' });
+			setIcon(check, 'pencil');
 		}
 	}
 

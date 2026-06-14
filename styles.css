@@ -1537,6 +1537,16 @@
 	height: 16px;
 }
 
+.claude-sessions-ask-option-custom {
+	border-color: var(--interactive-accent);
+	background: hsla(var(--interactive-accent-hsl), 0.08);
+	border-style: dashed;
+}
+
+.claude-sessions-ask-option-custom .claude-sessions-ask-option-check {
+	color: var(--interactive-accent);
+}
+
 .claude-sessions-ask-option-desc {
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
@@ -2534,6 +2544,7 @@
 	display: flex;
 	gap: var(--size-4-2);
 	padding: var(--size-4-3) var(--size-4-4);
+	padding-bottom: var(--size-4-4);
 	border-bottom: 1px solid var(--background-modifier-border);
 	align-items: center;
 }
@@ -2582,10 +2593,12 @@
 	line-height: var(--line-height-tight);
 }
 
+.claude-sessions-search-view .claude-sessions-search-input:hover,
 .claude-sessions-search-view .claude-sessions-search-input:focus {
 	border: none;
 	outline: none;
 	box-shadow: none;
+	background: transparent;
 }
 
 .claude-sessions-search-input::placeholder {

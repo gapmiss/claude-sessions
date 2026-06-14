@@ -503,6 +503,9 @@ export class TimelineRenderer {
 		if (isRedacted) {
 			header.createSpan({ cls: 'claude-sessions-thinking-redacted', text: 'content encrypted' });
 		}
+		if (!isRedacted) {
+			addCopyButton(header, text, 'Copy thinking text');
+		}
 		header.createSpan({ cls: 'claude-sessions-thinking-chevron', text: '\u25B6' });
 
 		const body = el.createDiv({ cls: 'claude-sessions-thinking-body' });

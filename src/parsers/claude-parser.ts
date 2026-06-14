@@ -278,7 +278,8 @@ export class ClaudeParser extends BaseParser {
 			if (record.isSidechain && !this.allowSidechain) continue;
 			// Keep isMeta user records — they may contain skill expansion prompts
 		if (record.isMeta && record.type !== RT_USER) continue;
-			if (record.type === RT_ASSISTANT && record.message?.model === MODEL_SYNTHETIC) continue;
+			if (record.type === RT_ASSISTANT && record.message?.model === MODEL_SYNTHETIC
+				&& !record.isApiErrorMessage) continue;
 
 			// Let summary records through for compaction boundary rendering
 			if (record.type === RT_SUMMARY) {
