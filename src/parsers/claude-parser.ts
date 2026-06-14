@@ -170,7 +170,7 @@ export class ClaudeParser extends BaseParser {
 		const agentProgressMap = new Map<string, ClaudeRecord[]>();
 
 		// Token usage per message ID (keep max of each field across streaming duplicates)
-		const usageByMsg = new Map<string, { inp: number; out: number; cr: number; cc: number }>();
+		const usageByMsg = new Map<string, { inp: number; out: number; cr: number; cc: number; model: string }>();
 		let anonymousUsageCounter = 0;
 
 		// Track last API call's input tokens for context window size
@@ -220,12 +220,14 @@ export class ClaudeParser extends BaseParser {
 					key = `__anon_${contentSig}_${anonymousUsageCounter++}`;
 				}
 				const u = record.message.usage;
+				const msgModel = record.message.model ?? model ?? 'sonnet';
 				const prev = usageByMsg.get(key);
 				usageByMsg.set(key, {
 					inp: Math.max(prev?.inp ?? 0, u.input_tokens ?? 0),
 					out: Math.max(prev?.out ?? 0, u.output_tokens ?? 0),
 					cr: Math.max(prev?.cr ?? 0, u.cache_read_input_tokens ?? 0),
 					cc: Math.max(prev?.cc ?? 0, u.cache_creation_input_tokens ?? 0),
+					model: msgModel,
 				});
 
 				// Track last API call for context window size
@@ -492,22 +494,33 @@ export class ClaudeParser extends BaseParser {
 			}
 		}
 
-		// Sum token usage across all unique messages
+		// Sum token usage across all unique messages, compute cost per-model
 		let totalInputTokens = 0;
 		let totalOutputTokens = 0;
 		let totalCacheReadTokens = 0;
 		let totalCacheCreationTokens = 0;
+		let costUSD = 0;
+		const costByModel = new Map<string, { inp: number; out: number; cr: number; cc: number }>();
 		for (const u of usageByMsg.values()) {
 			totalInputTokens += u.inp;
 			totalOutputTokens += u.out;
 			totalCacheReadTokens += u.cr;
 			totalCacheCreationTokens += u.cc;
+			const prev = costByModel.get(u.model);
+			if (prev) {
+				prev.inp += u.inp;
+				prev.out += u.out;
+				prev.cr += u.cr;
+				prev.cc += u.cc;
+			} else {
+				costByModel.set(u.model, { inp: u.inp, out: u.out, cr: u.cr, cc: u.cc });
+			}
+		}
+		for (const [m, u] of costByModel) {
+			costUSD += estimateCost(m, u.inp, u.out, u.cr, u.cc);
 		}
 
 		const contextWindowTokens = lastCallInput + lastCallCacheRead + lastCallCacheWrite;
-		const costUSD = estimateCost(
-			model, totalInputTokens, totalOutputTokens, totalCacheReadTokens, totalCacheCreationTokens,
-		);
 
 		const stats: SessionStats = {
 			userTurns,
@@ -1289,14 +1302,16 @@ interface ModelPricing {
 }
 
 const MODEL_PRICING: Record<string, ModelPricing> = {
-	opus: { input: 15, output: 75, cacheRead: 1.5, cacheWrite: 18.75 },
+	opus: { input: 5, output: 25, cacheRead: 0.50, cacheWrite: 6.25 },
+	fable: { input: 10, output: 50, cacheRead: 1.00, cacheWrite: 12.50 },
 	sonnet: { input: 3, output: 15, cacheRead: 0.30, cacheWrite: 3.75 },
-	haiku: { input: 0.80, output: 4, cacheRead: 0.08, cacheWrite: 1 },
+	haiku: { input: 1, output: 5, cacheRead: 0.10, cacheWrite: 1.25 },
 };
 
 function getPricing(model: string): ModelPricing {
 	const m = model.toLowerCase();
 	if (m.includes('opus')) return MODEL_PRICING.opus;
+	if (m.includes('fable')) return MODEL_PRICING.fable;
 	if (m.includes('haiku')) return MODEL_PRICING.haiku;
 	return MODEL_PRICING.sonnet; // default
 }
