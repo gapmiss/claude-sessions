@@ -771,7 +771,7 @@
 
 .claude-sessions-text-block {
 	position: relative;
-	padding: var(--size-4-3) 0;
+	padding: var(--size-4-3) var(--size-4-9) var(--size-4-3) 0;
 }
 
 .claude-sessions-text-copy {
