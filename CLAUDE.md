@@ -63,20 +63,23 @@ src/
     folder-suggest.ts        # Vault folder autocomplete for settings
 ```
 
-## Code Exploration Policy (Mandatory)
+## Code exploration (cymbal)
 
-Use `cymbal` CLI for code navigation — prefer it over Read, Grep, Glob, or Bash for code exploration.
-- **New to a repo?**: `cymbal structure` — entry points, hotspots, central packages. Start here.
-- **To understand a symbol**: `cymbal investigate <symbol>` — returns source, callers, impact, or members based on what the symbol is.
-- **To understand multiple symbols**: `cymbal investigate Foo Bar Baz` — batch mode, one invocation.
-- **To trace an execution path**: `cymbal trace <symbol>` — follows the call graph downward (what does X call, what do those call).
-- **To assess change risk**: `cymbal impact <symbol>` — follows the call graph upward (what breaks if X changes).
-- Before reading a file: `cymbal outline <file>` or `cymbal show <file:L1-L2>`
-- Before searching: `cymbal search <query>` (symbols) or `cymbal search <query> --text` (grep)
-- Before exploring structure: `cymbal ls` (tree) or `cymbal ls --stats` (overview)
-- To disambiguate: `cymbal show path/to/file.go:SymbolName` or `cymbal investigate file.go:Symbol`
-- First run: `cymbal index .` to build the initial index (<1s). After that, queries auto-refresh — no manual reindexing needed.
-- All commands support `--json` for structured output.
+Prefer `cymbal` over Read/Grep/Glob for code questions — its scoped output
+keeps whole files and broad greps out of context (the real token lever).
+If `cymbal` isn't on PATH, fall back to Read/Grep.
+
+Trigger → command:
+- Unfamiliar repo → `cymbal structure` (entry points, hotspots). Start here.
+- A symbol → `cymbal investigate <sym>` (source, callers, impact, members).
+  Several → `cymbal investigate A B C` — one call, batch.
+- Call graph → `cymbal trace <sym>` (downward) / `cymbal impact <sym>` (upward).
+- Before a Read → `cymbal outline <file>`, then `cymbal show <file:L1-L2>` for the hit only.
+- Before a grep → `cymbal search <query>` (symbols) / `--text` (content).
+- Ambiguous name → `cymbal show <file:Symbol>`.
+
+Setup: first use per repo, `cymbal index .` (<1s); auto-refreshes — never reindex manually.
+Don't fall back to a full Read or recursive grep when cymbal can scope the answer.
 
 ## Conventions
 
