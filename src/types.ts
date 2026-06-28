@@ -225,6 +225,10 @@ export interface PluginSettings {
 	pinnedSessions: string[];
 	showRateLimits: boolean;
 
+	// Export options (persisted from export modal)
+	exportIncludeSummary: boolean;
+	exportIncludeSystemEvents: boolean;
+
 	// Distill settings
 	distillFolder: string;
 	basesFolder: string;
@@ -244,6 +248,10 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	debugLevel: 'warn',
 	pinnedSessions: [],
 	showRateLimits: false,
+
+	// Export options
+	exportIncludeSummary: true,
+	exportIncludeSystemEvents: true,
 
 	// Distill settings
 	distillFolder: 'Claude sessions/distilled',

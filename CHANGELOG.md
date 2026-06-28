@@ -8,6 +8,75 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.9] - 2026-06-28
+
+### Added
+- **Export options modal** — shown before HTML and Markdown exports with persistent toggles for including summary dashboard and system events panel
+- **Markdown export: summary section** — hero stats, token usage table, tool usage table, session details, session IDs, and parse warnings
+- **Markdown export: system events section** — hooks (event type, duration, command, exit code, stdout), available skills, task reminders
+- **Markdown export: rich tool rendering** — Write (syntax-highlighted), Bash (command fence), Read (file path + line range), AskUserQuestion (question/answer callout), Agent/Task (nested sub-agent turns), ToolSearch (matched tool list)
+- **Markdown export: enriched results** — Bash stderr/exitCode from enrichedResult, AskUserQuestion parsed answers, ToolSearch matches
+- **Markdown export: frontmatter** — cost_usd, duration_ms, all token counts (input/output/cache-read/cache-write/total/context-window/peak), compaction_count
+- **Markdown export: turn indicators** — API error and max-tokens warnings on turn headings
+- **Markdown export: compaction preTokens** — pre-compaction context size now included
+
+### Fixed
+- **Markdown export tool/result ordering** — tool calls now render paired with their results instead of all calls grouped before all results
+
+### Changed
+- Export commands now show options modal before exporting (replaces direct export)
+- HTML export conditionally strips summary and system events panels from DOM snapshot based on modal toggles
+
+---
+
+## [0.3.8] - 2026-06-25
+
+### Fixed
+- **Text block padding** — added right padding so copy icon doesn't obscure content
+
+---
+
+## [0.3.7] - 2026-06-14
+
+### Changed
+- Update tsconfig for TypeScript 5.9+ compatibility
+- Upgrade esbuild to fix CVEs
+
+---
+
+## [0.3.6] - 2026-06-13
+
+### Fixed
+- **Cost calculation** — per-model pricing with updated Claude 4 family rates (Opus, Fable, Sonnet, Haiku); previously applied single model pricing to all tokens, inflating costs ~3x in mixed-model sessions
+- **API error display** — assistant turns with API errors (rate limits, overloaded) now shown instead of filtered out
+- **Search input** — focus outline clipping and native hover background bleed-through
+
+### Added
+- **Thinking copy button** — copy-to-clipboard button on thinking block headers
+- **Custom user answers** — AskUserQuestion renderer shows free-text responses that don't match preset options (dashed accent border + pencil icon)
+
+### Changed
+- Update dev dependencies to fix vulnerabilities
+
+---
+
+## [0.3.5] - 2026-05-31
+
+### Added
+- **CONTRIBUTING guide** — contributor documentation
+
+### Changed
+- **README** — security notices section addressing community scanner warnings
+
+---
+
+## [0.3.4] - 2026-05-12
+
+### Fixed
+- **Additional Obsidian community review compliance** — `window.requestAnimationFrame` (7 locations), `window.setTimeout`/`clearTimeout`, `nodeName === 'LINK'` check, removed 25 `!important` CSS declarations via selector specificity, removed duplicate padding property
+
+---
+
 ## [0.3.3] - 2026-05-12
 
 ### Fixed
@@ -208,7 +277,13 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
-[0.3.3]: https://github.com/gapmiss/claude-sessions/compare/0.3.2...HEAD
+[0.3.9]: https://github.com/gapmiss/claude-sessions/compare/0.3.8...HEAD
+[0.3.8]: https://github.com/gapmiss/claude-sessions/compare/0.3.7...0.3.8
+[0.3.7]: https://github.com/gapmiss/claude-sessions/compare/0.3.6...0.3.7
+[0.3.6]: https://github.com/gapmiss/claude-sessions/compare/0.3.5...0.3.6
+[0.3.5]: https://github.com/gapmiss/claude-sessions/compare/0.3.4...0.3.5
+[0.3.4]: https://github.com/gapmiss/claude-sessions/compare/0.3.3...0.3.4
+[0.3.3]: https://github.com/gapmiss/claude-sessions/compare/0.3.2...0.3.3
 [0.3.2]: https://github.com/gapmiss/claude-sessions/compare/0.3.1...0.3.2
 [0.3.1]: https://github.com/gapmiss/claude-sessions/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/gapmiss/claude-sessions/compare/0.2.15...0.3.0

@@ -7,6 +7,7 @@ import { Notice } from 'obsidian';
 import * as fs from 'fs';
 import * as electron from 'electron';
 import type { Session, PluginSettings } from '../types';
+import type { ExportOptions } from '../views/export-modal';
 import { captureAllCSS } from './css-capture';
 import { getStandaloneScript } from './standalone-player';
 import { shortModelName, formatElapsed } from '../views/render-helpers';
@@ -229,7 +230,7 @@ function escapeHtml(s: string): string {
  * Snapshot the timeline DOM, cleaning it for standalone use.
  * Processes a deep clone so the live view is untouched.
  */
-function snapshotTimeline(timelineEl: HTMLElement): string {
+function snapshotTimeline(timelineEl: HTMLElement, options?: ExportOptions): string {
 	const clone = timelineEl.cloneNode(true) as HTMLElement;
 
 	// Ensure all turns are visible (remove IntersectionObserver dimming)
@@ -237,11 +238,7 @@ function snapshotTimeline(timelineEl: HTMLElement): string {
 		(turn as HTMLElement).classList.add('visible');
 	});
 
-	// Convert SVG icons from Obsidian's setIcon() to inline SVGs
-	// They're already inline SVGs in the DOM, so they'll be preserved by cloneNode
-
 	// Add data-copy-text attributes to copy buttons that rely on JS closures
-	// The live view uses addEventListener closures — we need data attributes for the standalone script
 	processCopyButtons(clone, timelineEl);
 
 	// Remove pinned heroes bar and pin button (live-only feature)
@@ -250,6 +247,16 @@ function snapshotTimeline(timelineEl: HTMLElement): string {
 
 	// Remove progress bar dots if present
 	clone.querySelectorAll('.claude-sessions-progress-dot').forEach(el => el.remove());
+
+	// Optionally strip summary panel
+	if (options && !options.includeSummary) {
+		clone.querySelectorAll('.claude-sessions-summary').forEach(el => el.remove());
+	}
+
+	// Optionally strip system events panel
+	if (options && !options.includeSystemEvents) {
+		clone.querySelectorAll('.claude-sessions-system-events').forEach(el => el.remove());
+	}
 
 	return clone.innerHTML;
 }
@@ -314,6 +321,7 @@ export async function exportToHTML(
 	timelineEl: HTMLElement,
 	session: Session,
 	settings: PluginSettings,
+	options?: ExportOptions,
 ): Promise<void> {
 	const notice = new Notice('Exporting to HTML...', 0);
 
@@ -322,7 +330,7 @@ export async function exportToHTML(
 		const css = captureAllCSS();
 
 		// Snapshot the DOM
-		const timelineHTML = snapshotTimeline(timelineEl);
+		const timelineHTML = snapshotTimeline(timelineEl, options);
 
 		// Build the header
 		const headerHTML = buildHeaderHTML(session);

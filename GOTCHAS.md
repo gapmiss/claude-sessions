@@ -59,7 +59,14 @@ Reference document for known pitfalls. Not auto-included — use `@GOTCHAS.md` w
 - The colon-separated name `/wrap:wrap` is displayed as `/wrap` (user-facing name). `RE_SLASH_COMMAND` allows `[\w:./-]+` in the capture group
 - `isMeta` user records with array content following a skill command carry the expanded prompt text. The parser must let `isMeta` user records through the first-pass filter to capture them in the turn-building pass
 
-## HTML Export
+## Export
+
+- Both exporters accept `ExportOptions` from a modal shown before export. Toggle state (`exportIncludeSummary`, `exportIncludeSystemEvents`) persists in plugin settings
+- HTML export strips DOM panels (`.claude-sessions-summary`, `.claude-sessions-system-events`) when toggled off; Markdown export skips sections entirely
+- Markdown export renders tool-specific content (Edit diffs, Bash commands, AskUserQuestion Q&A, sub-agent turns) instead of dumping raw JSON — new tool types need renderers added to `renderToolUse()` or they fall back to generic JSON
+- Markdown frontmatter includes all token stats and cost — if new stats are added to `SessionStats`, update the frontmatter block in `buildMarkdown()`
+
+### HTML export specifics
 
 - Collapsibles must use CSS class toggling (`open`/`collapsed`), not `display` style manipulation — the CSS rules drive visibility
 - Copy buttons in the live view capture text via JS closures in `addEventListener`. The HTML export must extract text into `data-copy-text` attributes since closures don't survive DOM serialization

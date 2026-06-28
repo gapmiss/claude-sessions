@@ -3074,3 +3074,30 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+
+/* ═══════════════════════════════════════════
+   Export modal
+   ═══════════════════════════════════════════ */
+
+.claude-sessions-export-modal .modal-content {
+	padding: var(--size-4-4);
+}
+
+.claude-sessions-export-modal h3 {
+	margin: 0 0 var(--size-4-4) 0;
+	font-size: var(--font-ui-medium);
+}
+
+.claude-sessions-export-modal .setting-item {
+	border-top: none;
+	padding: var(--size-4-2) 0;
+}
+
+.claude-sessions-export-modal-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--size-4-2);
+	margin-top: var(--size-4-4);
+	padding-top: var(--size-4-4);
+	border-top: 1px solid var(--background-modifier-border);
+}

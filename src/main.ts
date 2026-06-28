@@ -7,6 +7,7 @@ import { SessionBrowserModal, scanSessionDirs } from './views/session-browser-mo
 import { FilePickerModal } from './views/file-picker-modal';
 import { exportToMarkdown } from './exporters/markdown-exporter';
 import { exportToHTML } from './exporters/html-exporter';
+import { ExportModal, type ExportOptions } from './views/export-modal';
 import { readFileContent, listDirectoryFiles } from './utils/streaming-reader';
 import { detectParser } from './parsers/detect';
 import { resolveSubAgentSessions } from './parsers/claude-subagent';
@@ -401,7 +402,7 @@ export default class ClaudeSessionsPlugin extends Plugin {
 		return leaf;
 	}
 
-	private async exportActiveSessionHTML(): Promise<void> {
+	private exportActiveSessionHTML(): void {
 		const view = this.getActiveTimelineView();
 		if (!view) {
 			new Notice('No active session to export.');
@@ -413,34 +414,44 @@ export default class ClaudeSessionsPlugin extends Plugin {
 			new Notice('No session loaded.');
 			return;
 		}
-		try {
-			await exportToHTML(timelineEl, session, this.settings);
-		} catch (e) {
-			const msg = e instanceof Error ? e.message : String(e);
-			new Notice(`HTML export failed: ${msg}`);
-		}
+		new ExportModal(
+			this.app, this.settings, 'html',
+			() => this.saveSettings(),
+			async (opts: ExportOptions) => {
+				try {
+					await exportToHTML(timelineEl, session, this.settings, opts);
+				} catch (e) {
+					const msg = e instanceof Error ? e.message : String(e);
+					new Notice(`HTML export failed: ${msg}`);
+				}
+			},
+		).open();
 	}
 
-	private async exportActiveSession(): Promise<void> {
+	private exportActiveSession(): void {
 		const view = this.getActiveTimelineView();
 		if (!view) {
 			new Notice('No active session to export.');
 			return;
 		}
-
 		const session = view.getSession();
 		if (!session) {
 			new Notice('No session loaded.');
 			return;
 		}
-
-		try {
-			const mdPath = await exportToMarkdown(this.app, session, this.settings);
-			new Notice(`Exported to ${mdPath}`, 5000);
-		} catch (e) {
-			const msg = e instanceof Error ? e.message : String(e);
-			new Notice(`Export failed: ${msg}`);
-		}
+		new ExportModal(
+			this.app, this.settings, 'markdown',
+			() => this.saveSettings(),
+			async (opts: ExportOptions) => {
+				try {
+					const mdPath = await exportToMarkdown(this.app, session, this.settings, opts);
+					new Notice(`Exported to ${mdPath}`, 5000);
+				} catch (e) {
+					const msg = e instanceof Error ? e.message : String(e);
+					new Notice(`Export failed: ${msg}`);
+				}
+			},
+		).open();
 	}
 
 	private async distillActiveSession(): Promise<void> {

@@ -191,7 +191,15 @@ Methods:
 
 Event emission via `emitSessionParsed()` called by TimelineView on load/reload.
 
-## HTML Export Pipeline (`exporters/`)
+## Export Pipeline (`exporters/`)
+
+Both export commands show an options modal (`export-modal.ts`) before exporting:
+- **Include summary** — session stats, token usage, tool usage, metadata (`exportIncludeSummary`)
+- **Include system events** — hooks, skills, task reminders (`exportIncludeSystemEvents`)
+
+Toggle state persists in plugin settings across exports.
+
+### HTML Export
 
 DOM snapshot approach — captures already-rendered timeline:
 
@@ -209,7 +217,19 @@ DOM snapshot approach — captures already-rendered timeline:
 3. **`html-exporter.ts`** — orchestrator:
    - `snapshotTimeline()` — deep clone, add `visible` class, process copy buttons (extract closure text to `data-copy-text`)
    - Strips pinned heroes bar (live-only feature)
+   - Conditionally strips `.claude-sessions-summary` and `.claude-sessions-system-events` panels based on `ExportOptions`
    - Saves via Electron `remote.dialog.showSaveDialog()`, falls back to writing next to session file
+
+### Markdown Export (`markdown-exporter.ts`)
+
+Structured serialization — converts parsed `Session` data to Markdown:
+
+- **Frontmatter** — full stats: cost, tokens (input/output/cache-read/cache-write/total/context-window/peak), compaction count, duration
+- **Summary section** (opt-in) — hero stats, token usage table, tool usage table, session details, parse warnings
+- **System events section** (opt-in) — hooks with event/duration/command/exit code, skills, task reminders
+- **Tool-specific rendering** — Edit (diff), Write (syntax-highlighted content), Bash (command fence), Read (file path + line range), AskUserQuestion (question/answer), Agent/Task (nested sub-agent turns), ToolSearch (matched tool list)
+- **Enriched results** — Bash stderr/exitCode, AskUserQuestion parsed answers, ToolSearch matches
+- **Turn indicators** — API errors and max-tokens on turn headings
 
 ## CSS Class Conventions
 
@@ -227,8 +247,8 @@ DOM snapshot approach — captures already-rendered timeline:
 | `browse-sessions`         | Browse sessions                                |
 | `search-sessions`         | Search sessions                                |
 | `import-file`             | Import session file                            |
-| `export-markdown`         | Export session to Markdown                     |
-| `export-html`             | Export session to HTML                         |
+| `export-markdown`         | Export session to Markdown (shows options modal)|
+| `export-html`             | Export session to HTML (shows options modal)    |
 | `expand-all`              | Expand all turns                               |
 | `collapse-all`            | Collapse all turns                             |
 | `expand-all-blocks`       | Expand all blocks (tools, thinking, summary)   |

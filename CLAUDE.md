@@ -39,11 +39,12 @@ src/
     search-view.ts           # Dual-mode search panel (cross-session / in-session)
     session-browser-modal.ts # SuggestModal with cached session index
     file-picker-modal.ts     # Import via drag-drop or path
+    export-modal.ts          # Export options modal (summary/events toggles, persistent)
   exporters/
-    html-exporter.ts         # DOM snapshot → standalone HTML
+    html-exporter.ts         # DOM snapshot → standalone HTML, conditional summary/events
     css-capture.ts           # Theme/app/plugin CSS extraction
     standalone-player.ts     # Embedded JS for exported HTML interactivity
-    markdown-exporter.ts     # Markdown with frontmatter
+    markdown-exporter.ts     # Markdown with rich frontmatter, summary, system events, tool rendering
   distill/
     distill-session.ts       # Distill orchestrator (extract → find → merge → write)
     extract-frontmatter.ts   # Session stats → YAML frontmatter
@@ -88,6 +89,7 @@ Don't fall back to a full Read or recursive grep when cymbal can scope the answe
 - **Accessibility**: All interactive elements get `makeClickable()` (tabindex, role, aria-expanded, Enter/Space)
 - **CSS**: Scoped under `claude-sessions-*`, Obsidian CSS variables only, no inline styles (exception: ANSI color rendering)
 - **Parsing**: Consecutive assistant records merge into one Turn. Tool results attach to preceding assistant turn. Dedup by uuid
+- **Export**: Both exporters accept `ExportOptions` (from modal). Summary and system events are opt-in via persistent toggles. HTML strips DOM panels; Markdown skips sections
 - **HTML export**: CSS class toggling (`open`/`collapsed`) drives visibility — not display style manipulation. Copy buttons need `data-copy-text` attributes since closures don't survive DOM cloning
 - **Platform**: Use `Platform.isDesktop`/`Platform.isMobile`, never `navigator.platform`. Use `requestUrl()` not `fetch()`
 - **Network**: Rate limit feature (beta, opt-in) uses `requestUrl()` to call `api.anthropic.com/api/oauth/usage`. OAuth token read from macOS Keychain or `~/.claude/.credentials.json`. 5-minute in-memory cache
