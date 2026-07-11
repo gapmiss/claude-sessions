@@ -9,8 +9,10 @@ export const RT_SUMMARY = 'summary';
 export const RT_SYSTEM = 'system';
 export const RT_CUSTOM_TITLE = 'custom-title';
 export const RT_AGENT_NAME = 'agent-name';
+export const RT_MODE = 'mode';
+export const RT_AI_TITLE = 'ai-title';
 
-export const SKIP_RECORD_TYPES = new Set([RT_FILE_HISTORY, RT_LAST_PROMPT, RT_PROGRESS, RT_QUEUE_OPERATION, RT_AGENT_NAME]);
+export const SKIP_RECORD_TYPES = new Set([RT_FILE_HISTORY, RT_LAST_PROMPT, RT_PROGRESS, RT_QUEUE_OPERATION, RT_AGENT_NAME, RT_MODE, RT_AI_TITLE]);
 
 /**
  * Substring patterns for quick record type filtering (avoids JSON parsing).
@@ -23,6 +25,8 @@ export const SKIP_TYPE_STRINGS = [
 	'"type":"last-prompt"',
 	'"type":"custom-title"',
 	'"type":"agent-name"',
+	'"type":"mode"',
+	'"type":"ai-title"',
 ];
 
 /** Substring pattern for custom-title records. */

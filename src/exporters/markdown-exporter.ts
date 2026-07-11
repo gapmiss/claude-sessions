@@ -187,9 +187,10 @@ function buildSummarySection(session: Session): string {
 	const heroParts: string[] = [];
 	if (stats.costUSD > 0) heroParts.push(`**Cost:** ${fmtCost(stats.costUSD)}`);
 	if (stats.contextWindowTokens > 0) {
-		let ctx = `**Context:** ${fmtTokens(stats.contextWindowTokens)}`;
+		const totalContext = stats.contextWindowTokens + stats.cumulativeDroppedTokens;
+		let ctx = `**Context:** ${fmtTokens(totalContext)}`;
 		if (stats.compactionCount > 0 && stats.peakContextTokens > 0) {
-			ctx += ` (peak: ${fmtTokens(stats.peakContextTokens)}, ${stats.compactionCount} compaction${stats.compactionCount > 1 ? 's' : ''})`;
+			ctx += ` (peak: ${fmtTokens(stats.peakContextTokens)}, ${stats.compactionCount}× compacted)`;
 		}
 		heroParts.push(ctx);
 	}

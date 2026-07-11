@@ -51,6 +51,7 @@ interface ClaudeRecord {
 	compactMetadata?: {
 		trigger?: string;
 		preTokens?: number;
+		cumulativeDroppedTokens?: number;
 	};
 	sourceToolUseID?: string;
 	toolUseResult?: Record<string, unknown>;
@@ -181,6 +182,7 @@ export class ClaudeParser extends BaseParser {
 		// Track compaction events
 		let compactionCount = 0;
 		let peakContextTokens = 0;
+		let cumulativeDroppedTokens = 0;
 
 		// Enriched tool results by sourceToolUseID
 		const enrichedResults = new Map<string, Record<string, unknown>>();
@@ -266,6 +268,9 @@ export class ClaudeParser extends BaseParser {
 				compactionCount++;
 				if (typeof record.compactMetadata.preTokens === 'number') {
 					peakContextTokens = Math.max(peakContextTokens, record.compactMetadata.preTokens);
+				}
+				if (typeof record.compactMetadata.cumulativeDroppedTokens === 'number') {
+					cumulativeDroppedTokens = record.compactMetadata.cumulativeDroppedTokens;
 				}
 			}
 
@@ -532,6 +537,7 @@ export class ClaudeParser extends BaseParser {
 			totalTokens: totalInputTokens + totalOutputTokens + totalCacheReadTokens + totalCacheCreationTokens,
 			contextWindowTokens,
 			peakContextTokens,
+			cumulativeDroppedTokens,
 			compactionCount,
 			costUSD,
 			toolUseCounts,

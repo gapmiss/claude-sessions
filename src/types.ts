@@ -32,6 +32,8 @@ export interface SessionStats {
 	contextWindowTokens: number;
 	/** Peak context window size before any compaction (0 if never compacted). */
 	peakContextTokens: number;
+	/** Cumulative tokens dropped by compactions (from compact_boundary metadata). */
+	cumulativeDroppedTokens: number;
 	/** Number of times the session was compacted. */
 	compactionCount: number;
 	/** Estimated session cost in USD (model-aware pricing). */

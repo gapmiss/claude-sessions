@@ -31,9 +31,10 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 
 	// Inline stats in header: context window size, cost, turns
 	if (stats.contextWindowTokens > 0) {
+		const totalContext = stats.contextWindowTokens + stats.cumulativeDroppedTokens;
 		header.createSpan({
 			cls: 'claude-sessions-summary-inline',
-			text: `${formatTokens(stats.contextWindowTokens)} context`,
+			text: `${formatTokens(totalContext)} context`,
 		});
 	}
 	if (stats.costUSD > 0) {
@@ -252,10 +253,12 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 function buildHeroCards(container: HTMLElement, stats: SessionStats, metadata: SessionMetadata, _rl: RateLimitData | null): void {
 	if (stats.costUSD > 0) addHeroCard(container, formatCost(stats.costUSD), 'Cost', 'receipt');
 	if (stats.contextWindowTokens > 0) {
-		const subtitle = stats.compactionCount > 0 && stats.peakContextTokens > 0
-			? `Peak: ${formatTokens(stats.peakContextTokens)}`
-			: undefined;
-		addHeroCard(container, formatTokens(stats.contextWindowTokens), 'Context', 'layers', subtitle);
+		const totalContext = stats.contextWindowTokens + stats.cumulativeDroppedTokens;
+		let subtitle: string | undefined;
+		if (stats.compactionCount > 0 && stats.peakContextTokens > 0) {
+			subtitle = `Peak: ${formatTokens(stats.peakContextTokens)} · ${stats.compactionCount}× compacted`;
+		}
+		addHeroCard(container, formatTokens(totalContext), 'Context', 'layers', subtitle);
 	}
 	if (metadata.totalTurns > 0) addHeroCard(container, String(metadata.totalTurns), 'Turns', 'message-circle');
 	if (stats.durationMs > 0) addHeroCard(container, formatDuration(stats.durationMs), 'Duration', 'clock');
