@@ -92,7 +92,7 @@ Don't fall back to a full Read or recursive grep when cymbal can scope the answe
 - **Export**: Both exporters accept `ExportOptions` (from modal). Summary and system events are opt-in via persistent toggles. HTML strips DOM panels; Markdown skips sections
 - **HTML export**: CSS class toggling (`open`/`collapsed`) drives visibility — not display style manipulation. Copy buttons need `data-copy-text` attributes since closures don't survive DOM cloning
 - **Platform**: Use `Platform.isDesktop`/`Platform.isMobile`, never `navigator.platform`. Use `requestUrl()` not `fetch()`
-- **Network**: Rate limit feature (beta, opt-in) uses `requestUrl()` to call `api.anthropic.com/api/oauth/usage`. OAuth token read from macOS Keychain or `~/.claude/.credentials.json`. 5-minute in-memory cache
+- **Network**: Rate limit feature (beta, opt-in) uses `requestUrl()` to call `api.anthropic.com/api/oauth/usage`. OAuth token read from macOS Keychain or `~/.claude/.credentials.json`. 1-minute in-memory cache
 - **Distill**: Layer 0 extraction only (no LLM cost). Frontmatter values from session stats. LLM summaries via clipboard merge workflow
 - **Public API**: Stable surface — additions fine, removals breaking. Access via `app.plugins.plugins['claude-sessions']?.api`
 

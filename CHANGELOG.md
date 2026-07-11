@@ -8,6 +8,23 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.10] - 2026-07-11
+
+### Added
+- **WebFetch rendering** — clickable URL link + prompt text with copy button instead of raw JSON; result body renders with code/preview markdown toggle
+- **Context compaction stats** — Context hero card now shows full context footprint (current + dropped tokens) with compaction subtitle (e.g. "Peak: 181.6k · 2× compacted")
+
+### Fixed
+- **`mode` and `ai-title` record types** — new Claude Code per-turn metadata records are now skipped instead of triggering unknown record type warnings
+- **Context hero card during rate limit** — summary dashboard no longer loses the context/token count card when session usage hits 100%; rate-limit placeholder records with all-zero tokens no longer zero out the context window stat
+- **AskUserQuestion embedded quotes** — answer parsing no longer breaks when question text contains literal double quotes (e.g. `"Binary file"`, `"All features"`); uses known-question search instead of fragile regex
+- **AskUserQuestion comma-in-label** — option labels containing commas (e.g. "Yes, as experimental") now match correctly instead of appearing as custom free-text answers; uses greedy label matching instead of comma-splitting
+
+### Changed
+- **Rate limit refresh** — cache TTL reduced from 5 minutes to 1 minute for more responsive dashboard updates during active sessions
+
+---
+
 ## [0.3.9] - 2026-06-28
 
 ### Added
