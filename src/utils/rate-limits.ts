@@ -28,10 +28,10 @@ interface UsageResponse {
 	seven_day?: { utilization?: unknown; resets_at?: string };
 }
 
-/** How often to re-fetch from the API (5 minutes). */
-const CACHE_TTL_MS = 5 * 60 * 1000;
-/** Maximum age before cached data is considered too stale to display (15 minutes). */
-const MAX_STALE_MS = 15 * 60 * 1000;
+/** How often to re-fetch from the API (1 minute). */
+const CACHE_TTL_MS = 60 * 1000;
+/** Maximum age before cached data is considered too stale to display (5 minutes). */
+const MAX_STALE_MS = 5 * 60 * 1000;
 
 let cached: CacheEntry | null = null;
 let inflight: Promise<RateLimitData | null> | null = null;

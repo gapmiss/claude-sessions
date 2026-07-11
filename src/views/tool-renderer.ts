@@ -476,14 +476,36 @@ function renderAskUserQuestion(
 
 	const rawJson = formatInput(block.input);
 
-	// Parse answers from result text
+	// Parse answers from result text.
+	// The format is: "question"="answer", "question"="answer"
+	// but question/answer text can contain literal quotes, so we match
+	// by searching for each known question's text in the result string.
 	const answers = new Map<string, string>();
 	const isRejected = result?.isError ?? false;
 	if (result && !isRejected) {
-		// Result format: "question"="answer", "question"="answer"
-		const answerMatches = result.content.matchAll(/"([^"]+)"="([^"]+)"/g);
-		for (const m of answerMatches) {
-			answers.set(m[1], m[2]);
+		const rt = result.content;
+		for (let qi = 0; qi < questions.length; qi++) {
+			const qText = questions[qi].question;
+			const needle = `"${qText}"="`;
+			const start = rt.indexOf(needle);
+			if (start === -1) continue;
+			const valStart = start + needle.length;
+			// Find the closing quote: next `"` followed by `, "` or `". ` or end-adjacent `"`
+			const nextQ = qi + 1 < questions.length
+				? rt.indexOf(`"${questions[qi + 1].question}"="`, valStart)
+				: -1;
+			let valEnd: number;
+			if (nextQ !== -1) {
+				// Strip the `, ` separator before the next question's opening quote
+				valEnd = rt.lastIndexOf('"', nextQ - 1);
+			} else {
+				// Last question — find closing `".` or `"` before the epilogue
+				const dotEnd = rt.indexOf('".', valStart);
+				valEnd = dotEnd !== -1 ? dotEnd : rt.lastIndexOf('"');
+			}
+			if (valEnd > valStart) {
+				answers.set(qText, rt.substring(valStart, valEnd));
+			}
 		}
 	}
 
@@ -508,7 +530,22 @@ function renderAskUserQuestion(
 		// Options list
 		const optionsEl = questionEl.createDiv({ cls: 'claude-sessions-ask-options' });
 		const answer = answers.get(q.question) ?? '';
-		const selectedLabels = new Set(answer.split(', ').map(s => s.trim()).filter(Boolean));
+
+		// Match answer text to option labels. For multi-select, the answer is
+		// comma-separated labels — but labels themselves can contain commas, so
+		// we greedily match known labels instead of blind splitting.
+		const selectedLabels = new Set<string>();
+		if (answer) {
+			let remaining = answer;
+			for (const opt of q.options) {
+				if (remaining.includes(opt.label)) {
+					selectedLabels.add(opt.label);
+					remaining = remaining.replace(opt.label, '');
+				}
+			}
+			// If no known label matched, treat the whole answer as a custom value
+			if (selectedLabels.size === 0) selectedLabels.add(answer);
+		}
 
 		const optionLabels = new Set(q.options.map(o => o.label));
 

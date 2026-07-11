@@ -232,10 +232,17 @@ export class ClaudeParser extends BaseParser {
 					model: msgModel,
 				});
 
-				// Track last API call for context window size
-				lastCallInput = u.input_tokens ?? 0;
-				lastCallCacheRead = u.cache_read_input_tokens ?? 0;
-				lastCallCacheWrite = u.cache_creation_input_tokens ?? 0;
+				// Track last API call for context window size.
+				// Skip all-zero usage (rate-limit placeholder records) so they
+				// don't zero out the context window during live watch.
+				const callInput = u.input_tokens ?? 0;
+				const callCacheRead = u.cache_read_input_tokens ?? 0;
+				const callCacheWrite = u.cache_creation_input_tokens ?? 0;
+				if (callInput + callCacheRead + callCacheWrite > 0) {
+					lastCallInput = callInput;
+					lastCallCacheRead = callCacheRead;
+					lastCallCacheWrite = callCacheWrite;
+				}
 			}
 
 			// Capture enriched toolUseResult from user entries
