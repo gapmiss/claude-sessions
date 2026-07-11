@@ -180,6 +180,8 @@ export function renderToolCall(
 		renderWriteView(block, result, body, ctx, toolUseContentBlockIdx, toolResultContentBlockIdx);
 	} else if (block.name === 'Bash') {
 		renderBashInput(block, body, ctx, toolUseContentBlockIdx);
+	} else if (block.name === 'WebFetch') {
+		renderWebFetchInput(block, body, toolUseContentBlockIdx);
 	} else if (Object.keys(block.input).length > 0) {
 		const inputEl = body.createDiv({ cls: 'claude-sessions-tool-input' });
 		if (toolUseContentBlockIdx !== undefined) {
@@ -296,6 +298,8 @@ function renderToolResult(
 			const mdContainer = resultEl.createDiv({ cls: 'claude-sessions-read-result' });
 			void MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
 		}
+	} else if (block.name === 'WebFetch' && !isError) {
+		renderMarkdownToggle(resultText, '', resultEl, ctx);
 	} else if (block.name === 'Bash' && !isError && isBashDiffResult(block, resultText)) {
 		const resultMd = fence(resultText, 'diff');
 		const resultMdContainer = resultEl.createDiv({ cls: 'claude-sessions-tool-result-code' });
@@ -569,6 +573,36 @@ function renderBashInput(
 	const md = fence(command, 'bash');
 	const mdContainer = inputEl.createDiv({ cls: 'claude-sessions-tool-input-code' });
 	void MarkdownRenderer.render(ctx.app, md, mdContainer, '', ctx.component);
+}
+
+function renderWebFetchInput(
+	block: ToolUseBlock,
+	container: HTMLElement,
+	toolUseContentBlockIdx?: number,
+): void {
+	const inputEl = container.createDiv({ cls: 'claude-sessions-tool-input' });
+	if (toolUseContentBlockIdx !== undefined) {
+		inputEl.setAttribute('data-content-block-idx', String(toolUseContentBlockIdx));
+	}
+
+	const url = typeof block.input['url'] === 'string' ? block.input['url'] : '';
+	const prompt = typeof block.input['prompt'] === 'string' ? block.input['prompt'] : '';
+
+	if (url) {
+		const urlRow = inputEl.createDiv({ cls: 'claude-sessions-webfetch-url' });
+		urlRow.createSpan({ cls: 'claude-sessions-webfetch-label', text: 'URL' });
+		const link = urlRow.createEl('a', { cls: 'claude-sessions-webfetch-link', text: url, href: url });
+		link.setAttr('target', '_blank');
+		link.setAttr('rel', 'noopener noreferrer');
+	}
+
+	if (prompt) {
+		const promptRow = inputEl.createDiv({ cls: 'claude-sessions-webfetch-prompt' });
+		const promptLabel = promptRow.createDiv({ cls: 'claude-sessions-webfetch-label' });
+		promptLabel.createSpan({ text: 'PROMPT' });
+		addCopyButton(promptLabel, prompt, 'Copy prompt');
+		promptRow.createDiv({ cls: 'claude-sessions-webfetch-prompt-text', text: prompt });
+	}
 }
 
 function renderMarkdownToggle(content: string, lang: string, container: HTMLElement, ctx: RenderContext): void {
