@@ -815,7 +815,8 @@
 	word-break: break-word;
 }
 
-.claude-sessions-user-text code {
+.claude-sessions-block-wrapper .claude-sessions-text-block .claude-sessions-user-text code {
+	white-space: pre-wrap;
 	word-break: break-all;
 }
 
@@ -869,6 +870,10 @@
 	border: 1px solid var(--background-modifier-border);
 	/* font-size: 0.9em; */
 	color: var(--text-accent);
+}
+
+.claude-sessions-block-wrapper .claude-sessions-text-block .claude-sessions-assistant-text code {
+	white-space: pre-wrap;
 	word-break: break-all;
 }
 
