@@ -5,7 +5,8 @@ export function expandHome(path: string): string {
 	if (!path.startsWith('~')) return path;
 	if (Platform.isDesktop) {
 		try {
-			return path.replace(/^~/, os.homedir());
+			const home: string = os.homedir();
+			return path.replace(/^~/, home);
 		} catch {
 			return path;
 		}
@@ -28,7 +29,7 @@ export function dirname(path: string): string {
 export function shortenPath(fullPath: string): string {
 	if (Platform.isDesktop) {
 		try {
-			const home = os.homedir();
+			const home: string = os.homedir();
 			if (fullPath.startsWith(home)) {
 				return '~' + fullPath.slice(home.length);
 			}

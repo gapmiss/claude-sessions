@@ -988,7 +988,7 @@ function compactInputPreview(input: Record<string, unknown>, max: number): strin
 	const parts: string[] = [];
 	let len = 0;
 	for (const [k, v] of Object.entries(input)) {
-		const val = typeof v === 'string' ? v : JSON.stringify(v);
+		const val: string = typeof v === 'string' ? v : JSON.stringify(v);
 		const part = `${k}=${val}`;
 		if (len + part.length > max && parts.length > 0) {
 			parts.push('...');

@@ -70,12 +70,12 @@ export async function scanSessionDirs(plugin: ClaudeSessionsPlugin): Promise<{ e
 async function buildEntry(
 	filePath: string,
 	fallbackProject: string,
-	fs: typeof import('fs'),
+	fsModule: typeof import('fs'),
 	index: InstanceType<typeof import('../utils/session-index').SessionIndex>,
 ): Promise<{ entry: SessionListEntry; _updated: boolean } | null> {
 	let mtime: number;
 	try {
-		const stat = fs.statSync(filePath);
+		const stat: import('fs').Stats = fsModule.statSync(filePath);
 		mtime = stat.mtimeMs;
 	} catch {
 		return null;

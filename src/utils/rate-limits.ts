@@ -46,13 +46,13 @@ function getAccessToken(): string | null {
 		return null;
 	}
 
-	const home = process.env.HOME || process.env.USERPROFILE || '';
+	const home: string = process.env['HOME'] || process.env['USERPROFILE'] || '';
 
 	// Try macOS Keychain first
 	if (process.platform === 'darwin') {
 		try {
 			Logger.debug('[rate-limits] attempting keychain lookup...');
-			const raw = execSync(
+			const raw: string = execSync(
 				'security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null',
 				{ encoding: 'utf-8', timeout: 3000 },
 			).trim();
@@ -80,7 +80,7 @@ function getAccessToken(): string | null {
 	}
 
 	// Fall back to credentials file
-	const credPath = path.join(home, '.claude', '.credentials.json');
+	const credPath: string = path.join(home, '.claude', '.credentials.json');
 	Logger.debug('[rate-limits] checking credentials file:', credPath);
 	try {
 		if (!fs.existsSync(credPath)) {

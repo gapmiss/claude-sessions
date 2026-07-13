@@ -1,9 +1,9 @@
 import { BaseParser } from './base-parser';
 import {
-	Session, Turn, ContentBlock, TextBlock,
-	ToolUseBlock, ToolResultBlock, ImageBlock, AnsiBlock, CompactionBlock, SlashCommandBlock,
+	Session, Turn, ContentBlock,
+	ToolUseBlock, ToolResultBlock, CompactionBlock,
 	BashCommandBlock, SessionStats, SubAgentSession, SystemEvent, ParseWarning,
-	PermissionModeEvent, SkillListingEvent, HookSuccessEvent, AsyncHookResponseEvent, TaskReminderEvent,
+	SkillListingEvent, HookSuccessEvent, AsyncHookResponseEvent, TaskReminderEvent,
 } from '../types';
 import { extractProjectName, projectFromCwd, dirname, basename } from '../utils/path-utils';
 import {
@@ -663,7 +663,7 @@ export class ClaudeParser extends BaseParser {
 						type: 'compaction',
 						summary: record.summary,
 						timestamp: record.timestamp,
-					} as CompactionBlock],
+					}],
 				});
 				continue;
 			}
@@ -744,7 +744,7 @@ export class ClaudeParser extends BaseParser {
 								commandName: this._pendingSlashCommand,
 								text: expText,
 								timestamp: record.timestamp,
-							} as SlashCommandBlock);
+							});
 						}
 						this._pendingSlashCommand = null;
 						continue;
@@ -805,7 +805,7 @@ export class ClaudeParser extends BaseParser {
 							type: 'text',
 							text: TEXT_INTERRUPTION,
 							timestamp: record.timestamp,
-						} as TextBlock);
+						});
 						if (record.timestamp) {
 							currentAssistantTurn.endTimestamp = this.formatTimestamp(record.timestamp);
 						}
@@ -860,7 +860,7 @@ export class ClaudeParser extends BaseParser {
 								stdout: '',
 								stderr: '',
 								timestamp: this._pendingBashCommand.timestamp,
-							} as BashCommandBlock],
+							}],
 						});
 						this._pendingBashCommand = null;
 					}
@@ -895,7 +895,7 @@ export class ClaudeParser extends BaseParser {
 					uuid: record.uuid || '',
 					timestamp: this.formatTimestamp(record.timestamp) || '',
 					permissionMode: record.permissionMode || 'unknown',
-				} as PermissionModeEvent);
+				});
 			} else if (record.type === 'attachment' && record.attachment) {
 				// Attachment system events (hooks, skills, tasks)
 				const att = record.attachment;
@@ -1125,11 +1125,11 @@ export class ClaudeParser extends BaseParser {
 				const stdout = content.replace(RE_LOCAL_STDOUT_TAGS, '');
 				if (ANSI_COMMANDS.has(label) || hasAnsiCodes(stdout)) {
 					this._pendingCommandResult = true;
-					return [{ type: 'ansi', label, text: stdout, timestamp } as AnsiBlock];
+					return [{ type: 'ansi', label, text: stdout, timestamp }];
 				}
 				if (stdout.trim()) {
 					this._pendingCommandResult = true;
-					return [{ type: 'text', text: stdout.trim(), timestamp } as TextBlock];
+					return [{ type: 'text', text: stdout.trim(), timestamp }];
 				}
 			}
 			return [];
@@ -1150,7 +1150,7 @@ export class ClaudeParser extends BaseParser {
 		const argsMatch = content.match(RE_COMMAND_ARGS);
 		const text = argsMatch ? `${cmd} ${argsMatch[1]}` : cmd;
 
-		return [{ type: 'text', text, timestamp } as TextBlock];
+		return [{ type: 'text', text, timestamp }];
 	}
 
 	/** Extract user content blocks from a record, handling string, text, and image blocks. */
@@ -1162,7 +1162,7 @@ export class ClaudeParser extends BaseParser {
 			// Anchored to ^ so tags embedded in user text (e.g. pasted JSON) don't match
 			if (RE_EXIT_COMMAND.test(content)) {
 				this.pendingCommand = null;
-				return [{ type: 'text', text: TEXT_SESSION_ENDED, timestamp } as TextBlock];
+				return [{ type: 'text', text: TEXT_SESSION_ENDED, timestamp }];
 			}
 			// Detect slash commands
 			const cmdMatch = content.match(RE_SLASH_COMMAND);
@@ -1179,14 +1179,14 @@ export class ClaudeParser extends BaseParser {
 				const displayCmd = cmd.includes(':') ? cmd.split(':')[0] : cmd;
 				// Commands that produce ANSI output
 				if (ANSI_COMMANDS.has(cmd) || ANSI_COMMANDS.has(displayCmd)) {
-					return [{ type: 'text', text: displayCmd, timestamp } as TextBlock];
+					return [{ type: 'text', text: displayCmd, timestamp }];
 				}
 				// All other slash commands: extract args for readable display
 				// Skip <command-message> — it just repeats the command name
 				const argsMatch = content.match(RE_COMMAND_ARGS);
 				const parts = [displayCmd];
 				if (argsMatch?.[1]?.trim()) parts.push(argsMatch[1].trim());
-				return [{ type: 'text', text: parts.join(' '), timestamp } as TextBlock];
+				return [{ type: 'text', text: parts.join(' '), timestamp }];
 			}
 			// Capture output from local command stdout when a pending command is active
 			if (RE_LOCAL_STDOUT.test(content) && this.pendingCommand) {
@@ -1195,12 +1195,12 @@ export class ClaudeParser extends BaseParser {
 				const stdout = content.replace(RE_LOCAL_STDOUT_TAGS, '');
 				if (ANSI_COMMANDS.has(label) || hasAnsiCodes(stdout)) {
 					this._pendingCommandResult = true;
-					return [{ type: 'ansi', label, text: stdout, timestamp } as AnsiBlock];
+					return [{ type: 'ansi', label, text: stdout, timestamp }];
 				}
 				// Non-ANSI command result (e.g. /export) → merge with command turn
 				if (stdout.trim()) {
 					this._pendingCommandResult = true;
-					return [{ type: 'text', text: stdout.trim(), timestamp } as TextBlock];
+					return [{ type: 'text', text: stdout.trim(), timestamp }];
 				}
 				return [];
 			}
@@ -1251,20 +1251,20 @@ export class ClaudeParser extends BaseParser {
 			if (!cleaned) {
 				return [];
 			}
-			return [{ type: 'text', text: cleaned, timestamp } as TextBlock];
+			return [{ type: 'text', text: cleaned, timestamp }];
 		}
 		if (Array.isArray(content)) {
 			const blocks: ContentBlock[] = [];
 			for (const block of content) {
 				if (block.type === BT_TEXT && block.text?.trim()) {
-					blocks.push({ type: 'text', text: block.text, timestamp } as TextBlock);
+					blocks.push({ type: 'text', text: block.text, timestamp });
 				} else if (block.type === BT_IMAGE && block.source?.data) {
 					blocks.push({
 						type: 'image',
 						mediaType: block.source.media_type ?? 'image/png',
 						data: block.source.data,
 						timestamp,
-					} as ImageBlock);
+					});
 				}
 			}
 			return blocks;

@@ -29,10 +29,10 @@ async function readDesktop(
 	filePath: string,
 	onProgress?: (progress: ReadProgress) => void
 ): Promise<string> {
-	const resolved = path.resolve(filePath);
+	const resolved: string = path.resolve(filePath);
 
 	return new Promise((resolve, reject) => {
-		let stat: { size: number };
+		let stat: fs.Stats;
 		try {
 			stat = fs.statSync(resolved);
 		} catch {
@@ -40,11 +40,11 @@ async function readDesktop(
 			return;
 		}
 
-		const totalBytes = stat.size;
+		const totalBytes: number = stat.size;
 		let bytesRead = 0;
 		const chunks: string[] = [];
 
-		const stream = fs.createReadStream(resolved, { encoding: 'utf-8' });
+		const stream: fs.ReadStream = fs.createReadStream(resolved, { encoding: 'utf-8' });
 
 		stream.on('data', (chunk: string) => {
 			chunks.push(chunk);
@@ -89,8 +89,8 @@ export async function extractQuickMetadataAsync(filePath: string): Promise<Quick
 	let basicMetaDone = false;
 
 	return new Promise((resolve) => {
-		const stream = fs.createReadStream(filePath, { encoding: 'utf-8' });
-		const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+		const stream: fs.ReadStream = fs.createReadStream(filePath, { encoding: 'utf-8' });
+		const rl: readline.Interface = readline.createInterface({ input: stream, crlfDelay: Infinity });
 
 		const isBasicDone = () =>
 			result.sessionId !== undefined
@@ -98,7 +98,7 @@ export async function extractQuickMetadataAsync(filePath: string): Promise<Quick
 			&& result.startTime !== undefined
 			&& result.hasContent;
 
-		rl.on('line', (line: string) => {
+		rl.on('line', (line) => {
 			lineCount++;
 
 			const trimmed = line.trim();
@@ -176,12 +176,12 @@ export async function extractQuickMetadataAsync(filePath: string): Promise<Quick
  */
 export function listDirectoryFiles(dirPath: string): Promise<string[]> {
 	if (!Platform.isDesktop) return Promise.resolve([]);
-	const resolved = path.resolve(dirPath);
+	const resolved: string = path.resolve(dirPath);
 	try {
-		const entries = fs.readdirSync(resolved, { withFileTypes: true });
-		const names = entries
-			.filter((e: { isFile(): boolean }) => e.isFile())
-			.map((e: { name: string }) => e.name);
+		const entries: fs.Dirent[] = fs.readdirSync(resolved, { withFileTypes: true });
+		const names: string[] = entries
+			.filter((e) => e.isFile())
+			.map((e) => e.name);
 		return Promise.resolve(names);
 	} catch {
 		return Promise.resolve([]);
@@ -191,15 +191,15 @@ export function listDirectoryFiles(dirPath: string): Promise<string[]> {
 export function listDirectory(dirPath: string): string[] {
 	if (!Platform.isDesktop) return [];
 
-	const resolved = path.resolve(dirPath);
+	const resolved: string = path.resolve(dirPath);
 
 	try {
-		const entries = fs.readdirSync(resolved, { withFileTypes: true });
+		const entries: fs.Dirent[] = fs.readdirSync(resolved, { withFileTypes: true });
 		return entries
-			.filter((e: { isFile(): boolean; name: string }) =>
+			.filter((e) =>
 				e.isFile() && e.name.endsWith('.jsonl') && !e.name.startsWith('agent-')
 			)
-			.map((e: { name: string }) => path.join(resolved, e.name));
+			.map((e) => path.join(resolved, e.name));
 	} catch {
 		return [];
 	}
@@ -211,13 +211,13 @@ export function listDirectory(dirPath: string): string[] {
 export function listSubdirectories(dirPath: string): string[] {
 	if (!Platform.isDesktop) return [];
 
-	const resolved = path.resolve(dirPath);
+	const resolved: string = path.resolve(dirPath);
 
 	try {
-		const entries = fs.readdirSync(resolved, { withFileTypes: true });
+		const entries: fs.Dirent[] = fs.readdirSync(resolved, { withFileTypes: true });
 		return entries
-			.filter((e: { isDirectory(): boolean }) => e.isDirectory())
-			.map((e: { name: string }) => path.join(resolved, e.name));
+			.filter((e) => e.isDirectory())
+			.map((e) => path.join(resolved, e.name));
 	} catch {
 		return [];
 	}

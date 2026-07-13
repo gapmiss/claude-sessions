@@ -30,10 +30,10 @@ export class TimelineRenderer {
 		this.container = container;
 		this.ctx = { app, component, settings };
 		this.delegate = {
-			renderAssistantBlocks: this.renderAssistantBlocks.bind(this) as ToolRendererDelegate['renderAssistantBlocks'],
-			renderTextContent: this.renderTextContent.bind(this) as ToolRendererDelegate['renderTextContent'],
-			buildAnsiDom: this.buildAnsiDom.bind(this) as ToolRendererDelegate['buildAnsiDom'],
-			openImageModal: this.openImageModal.bind(this) as ToolRendererDelegate['openImageModal'],
+			renderAssistantBlocks: (...args) => this.renderAssistantBlocks(...args),
+			renderTextContent: (...args) => this.renderTextContent(...args),
+			buildAnsiDom: (...args) => this.buildAnsiDom(...args),
+			openImageModal: (...args) => this.openImageModal(...args),
 			taskState: new Map(),
 		};
 	}
@@ -806,9 +806,10 @@ class MermaidPreviewModal extends Modal {
 			svgString = svgString.split(origId).join('mermaid-preview-' + Date.now());
 		}
 		const doc = new DOMParser().parseFromString(svgString, 'image/svg+xml');
-		const svgNode = activeDocument.importNode(doc.documentElement, true) as unknown as HTMLElement;
-		// Mermaid sets an inline max-width that caps the SVG size — remove it so it fills the modal
-		svgNode.style.removeProperty('max-width');
+		const svgNode = activeDocument.importNode(doc.documentElement, true);
+		if (svgNode instanceof HTMLElement) {
+			svgNode.style.removeProperty('max-width');
+		}
 
 		const mermaidWrap = scrollWrap.createDiv({ cls: 'mermaid' });
 		mermaidWrap.appendChild(svgNode);

@@ -50,7 +50,7 @@ export class TimelineView extends ItemView {
 	private displayedTimeMs = 0;
 
 	// File watcher
-	private watcher: import('fs').FSWatcher | null = null;
+	private watcher: fs.FSWatcher | null = null;
 	private debounceTimer: number | null = null;
 	private isWatching = false;
 	private isFollowing = true;
@@ -433,23 +433,24 @@ export class TimelineView extends ItemView {
 		};
 
 		try {
-			this.watcher = fs.watch(filePath, { persistent: false }, (eventType: string) => {
+			const watcher: fs.FSWatcher = fs.watch(filePath, { persistent: false }, (eventType) => {
 				if (eventType === 'change') onChange();
 			});
-			this.watcher.on('error', () => {
+			watcher.on('error', () => {
 				new Notice('Session file watcher error — stopping.');
 				this.stopWatching();
 			});
+			this.watcher = watcher;
 		} catch {
 			// fs.watch unavailable — fall back to polling
 			try {
-				fs.watchFile(filePath, { interval: 2000, persistent: false }, (curr, prev) => {
+				fs.watchFile(filePath, { interval: 2000, persistent: false }, (curr: fs.Stats, prev: fs.Stats) => {
 					if (curr.mtimeMs !== prev.mtimeMs) onChange();
 				});
 				this.watcher = {
-					close: () => fs.unwatchFile(filePath),
+					close: () => { fs.unwatchFile(filePath); },
 					on: () => this,
-				} as unknown as import('fs').FSWatcher;
+				} as unknown as fs.FSWatcher;
 			} catch {
 				new Notice('Could not watch session file.');
 				return;

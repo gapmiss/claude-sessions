@@ -1280,8 +1280,7 @@
 	display: block;
 	word-break: break-all;
 	color: var(--link-color);
-	text-decoration-line: underline;
-	text-decoration-color: var(--link-decoration-color);
+	text-decoration: underline var(--link-decoration-color);
 }
 .claude-sessions-webfetch-link:hover {
 	color: var(--link-color-hover);

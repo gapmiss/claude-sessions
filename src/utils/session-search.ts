@@ -101,8 +101,8 @@ function extractToolInputText(toolName: string, input: Record<string, unknown> |
 			const nameField = input['name'] ?? input['path'] ?? input['file'] ?? input['query'] ?? input['command'];
 			if (typeof nameField === 'string') return nameField;
 			return Object.entries(input)
-				.filter(([, v]) => typeof v === 'string')
-				.map(([, v]) => v as string)
+				.filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+				.map(([, v]) => v)
 				.join(' ')
 				.slice(0, 200);
 		}
@@ -305,7 +305,7 @@ export async function searchFile(
 	let lastRole: string | null = null;
 
 	return new Promise((resolve) => {
-		let stream: ReturnType<typeof fs.createReadStream>;
+		let stream: fs.ReadStream;
 		try {
 			stream = fs.createReadStream(filePath, { encoding: 'utf-8' });
 		} catch {
@@ -313,7 +313,7 @@ export async function searchFile(
 			return;
 		}
 
-		const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+		const rl: readline.Interface = readline.createInterface({ input: stream, crlfDelay: Infinity });
 
 		const cleanup = () => {
 			rl.close();
@@ -324,7 +324,7 @@ export async function searchFile(
 			signal.addEventListener('abort', cleanup, { once: true });
 		}
 
-		rl.on('line', (line: string) => {
+		rl.on('line', (line) => {
 			if (signal?.aborted) return;
 
 			const extracted = extractSearchableContent(line);
@@ -450,7 +450,7 @@ export async function searchFileRanked(
 	let docId = 0;
 
 	await new Promise<void>((resolve) => {
-		let stream: ReturnType<typeof fs.createReadStream>;
+		let stream: fs.ReadStream;
 		try {
 			stream = fs.createReadStream(filePath, { encoding: 'utf-8' });
 		} catch {
@@ -458,7 +458,7 @@ export async function searchFileRanked(
 			return;
 		}
 
-		const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+		const rl: readline.Interface = readline.createInterface({ input: stream, crlfDelay: Infinity });
 
 		const cleanup = () => {
 			rl.close();
@@ -469,7 +469,7 @@ export async function searchFileRanked(
 			signal.addEventListener('abort', cleanup, { once: true });
 		}
 
-		rl.on('line', (line: string) => {
+		rl.on('line', (line) => {
 			if (signal?.aborted) return;
 
 			const extracted = extractSearchableContent(line);

@@ -1,4 +1,4 @@
-import type { ContentBlock, TextBlock, ThinkingBlock, ToolUseBlock, ToolResultBlock, ToolResultImage } from '../types';
+import type { ContentBlock, ToolResultBlock, ToolResultImage } from '../types';
 import { BT_TEXT, BT_THINKING, BT_TOOL_USE, BT_TOOL_RESULT, PREFIX_INTERRUPTION, RE_TOOL_USE_ERROR } from '../constants';
 
 interface ClaudeContentBlock {
@@ -36,13 +36,13 @@ export function parseContentBlock(
 	switch (block.type) {
 		case BT_TEXT:
 			if (block.text && block.text.trim()) {
-				return { type: 'text', text: block.text, timestamp } as TextBlock;
+				return { type: 'text', text: block.text, timestamp };
 			}
 			return null;
 
 		case BT_THINKING:
 			if (block.thinking && block.thinking.trim()) {
-				return { type: 'thinking', thinking: block.thinking, timestamp } as ThinkingBlock;
+				return { type: 'thinking', thinking: block.thinking, timestamp };
 			}
 			// Encrypted thinking (signature-only) — skip, nothing useful to display
 			return null;
@@ -56,7 +56,7 @@ export function parseContentBlock(
 					name: block.name,
 					input: block.input || {},
 					timestamp,
-				} as ToolUseBlock;
+				};
 			}
 			return null;
 

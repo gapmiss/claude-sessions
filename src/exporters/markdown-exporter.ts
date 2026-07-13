@@ -45,9 +45,9 @@ export async function exportToMarkdown(
 			const bytes = base64ToBytes(img.data);
 			const existingImg = app.vault.getAbstractFileByPath(imgPath);
 			if (existingImg) {
-				await app.vault.adapter.writeBinary(imgPath, bytes.buffer as ArrayBuffer);
+				await app.vault.adapter.writeBinary(imgPath, bytes.buffer);
 			} else {
-				await app.vault.createBinary(imgPath, bytes.buffer as ArrayBuffer);
+				await app.vault.createBinary(imgPath, bytes.buffer);
 			}
 		}
 	}
@@ -666,7 +666,7 @@ function renderToolResult(
 			const answerMatches = block.content.matchAll(/"([^"]+)"="([^"]+)"/g);
 			const answers: Array<[string, string]> = [];
 			for (const m of answerMatches) {
-				answers.push([m[1], m[2]]);
+				if (m[1] && m[2]) answers.push([m[1], m[2]]);
 			}
 			if (answers.length > 0) {
 				parts.push(`> [!${calloutType}]- User answers`);

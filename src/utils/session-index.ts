@@ -25,7 +25,7 @@ export class SessionIndex {
 		this.loaded = true;
 
 		try {
-			const raw = fs.readFileSync(this.indexPath, 'utf-8');
+			const raw: string = fs.readFileSync(this.indexPath, 'utf-8');
 			const data = JSON.parse(raw) as SessionIndexData;
 			if (data.version === INDEX_VERSION && data.entries) {
 				this.entries = data.entries;

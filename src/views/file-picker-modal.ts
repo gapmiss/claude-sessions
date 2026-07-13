@@ -163,19 +163,19 @@ export class FilePickerModal extends Modal {
 	private resolveSessionPath(fileName: string): string | null {
 		if (!Platform.isDesktop) return null;
 		// Strip directory components to prevent path traversal
-		const safeName = path.basename(fileName);
+		const safeName: string = path.basename(fileName);
 		for (const dir of this.plugin.settings.sessionDirs) {
 			const expanded = expandHome(dir);
 			try {
-				const subdirs = fs.readdirSync(expanded, { withFileTypes: true });
+				const subdirs: fs.Dirent[] = fs.readdirSync(expanded, { withFileTypes: true });
 				for (const entry of subdirs) {
 					if (entry.isDirectory()) {
-						const candidate = path.join(expanded, entry.name, safeName);
+						const candidate: string = path.join(expanded, entry.name, safeName);
 						if (fs.existsSync(candidate)) return candidate;
 					}
 				}
 				// Also check root of session dir
-				const rootCandidate = path.join(expanded, safeName);
+				const rootCandidate: string = path.join(expanded, safeName);
 				if (fs.existsSync(rootCandidate)) return rootCandidate;
 			} catch { /* skip inaccessible dirs */ }
 		}
