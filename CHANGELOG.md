@@ -8,6 +8,23 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.12] - 2026-07-13
+
+### Fixed
+- **Context total dropping after compaction** — the Context hero card total (`contextWindowTokens + cumulativeDroppedTokens`) could decrease after compaction because the two values used different token counting bases; now computes cumulative dropped using our own cache-aware context measure instead of Claude Code's `compact_boundary` metadata
+- **Peak context underreported** — peak now uses cache-aware context window size at compaction time instead of Claude Code's `preTokens` value
+- **Community scanner: cross-window instanceof** — `instanceof HTMLElement` replaced with `.instanceOf(HTMLElement)` in mermaid preview modal
+- **Community scanner: CSS compat** — `text-decoration` shorthand split into `text-decoration-line` + `text-decoration-color` longhands
+
+---
+
+## [0.3.11] - 2026-07-13
+
+### Fixed
+- Community scanner type-safety and CSS warnings
+
+---
+
 ## [0.3.10] - 2026-07-11
 
 ### Added

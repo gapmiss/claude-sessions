@@ -179,10 +179,14 @@ export class ClaudeParser extends BaseParser {
 		let lastCallCacheRead = 0;
 		let lastCallCacheWrite = 0;
 
-		// Track compaction events
+		// Track compaction events — compute our own cumulative dropped using
+		// contextWindowTokens (cache-aware) rather than Claude's cumulativeDroppedTokens
+		// which uses a different token counting basis
 		let compactionCount = 0;
 		let peakContextTokens = 0;
 		let cumulativeDroppedTokens = 0;
+		let preCompactContext = 0;
+		let pendingCompactDrop = false;
 
 		// Enriched tool results by sourceToolUseID
 		const enrichedResults = new Map<string, Record<string, unknown>>();
@@ -242,6 +246,12 @@ export class ClaudeParser extends BaseParser {
 					lastCallInput = callInput;
 					lastCallCacheRead = callCacheRead;
 					lastCallCacheWrite = callCacheWrite;
+
+					if (pendingCompactDrop) {
+						const postContext = callInput + callCacheRead + callCacheWrite;
+						cumulativeDroppedTokens += Math.max(0, preCompactContext - postContext);
+						pendingCompactDrop = false;
+					}
 				}
 			}
 
@@ -270,15 +280,13 @@ export class ClaudeParser extends BaseParser {
 				if (tn) taskNotifications.set(tn.toolUseId, tn);
 			}
 
-			// Track compact_boundary events for peak context detection
-			if (record.type === RT_SYSTEM && record.subtype === 'compact_boundary' && record.compactMetadata) {
+			// Track compact_boundary events — snapshot our cache-aware context
+			// for peak and drop calculation (resolved on next assistant message)
+			if (record.type === RT_SYSTEM && record.subtype === 'compact_boundary') {
 				compactionCount++;
-				if (typeof record.compactMetadata.preTokens === 'number') {
-					peakContextTokens = Math.max(peakContextTokens, record.compactMetadata.preTokens);
-				}
-				if (typeof record.compactMetadata.cumulativeDroppedTokens === 'number') {
-					cumulativeDroppedTokens = record.compactMetadata.cumulativeDroppedTokens;
-				}
+				preCompactContext = lastCallInput + lastCallCacheRead + lastCallCacheWrite;
+				peakContextTokens = Math.max(peakContextTokens, preCompactContext);
+				pendingCompactDrop = true;
 			}
 
 			// Capture custom-title from /rename command (keep last value)
