@@ -807,7 +807,7 @@ class MermaidPreviewModal extends Modal {
 		}
 		const doc = new DOMParser().parseFromString(svgString, 'image/svg+xml');
 		const svgNode = activeDocument.importNode(doc.documentElement, true);
-		if (svgNode instanceof HTMLElement) {
+		if (svgNode.instanceOf(HTMLElement)) {
 			svgNode.style.removeProperty('max-width');
 		}
 
