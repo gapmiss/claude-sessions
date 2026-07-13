@@ -815,6 +815,10 @@
 	word-break: break-word;
 }
 
+.claude-sessions-user-text code {
+	word-break: break-all;
+}
+
 /* ═══════════════════════════════════════════
    User bash command (direct terminal input)
    ═══════════════════════════════════════════ */
@@ -865,6 +869,7 @@
 	border: 1px solid var(--background-modifier-border);
 	/* font-size: 0.9em; */
 	color: var(--text-accent);
+	word-break: break-all;
 }
 
 .claude-sessions-assistant-text pre code {
@@ -2066,34 +2071,6 @@
 }
 .claude-sessions-progress-bar:hover .claude-sessions-progress-tooltip {
 	opacity: 1;
-}
-
-/* ═══════════════════════════════════════════
-   Settings page
-   ═══════════════════════════════════════════ */
-
-.claude-sessions-dirs-list {
-	margin-bottom: var(--size-4-2);
-}
-
-.claude-sessions-dir-row {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: var(--size-4-1) var(--size-4-2);
-	border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.claude-sessions-dir-path {
-	font-family: var(--cs-font-family);
-	font-size: var(--font-ui-small);
-	color: var(--text-normal);
-}
-
-.claude-sessions-dir-remove {
-	/* min-width: 44px; */
-	/* min-height: 44px; */
-	color: var(--text-error);
 }
 
 /* Session browser modal — two-line suggestion items */

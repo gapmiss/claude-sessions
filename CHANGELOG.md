@@ -8,6 +8,22 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.13] - 2026-07-13
+
+### Changed
+- **Declarative settings** — migrated settings tab from imperative `display()` to Obsidian 1.13.0 `getSettingDefinitions()` API; settings are now searchable in global settings search
+- **Folder pickers** — replaced custom `FolderSuggest` with built-in `folder` control type
+- **Session directory delete** — now shows a `ConfirmationModal` before removing a directory
+- **Bump `minAppVersion`** to 1.13.0
+
+### Fixed
+- **Inline code overflow** — long URLs and paths in inline `<code>` elements in user and assistant turns now wrap instead of overflowing
+
+### Removed
+- `FolderSuggest` utility (`utils/folder-suggest.ts`) — superseded by built-in folder control
+
+---
+
 ## [0.3.12] - 2026-07-13
 
 ### Fixed

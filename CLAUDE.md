@@ -19,7 +19,7 @@ npx eslint .         # lint
 ```
 src/
   main.ts                    # Plugin entry, commands, protocol handler
-  settings.ts                # Settings tab
+  settings.ts                # Declarative settings tab (1.13.0+ getSettingDefinitions)
   types.ts                   # All shared interfaces and types
   constants.ts               # JSONL protocol strings, regexes, display strings
   api.ts                     # Public API for inter-plugin communication
@@ -61,7 +61,6 @@ src/
     bm25.ts                  # BM25 relevance scoring engine (tokenizer, stemmer, index)
     streaming-reader.ts      # File I/O (Node.js streams, metadata extraction)
     logger.ts                # Configurable log levels
-    folder-suggest.ts        # Vault folder autocomplete for settings
 ```
 
 ## Code exploration (cymbal)
