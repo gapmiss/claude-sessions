@@ -512,7 +512,7 @@ export class TimelineRenderer {
 		if (isRedacted) {
 			body.createDiv({ cls: 'claude-sessions-thinking-redacted-body', text: 'Thinking content is not available — encrypted by Claude Code.' });
 		} else {
-			void MarkdownRenderer.render(this.ctx.app, text, body, '', this.ctx.component);
+			void MarkdownRenderer.render(this.ctx.app, normalizeMarkdown(text), body, '', this.ctx.component);
 		}
 
 		makeClickable(header, { label: 'Toggle thinking block', expanded: false });
@@ -534,7 +534,7 @@ export class TimelineRenderer {
 		header.createSpan({ cls: 'claude-sessions-slash-command-chevron', text: '\u25B6' });
 
 		const body = el.createDiv({ cls: 'claude-sessions-slash-command-body' });
-		void MarkdownRenderer.render(this.ctx.app, block.text, body, '', this.ctx.component);
+		void MarkdownRenderer.render(this.ctx.app, normalizeMarkdown(block.text), body, '', this.ctx.component);
 
 		makeClickable(header, { label: 'Toggle slash command output', expanded: false });
 		header.addEventListener('click', () => {
@@ -702,7 +702,7 @@ export class TimelineRenderer {
 			addCopyButton(header, block.summary, 'Copy continuation summary');
 
 			const summaryEl = el.createDiv({ cls: 'claude-sessions-compaction-summary' });
-			void MarkdownRenderer.render(this.ctx.app, block.summary, summaryEl, '', this.ctx.component);
+			void MarkdownRenderer.render(this.ctx.app, normalizeMarkdown(block.summary), summaryEl, '', this.ctx.component);
 
 			makeClickable(header, { label: 'Toggle continuation summary', expanded: false });
 			header.addEventListener('click', () => {

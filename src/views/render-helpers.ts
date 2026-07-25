@@ -71,9 +71,16 @@ export function fence(content: string, lang = ''): string {
 	return ticks + lang + '\n' + content + '\n' + ticks;
 }
 
-/** Ensure blank line before GFM tables (CommonMark requires it for block-level parsing). */
+/**
+ * Ensure blank line before GFM tables (CommonMark requires it for block-level parsing),
+ * and defuse a leading `---` so Obsidian doesn't read the block as YAML frontmatter.
+ */
 export function normalizeMarkdown(text: string): string {
-	return text.replace(/^([^|\n][^\n]*)\n(\|[^\n]+\|\s*\n\|[-:| ]+\|)/gm, '$1\n\n$2');
+	const withTables = text.replace(/^([^|\n][^\n]*)\n(\|[^\n]+\|\s*\n\|[-:| ]+\|)/gm, '$1\n\n$2');
+	// A text block opening with `---` is a thematic break, but MarkdownRenderer treats
+	// it as a frontmatter delimiter and swallows everything up to the next `---` —
+	// rendering the turn blank. `***` is the equivalent break with no such ambiguity.
+	return withTables.replace(/^[ \t]*---[ \t]*(?=\n|$)/, '***');
 }
 
 /** Make a clickable div keyboard-accessible: tabindex, role, aria attrs, Enter/Space handler. */
