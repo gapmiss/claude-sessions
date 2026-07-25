@@ -2,7 +2,7 @@
 
 This document tracks which Claude Code versions introduced JSONL format changes that affect this plugin.
 
-**Current Claude Code version being tested against: 2.1.92**
+**Current Claude Code version being tested against: 2.1.214**
 
 ---
 
@@ -20,12 +20,17 @@ This document tracks which Claude Code versions introduced JSONL format changes 
 | System events (`task_reminder`) | ~2.1.90? | 0.2.13+ | New | Task tool reminders |
 | Custom titles (`/rename`) | ~2.1.90? | 0.2.13+ | New | `<custom-title>` XML in user records |
 | `PermissionRequest` hook event | 2.1.92+ | 0.2.13+ | New | Tool-level permission request indicators |
+| `pr-link` records | ~2.1.50? | 0.3.16+ | Skipped | PR number/URL/repo metadata, no renderable content |
+| `AskUserQuestion` option `preview` | ~2.1.92? | 0.3.16+ | New | Per-option mockup/code sample; rendered as collapsible preformatted block |
+| `agent-color` records | ~2.1.119? | 0.3.16+ | Skipped | Sibling of `agent-name`, metadata only |
+| `file-history-delta` records | ~2.1.214? | 0.3.16+ | Skipped | Per-file backup pointer, sibling of `file-history-snapshot` |
 
 **Legend:**
 - `~` = Approximate version (not confirmed exactly when introduced)
 - `?` = Needs verification
 - Stable = Confirmed working across multiple versions
 - New = Recently implemented, needs broader testing
+- Skipped = Metadata-only record, filtered out rather than rendered
 
 ---
 

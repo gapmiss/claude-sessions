@@ -100,7 +100,7 @@ Key systems:
 - `renderToolCall()` → compact bar header (indicator, name, preview, duration, hooks, chevron) + expandable body
 - Tool-specific renderers: `renderBashInput()`, `renderDiffView()` (Edit), `renderWriteView()`, Read (language-specific), Bash diff detection
 - `renderSubAgentSession()` → collapsible PROMPT + flattened blocks + OUTPUT
-- `renderAskUserQuestion()` → question/answer pair with distinct styling
+- `renderAskUserQuestion()` → question/answer pair with distinct styling; `renderAskPreview()` renders each option's `preview` as a collapsible preformatted block (auto-opened for the selected option)
 - `toolPreview()` → compact header previews per tool type
 - `parseMcpToolName()` → splits `mcp__server__tool` format
 - Task tool rendering with cumulative state tracking
@@ -227,7 +227,7 @@ Structured serialization — converts parsed `Session` data to Markdown:
 - **Frontmatter** — full stats: cost, tokens (input/output/cache-read/cache-write/total/context-window/peak), compaction count, duration
 - **Summary section** (opt-in) — hero stats, token usage table, tool usage table, session details, parse warnings
 - **System events section** (opt-in) — hooks with event/duration/command/exit code, skills, task reminders
-- **Tool-specific rendering** — Edit (diff), Write (syntax-highlighted content), Bash (command fence), Read (file path + line range), AskUserQuestion (question/answer), Agent/Task (nested sub-agent turns), ToolSearch (matched tool list)
+- **Tool-specific rendering** — Edit (diff), Write (syntax-highlighted content), Bash (command fence), Read (file path + line range), AskUserQuestion (question/answer + fenced option previews), Agent/Task (nested sub-agent turns), ToolSearch (matched tool list)
 - **Enriched results** — Bash stderr/exitCode, AskUserQuestion parsed answers, ToolSearch matches
 - **Turn indicators** — API errors and max-tokens on turn headings
 

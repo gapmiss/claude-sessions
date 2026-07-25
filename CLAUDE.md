@@ -2,7 +2,7 @@
 
 Desktop-only Claude Code JSONL session viewer for Obsidian. Browse, search, and export sessions with rich tool rendering, live watch, and summary dashboards.
 
-**Version**: 0.3.2 | **Branch**: main
+**Version**: 0.3.16 | **Branch**: main
 
 ## Development
 
@@ -32,7 +32,7 @@ src/
   views/
     timeline-view.ts         # ItemView — timeline, controls, filters, live watch
     timeline-renderer.ts     # Turn/block rendering, ANSI, mermaid, image modals
-    render-helpers.ts        # Shared: makeClickable, fence, langFromPath, etc.
+    render-helpers.ts        # Shared: makeClickable, fence, stripFenceMarkers, normalizeMarkdown, etc.
     summary-renderer.ts      # Dashboard panel (hero cards, charts, metadata)
     system-events-renderer.ts # System events panel (hooks, skills, task reminders)
     tool-renderer.ts         # Tool-specific rendering (Bash, Edit, Write, Read, Agent, AskUserQuestion, ToolSearch)

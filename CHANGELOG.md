@@ -8,6 +8,32 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.16] - 2026-07-25
+
+### Added
+- **AskUserQuestion option previews** — the `preview` field on each option (ASCII mockups, code samples, layout comparisons) was parsed but never rendered. Each option with a preview now gets a collapsible disclosure under its description, auto-opened for the option the user selected. Previews render preformatted rather than as markdown, because a markdown pass collapses the whitespace that ASCII art depends on and reinterprets `---`/`#`/`*` as block syntax. Included in Markdown and HTML exports
+
+### Fixed
+- **Blank assistant turns** — a text block opening with `---` was read by `MarkdownRenderer` as a YAML frontmatter delimiter, swallowing everything up to the next `---`. The turn rendered empty while its "Show more (N lines)" button still reported the full line count. `normalizeMarkdown()` now rewrites a leading `---` to the equivalent `***` thematic break; setext heading underlines and longer dash runs are left alone
+- **Markdown normalization coverage** — thinking blocks, slash-command output, and compaction summaries rendered raw text through `MarkdownRenderer` and shared the same latent frontmatter bug; all now go through `normalizeMarkdown()`
+- **`file-history-delta`, `agent-color`, and `pr-link` record types** — three metadata-only records were triggering "unknown record type" warnings. Added to both `SKIP_RECORD_TYPES` and `SKIP_TYPE_STRINGS` so they are also excluded from search and streaming
+
+---
+
+## [0.3.15] - 2026-07-13
+
+### Fixed
+- **Inline code wrapping** — the 0.3.13 fix did not take effect. Obsidian's `.markdown-rendered :not(.print) code` rule (specificity 0,2,1) outweighed it, so `white-space: pre-wrap` and `word-break: break-all` never applied. Now scoped through `.claude-sessions-block-wrapper .claude-sessions-text-block` for specificity 0,3,1
+
+---
+
+## [0.3.14] - 2026-07-13
+
+### Fixed
+- **Community scanner: CSS compat** — reverted the `text-decoration` longhand split from 0.3.12; the scanner warns on both the shorthand and the longhands, and the shorthand is the smaller surface
+
+---
+
 ## [0.3.13] - 2026-07-13
 
 ### Changed
@@ -17,7 +43,7 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 - **Bump `minAppVersion`** to 1.13.0
 
 ### Fixed
-- **Inline code overflow** — long URLs and paths in inline `<code>` elements in user and assistant turns now wrap instead of overflowing
+- **Inline code overflow** — long URLs and paths in inline `<code>` elements in user and assistant turns now wrap instead of overflowing (this did not actually take effect — see 0.3.15)
 
 ### Removed
 - `FolderSuggest` utility (`utils/folder-suggest.ts`) — superseded by built-in folder control
@@ -327,7 +353,14 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
-[0.3.9]: https://github.com/gapmiss/claude-sessions/compare/0.3.8...HEAD
+[0.3.16]: https://github.com/gapmiss/claude-sessions/compare/0.3.15...0.3.16
+[0.3.15]: https://github.com/gapmiss/claude-sessions/compare/0.3.14...0.3.15
+[0.3.14]: https://github.com/gapmiss/claude-sessions/compare/0.3.13...0.3.14
+[0.3.13]: https://github.com/gapmiss/claude-sessions/compare/0.3.12...0.3.13
+[0.3.12]: https://github.com/gapmiss/claude-sessions/compare/0.3.11...0.3.12
+[0.3.11]: https://github.com/gapmiss/claude-sessions/compare/0.3.10...0.3.11
+[0.3.10]: https://github.com/gapmiss/claude-sessions/compare/0.3.9...0.3.10
+[0.3.9]: https://github.com/gapmiss/claude-sessions/compare/0.3.8...0.3.9
 [0.3.8]: https://github.com/gapmiss/claude-sessions/compare/0.3.7...0.3.8
 [0.3.7]: https://github.com/gapmiss/claude-sessions/compare/0.3.6...0.3.7
 [0.3.6]: https://github.com/gapmiss/claude-sessions/compare/0.3.5...0.3.6
