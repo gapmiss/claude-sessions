@@ -196,6 +196,18 @@ describe('record filtering', () => {
 		expect(session.turns[0].contentBlocks[0].type).toBe('text');
 	});
 
+	it('skips metadata-only record types without warning', () => {
+		const session = parse(jsonl(
+			{ type: 'file-history-delta', messageId: 'm1', trackingPath: 'a.ts' },
+			{ type: 'agent-color', agentColor: 'purple', sessionId: 's1' },
+			{ type: 'pr-link', prNumber: 28, prUrl: 'https://example.com/pr/28' },
+			assistantText('hello'),
+		));
+
+		expect(session.turns).toHaveLength(1);
+		expect(session.warnings).toBeUndefined();
+	});
+
 	it('skips isSidechain records by default', () => {
 		const session = parse(jsonl(
 			sidechainAssistant('sidechain text'),
