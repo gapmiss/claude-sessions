@@ -8,6 +8,15 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.17] - 2026-07-25
+
+### Fixed
+- **Community scanner: `prefer-create-el`** — `activeDocument.createDocumentFragment()` replaced with Obsidian's `createFragment()` helper in the search view result cache and the timeline summary refresh
+- **Community scanner: deprecated `setWarning`** — the session directory removal button now uses `setDestructive()`; same styling, non-deprecated spelling. Requires 1.10.0+, already covered by the 1.13.0 `minAppVersion`
+- **Community scanner: CSS compat** — closes out the `text-decoration` back-and-forth from 0.3.12 and 0.3.14. Neither the shorthand nor the longhands clear the compat lint, so the declaration is gone entirely, along with the `color`/`:hover` rules beside it: the WebFetch URL is a plain `<a>`, so Obsidian's built-in anchor styling already supplied all three. The removed shorthand carried an unresolved `var(--link-decoration-color)` that invalidated it at computed-value time anyway, meaning the underline it named was never actually rendering. Themes setting `--link-decoration: none` are now respected
+
+---
+
 ## [0.3.16] - 2026-07-25
 
 ### Added
@@ -353,6 +362,7 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+[0.3.17]: https://github.com/gapmiss/claude-sessions/compare/0.3.16...0.3.17
 [0.3.16]: https://github.com/gapmiss/claude-sessions/compare/0.3.15...0.3.16
 [0.3.15]: https://github.com/gapmiss/claude-sessions/compare/0.3.14...0.3.15
 [0.3.14]: https://github.com/gapmiss/claude-sessions/compare/0.3.13...0.3.14
