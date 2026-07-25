@@ -72,6 +72,22 @@ export function fence(content: string, lang = ''): string {
 }
 
 /**
+ * Drop standalone code-fence marker lines.
+ *
+ * AskUserQuestion previews arrive in three shapes: bare ASCII, fully fenced,
+ * and fenced art followed by trailing prose. All three render as preformatted
+ * text, so the markers carry no meaning and would show up literally. Only
+ * lines that are nothing but a fence are removed, so content keeps its exact
+ * alignment. A preview deliberately showing a fence as content would lose it —
+ * no such case exists in practice, and mangled ASCII art is the worse failure.
+ */
+export function stripFenceMarkers(text: string): string {
+	const lines = text.replace(/\s+$/, '').split('\n');
+	const kept = lines.filter(l => !/^\s*(?:`{3,}|~{3,})[^\s`~]*\s*$/.test(l));
+	return kept.length === lines.length ? text : kept.join('\n');
+}
+
+/**
  * Ensure blank line before GFM tables (CommonMark requires it for block-level parsing),
  * and defuse a leading `---` so Obsidian doesn't read the block as YAML frontmatter.
  */

@@ -4,7 +4,7 @@ import type { ContentBlock, ToolUseBlock, ToolResultBlock, ToolResultImage, SubA
 import { TASK_TOOL_NAMES, ANSI_RE, RE_SYSTEM_REMINDER } from '../constants';
 import {
 	type RenderContext, COLLAPSE_THRESHOLD,
-	makeClickable, fence, langFromPath, stripLineNumbers, addCopyButton,
+	makeClickable, fence, langFromPath, stripLineNumbers, addCopyButton, stripFenceMarkers,
 } from './render-helpers';
 
 /** Accumulated task state for rendering cumulative task lists. */
@@ -456,6 +456,8 @@ function renderToolSearchResult(
 interface AskOption {
 	label: string;
 	description: string;
+	/** Optional mockup/code sample shown beside the option in the CLI picker. */
+	preview?: string;
 }
 
 interface AskQuestion {
@@ -463,6 +465,38 @@ interface AskQuestion {
 	question: string;
 	options: AskOption[];
 	multiSelect: boolean;
+}
+
+/**
+ * Collapsible monospace preview for one AskUserQuestion option.
+ *
+ * Rendered preformatted rather than as markdown: previews are overwhelmingly
+ * ASCII mockups whose alignment is the whole point, and a markdown pass would
+ * collapse their whitespace and reinterpret `---`/`#`/`*` as block syntax.
+ * Header is a direct child of the toggled container so the standalone HTML
+ * player's generic collapsible handler picks it up.
+ */
+function renderAskPreview(preview: string, container: HTMLElement, startOpen: boolean): void {
+	const text = stripFenceMarkers(preview);
+	const el = container.createDiv({ cls: 'claude-sessions-ask-preview' });
+	if (startOpen) el.addClass('open');
+
+	const header = el.createDiv({ cls: 'claude-sessions-ask-preview-header' });
+	const icon = header.createSpan({ cls: 'claude-sessions-ask-preview-icon' });
+	setIcon(icon, 'eye');
+	header.createSpan({ cls: 'claude-sessions-ask-preview-name', text: 'Preview' });
+	addCopyButton(header, text, 'Copy preview');
+	header.createSpan({ cls: 'claude-sessions-ask-preview-chevron', text: '▶' });
+
+	const body = el.createDiv({ cls: 'claude-sessions-ask-preview-body' });
+	body.createEl('pre').createEl('code', { text });
+
+	makeClickable(header, { label: 'Toggle preview', expanded: startOpen });
+	header.addEventListener('click', () => {
+		const willOpen = !el.hasClass('open');
+		el.toggleClass('open', willOpen);
+		header.setAttribute('aria-expanded', String(willOpen));
+	});
 }
 
 function renderAskUserQuestion(
@@ -562,6 +596,9 @@ function renderAskUserQuestion(
 			}
 			if (opt.description) {
 				optEl.createDiv({ cls: 'claude-sessions-ask-option-desc', text: opt.description });
+			}
+			if (opt.preview) {
+				renderAskPreview(opt.preview, optEl, isSelected);
 			}
 		}
 

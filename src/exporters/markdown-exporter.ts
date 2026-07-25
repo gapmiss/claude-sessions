@@ -1,7 +1,7 @@
 import { App, TFolder, normalizePath } from 'obsidian';
 import { diffLines } from 'diff';
 import type { Session, Turn, ContentBlock, ToolUseBlock, ToolResultBlock, SystemEvent, HookSuccessEvent, AsyncHookResponseEvent, SkillListingEvent, TaskReminderEvent, PluginSettings } from '../types';
-import { fence, langFromPath, stripLineNumbers } from '../views/render-helpers';
+import { fence, langFromPath, stripLineNumbers, stripFenceMarkers } from '../views/render-helpers';
 import { ANSI_STRIP_RE } from '../constants';
 import type { ExportOptions } from '../views/export-modal';
 import { basename } from '../utils/path-utils';
@@ -581,6 +581,14 @@ function renderAskUserQuestionToolUse(block: ToolUseBlock): string {
 			for (const opt of options) {
 				const desc = opt['description'] ? ` — ${opt['description']}` : '';
 				lines.push(`> - ${opt['label'] ?? ''}${desc}`);
+				// Previews are ASCII mockups — fence them so alignment survives.
+				// Indent by 3 to stay inside the list item; the fence strips that
+				// indentation back off when rendered.
+				if (opt['preview']) {
+					for (const ln of fence(stripFenceMarkers(opt['preview'])).split('\n')) {
+						lines.push(`>   ${ln}`);
+					}
+				}
 			}
 		}
 	}
