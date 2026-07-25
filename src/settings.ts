@@ -71,7 +71,7 @@ export class SettingsTab extends PluginSettingTab {
 						.setContent(`Remove "${dir}" from session directories?`)
 						.addButton(btn => btn
 							.setButtonText('Remove')
-							.setWarning()
+							.setDestructive()
 							.onClick(() => {
 								this.plugin.settings.sessionDirs.splice(idx, 1);
 								void this.plugin.saveSettings();

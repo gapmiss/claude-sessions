@@ -165,7 +165,7 @@ export class TimelineRenderer {
 		// Re-render summary and system events at the top (before the first turn element)
 		const firstTurn = this.turnEls[0];
 		if (firstTurn) {
-			const frag = activeDocument.createDocumentFragment();
+			const frag = createFragment();
 			const tempContainer = createDiv();
 			renderSummary(session, tempContainer, this.ctx);
 			renderSystemEvents(session, tempContainer);

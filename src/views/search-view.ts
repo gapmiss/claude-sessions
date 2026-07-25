@@ -260,7 +260,7 @@ export class SearchView extends ItemView {
 
 		// Save cross-session results before leaving
 		if (this.mode === 'cross-session' && this.resultsEl.childNodes.length > 0) {
-			this.cachedCrossResults = activeDocument.createDocumentFragment();
+			this.cachedCrossResults = createFragment();
 			while (this.resultsEl.firstChild) {
 				this.cachedCrossResults.appendChild(this.resultsEl.firstChild);
 			}

@@ -1289,11 +1289,6 @@
 .claude-sessions-webfetch-link {
 	display: block;
 	word-break: break-all;
-	color: var(--link-color);
-	text-decoration: underline var(--link-decoration-color);
-}
-.claude-sessions-webfetch-link:hover {
-	color: var(--link-color-hover);
 }
 .claude-sessions-webfetch-prompt-text {
 	color: var(--text-normal);
