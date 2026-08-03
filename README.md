@@ -5,7 +5,7 @@ An [Obsidian](https://obsidian.md/) plugin for viewing [Claude Code](https://doc
 **Local-first and private.** Claude Sessions reads your JSONL session files directly from disk — no uploads, no syncing, no external services. Your conversations stay on your machine.
 
 > [!IMPORTANT]
-> **v0.3.17** — Desktop-only.
+> **v0.3.18** — Desktop-only.
 
 > [!NOTE]
 > **System identity access:** This plugin reads `HOME` environment variable and `os.homedir()` to locate Claude Code's session files at `~/.claude/projects/` and OAuth credentials for rate limit display. No data is transmitted — these values are used only to construct local file paths.
