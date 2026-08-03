@@ -8,6 +8,17 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.18] - 2026-08-02
+
+### Fixed
+- **Cache-write costs understated on long sessions** — Anthropic bills a prompt-cache write at 1.25x the input rate for the 5-minute TTL but 2x for the 1-hour TTL. Every cache write was priced at 1.25x, so any session using the 1-hour cache read low. Claude Code has used the 1-hour cache for the whole conversation for some time now, which means the error applied to the entire cache-write total rather than a fraction of it. On a 114k cache-write session the reported cost moved from $6.25 to $6.68
+
+  `MODEL_PRICING` now carries `cacheWrite5m` and `cacheWrite1h` per model family, and the parser reads the `cache_creation.ephemeral_1h_input_tokens` breakdown that Claude Code records alongside the flat `cache_creation_input_tokens` total. Sessions from older versions that carry no breakdown still bill entirely at the 5-minute rate, unchanged from before. Token counts and context-window figures are unaffected — only the cost math changed
+
+  Note that Claude Code's own `/config` → Usage panel can disagree, and says so: when it shows "costs may be inaccurate due to usage of unknown models" it has no price entry for the model in use and falls back to Sonnet rates. On the session above it reported $4.01, which is Sonnet pricing applied to Opus tokens
+
+---
+
 ## [0.3.17] - 2026-07-25
 
 ### Fixed

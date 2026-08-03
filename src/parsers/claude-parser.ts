@@ -77,6 +77,7 @@ interface ClaudeRecord {
 					output_tokens?: number;
 					cache_read_input_tokens?: number;
 					cache_creation_input_tokens?: number;
+					cache_creation?: CacheCreationBreakdown;
 				};
 			};
 		};
@@ -97,8 +98,19 @@ interface ClaudeRecord {
 			output_tokens?: number;
 			cache_read_input_tokens?: number;
 			cache_creation_input_tokens?: number;
+			cache_creation?: CacheCreationBreakdown;
 		};
 	};
+}
+
+/**
+ * Cache-write tokens split by TTL. Present in Claude Code JSONL from the
+ * versions that support the 1-hour cache. Absent on older sessions, in which
+ * case the flat `cache_creation_input_tokens` total is billed at the 5m rate.
+ */
+interface CacheCreationBreakdown {
+	ephemeral_5m_input_tokens?: number;
+	ephemeral_1h_input_tokens?: number;
 }
 
 interface ClaudeContentBlock {
@@ -172,7 +184,9 @@ export class ClaudeParser extends BaseParser {
 		const agentProgressMap = new Map<string, ClaudeRecord[]>();
 
 		// Token usage per message ID (keep max of each field across streaming duplicates)
-		const usageByMsg = new Map<string, { inp: number; out: number; cr: number; cc: number; model: string }>();
+		// cc is the cache-write total; cc1h is the 1-hour-TTL portion of it, which
+		// is priced at 2x input instead of 1.25x.
+		const usageByMsg = new Map<string, { inp: number; out: number; cr: number; cc: number; cc1h: number; model: string }>();
 		let anonymousUsageCounter = 0;
 
 		// Track last API call's input tokens for context window size
@@ -230,6 +244,7 @@ export class ClaudeParser extends BaseParser {
 					out: Math.max(prev?.out ?? 0, u.output_tokens ?? 0),
 					cr: Math.max(prev?.cr ?? 0, u.cache_read_input_tokens ?? 0),
 					cc: Math.max(prev?.cc ?? 0, u.cache_creation_input_tokens ?? 0),
+					cc1h: Math.max(prev?.cc1h ?? 0, u.cache_creation?.ephemeral_1h_input_tokens ?? 0),
 					model: msgModel,
 				});
 
@@ -518,7 +533,7 @@ export class ClaudeParser extends BaseParser {
 		let totalCacheReadTokens = 0;
 		let totalCacheCreationTokens = 0;
 		let costUSD = 0;
-		const costByModel = new Map<string, { inp: number; out: number; cr: number; cc: number }>();
+		const costByModel = new Map<string, { inp: number; out: number; cr: number; cc: number; cc1h: number }>();
 		for (const u of usageByMsg.values()) {
 			totalInputTokens += u.inp;
 			totalOutputTokens += u.out;
@@ -530,12 +545,13 @@ export class ClaudeParser extends BaseParser {
 				prev.out += u.out;
 				prev.cr += u.cr;
 				prev.cc += u.cc;
+				prev.cc1h += u.cc1h;
 			} else {
-				costByModel.set(u.model, { inp: u.inp, out: u.out, cr: u.cr, cc: u.cc });
+				costByModel.set(u.model, { inp: u.inp, out: u.out, cr: u.cr, cc: u.cc, cc1h: u.cc1h });
 			}
 		}
 		for (const [m, u] of costByModel) {
-			costUSD += estimateCost(m, u.inp, u.out, u.cr, u.cc);
+			costUSD += estimateCost(m, u.inp, u.out, u.cr, u.cc, u.cc1h);
 		}
 
 		const contextWindowTokens = lastCallInput + lastCallCacheRead + lastCallCacheWrite;
@@ -1312,19 +1328,23 @@ export class ClaudeParser extends BaseParser {
 
 }
 
-/** Per-million-token pricing by model family. */
+/**
+ * Per-million-token pricing by model family. Cache writes are billed by TTL:
+ * 1.25x the input rate for the 5-minute cache, 2x for the 1-hour cache.
+ */
 interface ModelPricing {
 	input: number;
 	output: number;
 	cacheRead: number;
-	cacheWrite: number;
+	cacheWrite5m: number;
+	cacheWrite1h: number;
 }
 
 const MODEL_PRICING: Record<string, ModelPricing> = {
-	opus: { input: 5, output: 25, cacheRead: 0.50, cacheWrite: 6.25 },
-	fable: { input: 10, output: 50, cacheRead: 1.00, cacheWrite: 12.50 },
-	sonnet: { input: 3, output: 15, cacheRead: 0.30, cacheWrite: 3.75 },
-	haiku: { input: 1, output: 5, cacheRead: 0.10, cacheWrite: 1.25 },
+	opus: { input: 5, output: 25, cacheRead: 0.50, cacheWrite5m: 6.25, cacheWrite1h: 10.00 },
+	fable: { input: 10, output: 50, cacheRead: 1.00, cacheWrite5m: 12.50, cacheWrite1h: 20.00 },
+	sonnet: { input: 3, output: 15, cacheRead: 0.30, cacheWrite5m: 3.75, cacheWrite1h: 6.00 },
+	haiku: { input: 1, output: 5, cacheRead: 0.10, cacheWrite5m: 1.25, cacheWrite1h: 2.00 },
 };
 
 function getPricing(model: string): ModelPricing {
@@ -1335,14 +1355,24 @@ function getPricing(model: string): ModelPricing {
 	return MODEL_PRICING.sonnet; // default
 }
 
+/**
+ * @param cacheWrite Total cache-write tokens.
+ * @param cacheWrite1h The 1-hour-TTL portion of cacheWrite. The remainder is
+ *   billed at the 5-minute rate, which also covers older sessions that record
+ *   no TTL breakdown at all.
+ */
 function estimateCost(
-	model: string, input: number, output: number, cacheRead: number, cacheWrite: number,
+	model: string, input: number, output: number, cacheRead: number,
+	cacheWrite: number, cacheWrite1h = 0,
 ): number {
 	const p = getPricing(model);
+	const write1h = Math.min(cacheWrite1h, cacheWrite);
+	const write5m = cacheWrite - write1h;
 	return (
 		(input / 1_000_000) * p.input +
 		(output / 1_000_000) * p.output +
 		(cacheRead / 1_000_000) * p.cacheRead +
-		(cacheWrite / 1_000_000) * p.cacheWrite
+		(write5m / 1_000_000) * p.cacheWrite5m +
+		(write1h / 1_000_000) * p.cacheWrite1h
 	);
 }

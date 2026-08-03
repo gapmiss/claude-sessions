@@ -802,3 +802,86 @@ describe('user bash command consolidation', () => {
 		expect(session.turns[2].role).toBe('assistant');
 	});
 });
+
+// ─── Cost Estimation ───────────────────────────────────────────
+
+describe('cost estimation', () => {
+	it('bills 5-minute cache writes at 1.25x the input rate', () => {
+		const session = parse(jsonl(assistantText('hi', {
+			model: 'claude-opus-5',
+			usage: {
+				input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0,
+				cache_creation_input_tokens: 1_000_000,
+				cache_creation: { ephemeral_5m_input_tokens: 1_000_000, ephemeral_1h_input_tokens: 0 },
+			},
+		})));
+
+		expect(session.stats.costUSD).toBeCloseTo(6.25, 6);
+	});
+
+	it('bills 1-hour cache writes at 2x the input rate', () => {
+		const session = parse(jsonl(assistantText('hi', {
+			model: 'claude-opus-5',
+			usage: {
+				input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0,
+				cache_creation_input_tokens: 1_000_000,
+				cache_creation: { ephemeral_5m_input_tokens: 0, ephemeral_1h_input_tokens: 1_000_000 },
+			},
+		})));
+
+		expect(session.stats.costUSD).toBeCloseTo(10.00, 6);
+	});
+
+	it('splits a mixed-TTL cache write across both rates', () => {
+		const session = parse(jsonl(assistantText('hi', {
+			model: 'claude-opus-5',
+			usage: {
+				input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0,
+				cache_creation_input_tokens: 1_000_000,
+				cache_creation: { ephemeral_5m_input_tokens: 400_000, ephemeral_1h_input_tokens: 600_000 },
+			},
+		})));
+
+		// 0.4M at $6.25/M + 0.6M at $10.00/M
+		expect(session.stats.costUSD).toBeCloseTo(2.50 + 6.00, 6);
+	});
+
+	it('falls back to the 5-minute rate when no TTL breakdown is recorded', () => {
+		const session = parse(jsonl(assistantText('hi', {
+			model: 'claude-opus-5',
+			usage: {
+				input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0,
+				cache_creation_input_tokens: 1_000_000,
+			},
+		})));
+
+		expect(session.stats.costUSD).toBeCloseTo(6.25, 6);
+	});
+
+	it('prices input, output and cache reads per model family', () => {
+		const session = parse(jsonl(assistantText('hi', {
+			model: 'claude-opus-5',
+			usage: {
+				input_tokens: 1_000_000, output_tokens: 1_000_000,
+				cache_read_input_tokens: 1_000_000, cache_creation_input_tokens: 0,
+			},
+		})));
+
+		expect(session.stats.costUSD).toBeCloseTo(5 + 25 + 0.50, 6);
+	});
+
+	it('prices each model separately when a session mixes them', () => {
+		const session = parse(jsonl(
+			assistantText('a', {
+				model: 'claude-opus-5',
+				usage: { input_tokens: 1_000_000, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+			}),
+			assistantText('b', {
+				model: 'claude-haiku-4-5',
+				usage: { input_tokens: 1_000_000, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+			}),
+		));
+
+		expect(session.stats.costUSD).toBeCloseTo(5 + 1, 6);
+	});
+});

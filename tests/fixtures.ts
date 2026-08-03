@@ -21,7 +21,13 @@ export function assistantText(text: string, opts?: {
 	timestamp?: string;
 	model?: string;
 	msgId?: string;
-	usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number };
+	usage?: {
+		input_tokens?: number;
+		output_tokens?: number;
+		cache_read_input_tokens?: number;
+		cache_creation_input_tokens?: number;
+		cache_creation?: { ephemeral_5m_input_tokens?: number; ephemeral_1h_input_tokens?: number };
+	};
 }): Record<string, unknown> {
 	return {
 		type: 'assistant',
