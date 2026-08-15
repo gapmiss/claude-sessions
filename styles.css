@@ -1738,6 +1738,37 @@
 	color: var(--text-muted);
 	font-size: var(--cs-font-size-xs);
 	margin-bottom: var(--size-2-3);
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-2);
+}
+
+.claude-sessions-filepath-copy {
+	background: none;
+	border: none;
+	color: var(--text-faint);
+	cursor: pointer;
+	padding: var(--size-2-1) var(--size-2-2);
+	border-radius: var(--radius-s);
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	opacity: 0;
+	transition: opacity 150ms ease;
+}
+
+.claude-sessions-diff-file:hover .claude-sessions-filepath-copy {
+	opacity: 1;
+}
+
+.claude-sessions-filepath-copy:hover {
+	color: var(--text-muted);
+	background: var(--background-modifier-hover);
+}
+
+.claude-sessions-filepath-copy .svg-icon {
+	width: 12px;
+	height: 12px;
 }
 
 .claude-sessions-diff-del {

@@ -804,10 +804,12 @@ function renderDiffView(
 	}
 
 	if (block.input['file_path']) {
-		diffEl.createDiv({
+		const fp = typeof block.input['file_path'] === 'string' ? block.input['file_path'] : '';
+		const fileDiv = diffEl.createDiv({
 			cls: 'claude-sessions-diff-file',
-			text: (typeof block.input['file_path'] === 'string' ? block.input['file_path'] : '') + (block.input['replace_all'] ? ' (replace all)' : ''),
+			text: fp + (block.input['replace_all'] ? ' (replace all)' : ''),
 		});
+		if (fp) addCopyButton(fileDiv, fp, 'Copy file path', 'claude-sessions-filepath-copy');
 	}
 
 	const oldStr = typeof block.input['old_string'] === 'string' ? block.input['old_string'] : '';
@@ -847,7 +849,8 @@ function renderWriteView(
 
 	const filePath = typeof block.input['file_path'] === 'string' ? block.input['file_path'] : '';
 	if (filePath) {
-		writeEl.createDiv({ cls: 'claude-sessions-diff-file', text: filePath });
+		const fileDiv = writeEl.createDiv({ cls: 'claude-sessions-diff-file', text: filePath });
+		addCopyButton(fileDiv, filePath, 'Copy file path', 'claude-sessions-filepath-copy');
 	}
 
 	const content = typeof block.input['content'] === 'string' ? block.input['content'] : '';
