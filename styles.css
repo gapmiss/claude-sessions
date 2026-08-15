@@ -2683,8 +2683,7 @@
 .claude-sessions-search-input-row {
 	display: flex;
 	gap: var(--size-4-2);
-	padding: var(--size-4-3) var(--size-4-4);
-	padding-bottom: var(--size-4-4);
+	padding: var(--size-4-4);
 	border-bottom: var(--border-width) solid var(--background-modifier-border);
 	align-items: center;
 }
@@ -2700,6 +2699,10 @@
 	background: var(--background-secondary);
 	border: var(--input-border-width) solid var(--background-modifier-border);
 	border-radius: var(--radius-m);
+}
+
+.claude-sessions-search-input-container:hover {
+	background: var(--background-secondary);
 }
 
 .claude-sessions-search-input-container:focus-within {
@@ -2733,8 +2736,8 @@
 	line-height: var(--line-height-tight);
 }
 
-.claude-sessions-search-view .claude-sessions-search-input:hover,
-.claude-sessions-search-view .claude-sessions-search-input:focus {
+.claude-sessions-search-view .claude-sessions-search-input-container .claude-sessions-search-input:hover,
+.claude-sessions-search-view .claude-sessions-search-input-container .claude-sessions-search-input:focus {
 	border: none;
 	outline: none;
 	box-shadow: none;
