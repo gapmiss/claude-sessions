@@ -44,7 +44,7 @@ export interface SessionStats {
 
 /** H4: Parse warning surfaced to UI. */
 export interface ParseWarning {
-	type: 'unknown_record_type' | 'unknown_block_type' | 'parse_errors';
+	type: 'unknown_record_type' | 'unknown_block_type' | 'unknown_attachment_type' | 'parse_errors';
 	message: string;
 	count: number;
 }
@@ -61,7 +61,7 @@ export interface Session {
 
 // ── System Events ──
 
-export type SystemEventType = 'permission-mode' | 'skill_listing' | 'hook_success' | 'async_hook_response' | 'task_reminder';
+export type SystemEventType = 'permission-mode' | 'skill_listing' | 'hook_success' | 'async_hook_response' | 'hook_permission_decision' | 'output_style' | 'command_permissions' | 'task_reminder';
 
 export interface BaseSystemEvent {
 	type: SystemEventType;
@@ -105,13 +105,50 @@ export interface AsyncHookResponseEvent extends BaseSystemEvent {
 	toolUseId?: string;
 }
 
+/**
+ * PermissionRequest hook outcome. Emitted by Claude Code 2.1.214+ as an
+ * `attachment` record with subtype `hook_permission_decision`; earlier versions
+ * reported the same thing as an `async_hook_response` with hookName
+ * "PermissionRequest:<Tool>". Carries no stdout, duration, or command — only
+ * the decision — so it renders as a header indicator, not a HOOKS detail row.
+ */
+export interface HookPermissionDecisionEvent extends BaseSystemEvent {
+	type: 'hook_permission_decision';
+	hookEvent: string;
+	decision: 'allow' | 'deny';
+	toolUseId?: string;
+}
+
+/**
+ * Active output style. Claude Code stamps this on nearly every attachment
+ * record (5,000+ per vault is normal), but the value is session-constant.
+ * The parser emits one event per distinct value, so a mid-session style
+ * switch still produces a second event.
+ */
+export interface OutputStyleEvent extends BaseSystemEvent {
+	type: 'output_style';
+	style: string;
+}
+
+/**
+ * Tools a slash command pre-authorized via its `allowed-tools` frontmatter.
+ * Nearly always empty (266 of 268 records across a real vault), so the parser
+ * emits an event only when the list has entries.
+ */
+export interface CommandPermissionsEvent extends BaseSystemEvent {
+	type: 'command_permissions';
+	allowedTools: string[];
+	/** Slash command that requested the grant, resolved by walking the parent chain. */
+	commandName?: string;
+}
+
 export interface TaskReminderEvent extends BaseSystemEvent {
 	type: 'task_reminder';
 	content: unknown[];
 	itemCount: number;
 }
 
-export type SystemEvent = PermissionModeEvent | SkillListingEvent | HookSuccessEvent | AsyncHookResponseEvent | TaskReminderEvent;
+export type SystemEvent = PermissionModeEvent | SkillListingEvent | HookSuccessEvent | AsyncHookResponseEvent | HookPermissionDecisionEvent | OutputStyleEvent | CommandPermissionsEvent | TaskReminderEvent;
 
 export interface Turn {
 	index: number;

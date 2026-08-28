@@ -1,6 +1,6 @@
 import { App, TFolder, normalizePath } from 'obsidian';
 import { diffLines } from 'diff';
-import type { Session, Turn, ContentBlock, ToolUseBlock, ToolResultBlock, SystemEvent, HookSuccessEvent, AsyncHookResponseEvent, SkillListingEvent, TaskReminderEvent, PluginSettings } from '../types';
+import type { Session, Turn, ContentBlock, ToolUseBlock, ToolResultBlock, SystemEvent, HookSuccessEvent, AsyncHookResponseEvent, SkillListingEvent, TaskReminderEvent, OutputStyleEvent, CommandPermissionsEvent, PluginSettings } from '../types';
 import { fence, langFromPath, stripLineNumbers, stripFenceMarkers } from '../views/render-helpers';
 import { ANSI_STRIP_RE } from '../constants';
 import type { ExportOptions } from '../views/export-modal';
@@ -165,8 +165,17 @@ function buildMarkdown(
 		}
 	}
 
+	// PermissionRequest outcomes are keyed by toolUseId, so they render inline
+	// with their tool call rather than in the System events section.
+	const permissionByToolId = new Map<string, 'allow' | 'deny'>();
+	for (const evt of session.systemEvents) {
+		if (evt.type === 'hook_permission_decision' && evt.toolUseId) {
+			permissionByToolId.set(evt.toolUseId, evt.decision);
+		}
+	}
+
 	for (const turn of session.turns) {
-		lines.push(renderTurn(turn, settings, safeName, images, toolUseMap));
+		lines.push(renderTurn(turn, settings, safeName, images, toolUseMap, permissionByToolId));
 		lines.push('');
 	}
 
@@ -255,7 +264,7 @@ function buildSummarySection(session: Session): string {
 		for (const w of session.warnings) {
 			lines.push(`> - ${w.message} (${w.count}x)`);
 		}
-		if (session.warnings.some(w => w.type === 'unknown_record_type' || w.type === 'unknown_block_type')) {
+		if (session.warnings.some(w => w.type === 'unknown_record_type' || w.type === 'unknown_block_type' || w.type === 'unknown_attachment_type')) {
 			lines.push('> Some data may be missing. Check for plugin updates.');
 		}
 		lines.push('');
@@ -271,12 +280,34 @@ function buildSystemEventsSection(events: SystemEvent[]): string | null {
 		(e.type === 'hook_success' && !e.toolUseId) || (e.type === 'async_hook_response' && !e.toolUseId));
 	const skills = events.filter((e): e is SkillListingEvent => e.type === 'skill_listing');
 	const tasks = events.filter((e): e is TaskReminderEvent => e.type === 'task_reminder' && e.itemCount > 0);
+	const styles = events.filter((e): e is OutputStyleEvent => e.type === 'output_style');
+	const grants = events.filter((e): e is CommandPermissionsEvent => e.type === 'command_permissions');
 
-	if (hooks.length === 0 && skills.length === 0 && tasks.length === 0) return null;
+	if (hooks.length === 0 && skills.length === 0 && tasks.length === 0
+		&& styles.length === 0 && grants.length === 0) return null;
 
 	const lines: string[] = [];
 	lines.push('## System events');
 	lines.push('');
+
+	if (styles.length > 0) {
+		lines.push(styles.length > 1 ? `### Output style (${styles.length} changes)` : '### Output style');
+		lines.push('');
+		for (const style of styles) {
+			lines.push(`- **${style.style}**`);
+		}
+		lines.push('');
+	}
+
+	if (grants.length > 0) {
+		lines.push('### Command permissions');
+		lines.push('');
+		for (const grant of grants) {
+			const tools = grant.allowedTools.map(t => `\`${t}\``).join(', ');
+			lines.push(grant.commandName ? `- **${grant.commandName}** — ${tools}` : `- ${tools}`);
+		}
+		lines.push('');
+	}
 
 	if (hooks.length > 0) {
 		lines.push(`### Hooks (${hooks.length})`);
@@ -318,7 +349,7 @@ function buildSystemEventsSection(events: SystemEvent[]): string | null {
 
 	if (tasks.length > 0) {
 		const totalItems = tasks.reduce((sum, t) => sum + t.itemCount, 0);
-		lines.push(`### Task reminders (${totalItems} items)`);
+		lines.push(`### Task reminders (${totalItems} ${totalItems === 1 ? 'item' : 'items'})`);
 		lines.push('');
 	}
 
@@ -333,6 +364,7 @@ function renderTurn(
 	safeName: string,
 	images: PendingImage[],
 	toolUseMap: Map<string, ToolUseBlock>,
+	permissionByToolId?: Map<string, 'allow' | 'deny'>,
 ): string {
 	const lines: string[] = [];
 	const roleLabel = turn.role === 'user' ? 'User' : 'Assistant';
@@ -372,6 +404,12 @@ function renderTurn(
 			const rendered = renderToolUse(block, toolUseMap, settings, safeName, images);
 			lines.push(rendered);
 			lines.push('');
+
+			const decision = permissionByToolId?.get(block.id);
+			if (decision) {
+				lines.push(`*${decision === 'deny' ? 'Denied' : 'Allowed'} by PermissionRequest hook*`);
+				lines.push('');
+			}
 
 			// Render paired result immediately after
 			if (result && settings.showToolResults) {

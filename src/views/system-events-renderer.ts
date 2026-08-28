@@ -1,7 +1,12 @@
 import { setIcon } from 'obsidian';
-import type { Session, HookSuccessEvent, AsyncHookResponseEvent, SkillListingEvent, TaskReminderEvent } from '../types';
+import type { Session, HookSuccessEvent, AsyncHookResponseEvent, SkillListingEvent, TaskReminderEvent, OutputStyleEvent, CommandPermissionsEvent } from '../types';
 import { makeClickable } from './render-helpers';
 import { basename } from '../utils/path-utils';
+
+/** Format a count with its noun, pluralized. */
+function plural(count: number, noun: string): string {
+	return `${count} ${noun}${count === 1 ? '' : 's'}`;
+}
 
 /**
  * Render the System Events panel (collapsible) showing hooks, skills, and task reminders.
@@ -16,9 +21,12 @@ export function renderSystemEvents(session: Session, container: HTMLElement): vo
 		(e.type === 'hook_success' && !e.toolUseId) || (e.type === 'async_hook_response' && !e.toolUseId));
 	const skills = events.filter((e): e is SkillListingEvent => e.type === 'skill_listing');
 	const tasks = events.filter((e): e is TaskReminderEvent => e.type === 'task_reminder' && e.itemCount > 0);
+	const styles = events.filter((e): e is OutputStyleEvent => e.type === 'output_style');
+	const grants = events.filter((e): e is CommandPermissionsEvent => e.type === 'command_permissions');
 
 	// Don't render if nothing meaningful to show
-	if (hooks.length === 0 && skills.length === 0 && tasks.length === 0) return;
+	if (hooks.length === 0 && skills.length === 0 && tasks.length === 0
+		&& styles.length === 0 && grants.length === 0) return;
 
 	const el = container.createDiv({ cls: 'claude-sessions-system-events' });
 
@@ -29,11 +37,17 @@ export function renderSystemEvents(session: Session, container: HTMLElement): vo
 	setIcon(icon, 'settings-2');
 	header.createSpan({ cls: 'claude-sessions-system-events-title', text: 'System events' });
 
-	// Inline count
+	// Inline count. Skills and tasks count the items inside their listing
+	// records, not the records themselves — one skill_listing can carry many.
+	const skillCount = skills.reduce((sum, s) => sum + s.skillCount, 0);
+	const taskCount = tasks.reduce((sum, t) => sum + t.itemCount, 0);
+
 	const counts: string[] = [];
-	if (hooks.length > 0) counts.push(`${hooks.length} hooks`);
-	if (skills.length > 0) counts.push(`${skills.length} skills`);
-	if (tasks.length > 0) counts.push(`${tasks.length} tasks`);
+	if (styles.length > 0) counts.push(styles[styles.length - 1].style);
+	if (hooks.length > 0) counts.push(plural(hooks.length, 'hook'));
+	if (skillCount > 0) counts.push(plural(skillCount, 'skill'));
+	if (taskCount > 0) counts.push(plural(taskCount, 'task'));
+	if (grants.length > 0) counts.push(plural(grants.length, 'grant'));
 	header.createSpan({ cls: 'claude-sessions-system-events-count', text: counts.join(', ') });
 
 	// Body (collapsed by default)
@@ -45,6 +59,16 @@ export function renderSystemEvents(session: Session, container: HTMLElement): vo
 		el.toggleClass('open', willOpen);
 		header.setAttribute('aria-expanded', String(willOpen));
 	});
+
+	// Output style section
+	if (styles.length > 0) {
+		renderOutputStyleSection(body, styles);
+	}
+
+	// Command permissions section
+	if (grants.length > 0) {
+		renderCommandPermissionsSection(body, grants);
+	}
 
 	// Hooks section
 	if (hooks.length > 0) {
@@ -59,6 +83,58 @@ export function renderSystemEvents(session: Session, container: HTMLElement): vo
 	// Tasks section
 	if (tasks.length > 0) {
 		renderTasksSection(body, tasks);
+	}
+}
+
+function renderOutputStyleSection(container: HTMLElement, styles: OutputStyleEvent[]): void {
+	const section = container.createDiv({ cls: 'claude-sessions-system-events-section' });
+	const sectionHeader = section.createDiv({ cls: 'claude-sessions-system-events-section-header' });
+	const headerIcon = sectionHeader.createSpan({ cls: 'claude-sessions-system-events-section-icon' });
+	setIcon(headerIcon, 'pen-line');
+	// More than one event means the style changed partway through the session.
+	sectionHeader.createSpan({ text: styles.length > 1 ? `Output style (${styles.length} changes)` : 'Output style' });
+
+	const list = section.createDiv({ cls: 'claude-sessions-system-events-list' });
+	for (const style of styles) {
+		const row = list.createDiv({ cls: 'claude-sessions-system-events-row' });
+		const badge = row.createSpan({ cls: 'claude-sessions-system-events-badge' });
+		// Dedicated class: output style names are user-authored, so preserve their
+		// exact casing rather than uppercasing them like hook event names.
+		badge.createSpan({
+			cls: 'claude-sessions-system-events-badge-event claude-sessions-system-events-badge-style',
+			text: style.style,
+		});
+		if (styles.length > 1 && style.timestamp) {
+			row.createSpan({
+				cls: 'claude-sessions-system-events-duration',
+				text: new Date(style.timestamp).toLocaleTimeString(),
+			});
+		}
+	}
+}
+
+function renderCommandPermissionsSection(container: HTMLElement, grants: CommandPermissionsEvent[]): void {
+	const section = container.createDiv({ cls: 'claude-sessions-system-events-section' });
+	const sectionHeader = section.createDiv({ cls: 'claude-sessions-system-events-section-header' });
+	const headerIcon = sectionHeader.createSpan({ cls: 'claude-sessions-system-events-section-icon' });
+	setIcon(headerIcon, 'shield-check');
+	sectionHeader.createSpan({ text: 'Command permissions' });
+
+	const list = section.createDiv({ cls: 'claude-sessions-system-events-list' });
+	for (const grant of grants) {
+		const row = list.createDiv({ cls: 'claude-sessions-system-events-row' });
+		if (grant.commandName) {
+			row.createSpan({
+				cls: 'claude-sessions-system-events-skill-name',
+				text: grant.commandName,
+			});
+		}
+		for (const tool of grant.allowedTools) {
+			row.createSpan({
+				cls: 'claude-sessions-system-events-badge-event claude-sessions-system-events-badge-style',
+				text: tool,
+			});
+		}
 	}
 }
 
@@ -162,7 +238,7 @@ function renderTasksSection(container: HTMLElement, tasks: TaskReminderEvent[]):
 	setIcon(headerIcon, 'check-square');
 
 	const totalItems = tasks.reduce((sum, t) => sum + t.itemCount, 0);
-	sectionHeader.createSpan({ text: `Task reminders (${totalItems} items)` });
+	sectionHeader.createSpan({ text: `Task reminders (${plural(totalItems, 'item')})` });
 
 	// For now, just show counts since task content is often empty
 	// Can expand this later to show actual task items

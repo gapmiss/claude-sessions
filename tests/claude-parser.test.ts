@@ -5,7 +5,7 @@ import {
 	assistantToolUse, userText, userToolResult,
 	fileHistorySnapshot, sidechainAssistant, metaAssistant,
 	syntheticAssistant, userInterruption, userSlashCommand, metaSkillExpansion,
-	userBashInput, userBashOutput, userBashCaveat,
+	userBashInput, userBashOutput, userBashCaveat, hookPermissionDecision, outputStyle, commandPermissions,
 } from './fixtures';
 
 function parse(content: string, filePath = '/test/session.jsonl') {
@@ -883,5 +883,197 @@ describe('cost estimation', () => {
 		));
 
 		expect(session.stats.costUSD).toBeCloseTo(5 + 1, 6);
+	});
+});
+
+// ─── System events: permission hooks ───────────────────────────
+
+describe('hook_permission_decision attachments (CC 2.1.214+)', () => {
+	it('parses an allow decision and keys it to the tool_use id', () => {
+		const session = parse(jsonl(
+			assistantToolUse('Bash', 'toolu_1', { command: 'ls' }),
+			hookPermissionDecision('toolu_1', 'allow'),
+		));
+
+		const events = session.systemEvents.filter(e => e.type === 'hook_permission_decision');
+		expect(events).toHaveLength(1);
+		expect(events[0]).toMatchObject({
+			type: 'hook_permission_decision',
+			hookEvent: 'PermissionRequest',
+			decision: 'allow',
+			toolUseId: 'toolu_1',
+		});
+	});
+
+	it('parses a deny decision', () => {
+		const session = parse(jsonl(
+			assistantToolUse('Bash', 'toolu_2', { command: 'rm -rf /' }),
+			hookPermissionDecision('toolu_2', 'deny'),
+		));
+
+		const events = session.systemEvents.filter(e => e.type === 'hook_permission_decision');
+		expect(events[0]).toMatchObject({ decision: 'deny', toolUseId: 'toolu_2' });
+	});
+
+	it('does not emit an unknown-attachment warning for a known subtype', () => {
+		const session = parse(jsonl(
+			assistantToolUse('Bash', 'toolu_3', { command: 'ls' }),
+			hookPermissionDecision('toolu_3', 'allow'),
+		));
+
+		expect(session.warnings?.some(w => w.type === 'unknown_attachment_type')).toBeFalsy();
+	});
+
+	it('warns instead of silently dropping an unrecognized attachment subtype', () => {
+		const session = parse(jsonl(
+			assistantText('hi'),
+			{
+				type: 'attachment',
+				uuid: 'a1',
+				timestamp: '2026-01-01T00:00:00.000Z',
+				attachment: { type: 'some_future_subtype', foo: 1 },
+			},
+		));
+
+		const warning = session.warnings?.find(w => w.type === 'unknown_attachment_type');
+		expect(warning).toBeDefined();
+		expect(warning?.count).toBe(1);
+		expect(warning?.message).toContain('some_future_subtype');
+	});
+});
+
+// ─── System events: output style ───────────────────────────────
+
+describe('output_style attachments', () => {
+	it('collapses repeated identical values into a single event', () => {
+		const session = parse(jsonl(
+			outputStyle('Terse'),
+			assistantText('a'),
+			outputStyle('Terse'),
+			outputStyle('Terse'),
+		));
+
+		const events = session.systemEvents.filter(e => e.type === 'output_style');
+		expect(events).toHaveLength(1);
+		expect(events[0]).toMatchObject({ type: 'output_style', style: 'Terse' });
+	});
+
+	it('emits a second event when the style changes mid-session', () => {
+		const session = parse(jsonl(
+			outputStyle('Terse'),
+			assistantText('a'),
+			outputStyle('Signal'),
+			outputStyle('Signal'),
+		));
+
+		const events = session.systemEvents.filter(e => e.type === 'output_style');
+		expect(events.map(e => (e as { style: string }).style)).toEqual(['Terse', 'Signal']);
+	});
+
+	it('ignores an output_style attachment with no style value', () => {
+		const session = parse(jsonl(
+			assistantText('a'),
+			{ type: 'attachment', uuid: 'x', timestamp: '2026-01-01T00:00:00.000Z', attachment: { type: 'output_style' } },
+		));
+
+		expect(session.systemEvents.filter(e => e.type === 'output_style')).toHaveLength(0);
+	});
+
+	it('no longer reports output_style as an unknown attachment type', () => {
+		const session = parse(jsonl(assistantText('a'), outputStyle('Terse')));
+		expect(session.warnings?.some(w => w.message.includes('output_style'))).toBeFalsy();
+	});
+});
+
+// ─── System events: command permissions ────────────────────────
+
+describe('command_permissions attachments', () => {
+	it('emits an event for a non-empty allowed-tools grant', () => {
+		const session = parse(jsonl(
+			assistantText('a'),
+			commandPermissions(['Agent', 'Read(~/**)', 'Edit(~/.claude/settings.json)']),
+		));
+
+		const events = session.systemEvents.filter(e => e.type === 'command_permissions');
+		expect(events).toHaveLength(1);
+		expect(events[0]).toMatchObject({
+			type: 'command_permissions',
+			allowedTools: ['Agent', 'Read(~/**)', 'Edit(~/.claude/settings.json)'],
+		});
+	});
+
+	it('ignores empty grants, which are the overwhelming majority', () => {
+		const session = parse(jsonl(
+			assistantText('a'),
+			commandPermissions([]),
+			commandPermissions([]),
+		));
+
+		expect(session.systemEvents.filter(e => e.type === 'command_permissions')).toHaveLength(0);
+	});
+
+	it('collapses an unchanged repeat but keeps a changed grant', () => {
+		const session = parse(jsonl(
+			commandPermissions(['Read(~/**)']),
+			assistantText('a'),
+			commandPermissions(['Read(~/**)']),
+			commandPermissions(['Bash(git:*)']),
+		));
+
+		const events = session.systemEvents.filter(e => e.type === 'command_permissions');
+		expect(events.map(e => (e as { allowedTools: string[] }).allowedTools)).toEqual([
+			['Read(~/**)'],
+			['Bash(git:*)'],
+		]);
+	});
+
+	it('drops non-string entries rather than rendering them', () => {
+		const session = parse(jsonl(
+			assistantText('a'),
+			{
+				type: 'attachment', uuid: 'x', timestamp: '2026-01-01T00:00:00.000Z',
+				attachment: { type: 'command_permissions', allowedTools: ['Agent', 42, null] },
+			},
+		));
+
+		const events = session.systemEvents.filter(e => e.type === 'command_permissions');
+		expect(events[0]).toMatchObject({ allowedTools: ['Agent'] });
+	});
+
+	it('no longer reports command_permissions as an unknown attachment type', () => {
+		const session = parse(jsonl(assistantText('a'), commandPermissions([])));
+		expect(session.warnings?.some(w => w.message.includes('command_permissions'))).toBeFalsy();
+	});
+});
+
+describe('command_permissions command attribution', () => {
+	it('names the slash command by walking the parent chain past intervening attachments', () => {
+		const session = parse(jsonl(
+			{
+				type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z',
+				message: { role: 'user', content: '<command-message>statusline</command-message>\n<command-name>/statusline</command-name>' },
+			},
+			{
+				type: 'attachment', uuid: 'a1', parentUuid: 'u1', timestamp: '2026-01-01T00:00:01.000Z',
+				attachment: { type: 'output_style', style: 'Terse' },
+			},
+			{
+				type: 'attachment', uuid: 'a2', parentUuid: 'a1', timestamp: '2026-01-01T00:00:02.000Z',
+				attachment: { type: 'command_permissions', allowedTools: ['Read(~/**)'] },
+			},
+		));
+
+		const events = session.systemEvents.filter(e => e.type === 'command_permissions');
+		expect(events[0]).toMatchObject({ commandName: '/statusline', allowedTools: ['Read(~/**)'] });
+	});
+
+	it('leaves commandName undefined when no command record is reachable', () => {
+		const session = parse(jsonl(
+			assistantText('a'),
+			commandPermissions(['Read(~/**)']),
+		));
+
+		const events = session.systemEvents.filter(e => e.type === 'command_permissions');
+		expect((events[0] as { commandName?: string }).commandName).toBeUndefined();
 	});
 });

@@ -1,8 +1,8 @@
 import { App, Component, setIcon } from 'obsidian';
-import type { PluginSettings, HookSuccessEvent, AsyncHookResponseEvent } from '../types';
+import type { PluginSettings, HookSuccessEvent, AsyncHookResponseEvent, HookPermissionDecisionEvent } from '../types';
 
 /** Hook events that can be displayed inline with tool calls. */
-export type InlineHookEvent = HookSuccessEvent | AsyncHookResponseEvent;
+export type InlineHookEvent = HookSuccessEvent | AsyncHookResponseEvent | HookPermissionDecisionEvent;
 
 /** Shared context passed to all renderer functions. */
 export interface RenderContext {

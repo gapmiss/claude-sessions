@@ -1,6 +1,6 @@
 import { MarkdownRenderer, setIcon } from 'obsidian';
 import { diffLines } from 'diff';
-import type { ContentBlock, ToolUseBlock, ToolResultBlock, ToolResultImage, SubAgentSession, HookSuccessEvent } from '../types';
+import type { ContentBlock, ToolUseBlock, ToolResultBlock, ToolResultImage, SubAgentSession, HookSuccessEvent, HookPermissionDecisionEvent } from '../types';
 import { TASK_TOOL_NAMES, ANSI_RE, RE_SYSTEM_REMINDER } from '../constants';
 import {
 	type RenderContext, COLLAPSE_THRESHOLD,
@@ -141,7 +141,9 @@ export function renderToolCall(
 	const hookEvents = ctx.hookEventsByToolId?.get(block.id);
 	if (hookEvents && hookEvents.length > 0) {
 		const hasPreToolUse = hookEvents.some(h => h.hookEvent === 'PreToolUse');
-		const hasPermission = hookEvents.some(h => h.hookEvent === 'PermissionRequest');
+		const permissionEvents = hookEvents.filter(h => h.hookEvent === 'PermissionRequest');
+		const hasPermission = permissionEvents.length > 0;
+		const wasDenied = permissionEvents.some(h => h.type === 'hook_permission_decision' && h.decision === 'deny');
 
 		if (hasPreToolUse) {
 			const preToolIndicator = header.createSpan({ cls: 'claude-sessions-tool-hook-indicator' });
@@ -157,9 +159,18 @@ export function renderToolCall(
 		}
 
 		if (hasPermission) {
-			const permIndicator = header.createSpan({ cls: 'claude-sessions-tool-hook-indicator claude-sessions-tool-hook-permission' });
-			setIcon(permIndicator, 'shield-check');
-			permIndicator.setAttribute('aria-label', 'Permission request');
+			const permCls = wasDenied
+				? 'claude-sessions-tool-hook-indicator claude-sessions-tool-hook-permission claude-sessions-tool-hook-permission-denied'
+				: 'claude-sessions-tool-hook-indicator claude-sessions-tool-hook-permission';
+			const permIndicator = header.createSpan({ cls: permCls });
+			setIcon(permIndicator, wasDenied ? 'shield-x' : 'shield-check');
+			// Decision is only present on hook_permission_decision (CC 2.1.214+);
+			// older async_hook_response events fall back to the bare label.
+			const decisions = permissionEvents
+				.filter((h): h is HookPermissionDecisionEvent => h.type === 'hook_permission_decision')
+				.map(h => h.decision === 'deny' ? 'Denied by PermissionRequest hook' : 'Allowed by PermissionRequest hook');
+			const tooltip = decisions.length > 0 ? [...new Set(decisions)].join('\n') : 'Permission request';
+			permIndicator.setAttribute('aria-label', tooltip);
 			permIndicator.setAttribute('data-tooltip-position', 'top');
 		}
 	}

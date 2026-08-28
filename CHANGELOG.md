@@ -8,6 +8,53 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.22] - 2026-08-28
+
+### Fixed
+- **Permission indicators stopped appearing** — Claude Code 2.1.214 changed how a `PermissionRequest` hook records its outcome. Versions 2.1.98 through 2.1.117 wrote an `async_hook_response` attachment with `hookName: "PermissionRequest:<Tool>"`; 2.1.214 writes a dedicated `hook_permission_decision` attachment carrying `decision`, `toolUseID`, and `hookEvent`. The parser knew only the old shape, so every approval since the upgrade was dropped and no tool block showed the shield indicator. Both shapes are now handled
+
+  The new record carries less than the old one — no stdout, duration, or command — so it drives the header indicator only, not a HOOKS detail row. A denial renders a red `shield-x` instead of the green `shield-check`, and the tooltip names the decision. `toolUseID` is authoritative on the new shape, so it needs none of the parent-chain walking the old one required
+
+- **"1 skills" in the System events header** — the collapsed header counted `skill_listing` *records* rather than the skills inside them. One record listing two skills read "1 skills". Task reminders had the same bug and were inconsistent with their own section heading, which already summed `itemCount`. Both now count items, and all four counts pluralize correctly
+
+### Added
+- **Output style in System events** — the active output style now appears as its own section and in the collapsed header line. Claude Code stamps this on nearly every attachment record (roughly 6,000 across a working vault), but the value is session-constant, so the parser emits one event per distinct value; a mid-session style change would produce a second, timestamped entry. The badge preserves the style's exact casing rather than uppercasing it like hook event names, since output styles are user-authored files whose names you may need to match
+
+- **Command permissions in System events** — a slash command can pre-authorize tools through its `allowed-tools` frontmatter. These grants were invisible, which matters because they can be broad: Claude Code's built-in `/statusline` requests `Read(~/**)`, unrestricted read access to your home directory, for the duration of the command. The section lists each grant with the command that requested it, resolved by walking the parent chain from the attachment back to the `<command-name>` record that invoked it
+
+  The array is empty on the overwhelming majority of records (266 of 268 in a real vault), so the section stays hidden unless a grant has entries. These are scoped to a single command invocation and are not written to `settings.json`
+
+- **Unknown attachment subtypes now warn** — unknown *record* types were already tracked and surfaced; unknown *attachment* subtypes were silently discarded. That blind spot is what let the permission regression go unnoticed. A new `unknown_attachment_type` parse warning reports the subtype and its count
+
+### Changed
+- Markdown export gains matching Output style and Command permissions sections, and renders an `*Allowed by PermissionRequest hook*` line under any tool call that carries a decision. HTML export inherits all of it through the DOM snapshot
+
+---
+
+## [0.3.21] - 2026-08-15
+
+### Fixed
+- **Search input hover background obscuring parent border** — the hover state painted over the container's border edge
+
+---
+
+## [0.3.20] - 2026-08-15
+
+### Added
+- **Copy button on file paths** — Edit and Write tool blocks show a copy-to-clipboard control on the file path in their header
+
+### Fixed
+- Release workflow corrections in `release.mjs` and the GitHub Actions release job
+
+---
+
+## [0.3.19] - 2026-08-06
+
+### Changed
+- **CSS tokenization** — hardcoded pixel values across `styles.css` replaced with Obsidian CSS variables so spacing and sizing follow the active theme
+
+---
+
 ## [0.3.18] - 2026-08-02
 
 ### Fixed

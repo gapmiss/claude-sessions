@@ -347,3 +347,53 @@ export function assistantToolReference(toolNames: string[], opts?: {
 		},
 	};
 }
+
+/**
+ * PermissionRequest hook decision attachment (CC 2.1.214+).
+ * Replaced the `async_hook_response` with hookName "PermissionRequest:<Tool>"
+ * emitted by CC 2.1.98–2.1.117.
+ */
+export function hookPermissionDecision(toolUseId: string, decision: 'allow' | 'deny', opts?: {
+	uuid?: string;
+	timestamp?: string;
+	parentUuid?: string;
+}): Record<string, unknown> {
+	return {
+		type: 'attachment',
+		uuid: opts?.uuid ?? crypto.randomUUID(),
+		timestamp: opts?.timestamp ?? '2026-01-01T00:00:00.000Z',
+		parentUuid: opts?.parentUuid,
+		attachment: {
+			type: 'hook_permission_decision',
+			decision,
+			toolUseID: toolUseId,
+			hookEvent: 'PermissionRequest',
+		},
+	};
+}
+
+/** Active output style attachment. Repeated on most records; value is session-constant. */
+export function outputStyle(style: string, opts?: {
+	uuid?: string;
+	timestamp?: string;
+}): Record<string, unknown> {
+	return {
+		type: 'attachment',
+		uuid: opts?.uuid ?? crypto.randomUUID(),
+		timestamp: opts?.timestamp ?? '2026-01-01T00:00:00.000Z',
+		attachment: { type: 'output_style', style },
+	};
+}
+
+/** Slash command allowed-tools grant. Empty unless the command declares allowed-tools. */
+export function commandPermissions(allowedTools: string[], opts?: {
+	uuid?: string;
+	timestamp?: string;
+}): Record<string, unknown> {
+	return {
+		type: 'attachment',
+		uuid: opts?.uuid ?? crypto.randomUUID(),
+		timestamp: opts?.timestamp ?? '2026-01-01T00:00:00.000Z',
+		attachment: { type: 'command_permissions', allowedTools },
+	};
+}

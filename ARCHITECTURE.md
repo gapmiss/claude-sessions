@@ -47,7 +47,7 @@ Reference document for detailed implementation. Not auto-included — use `@ARCH
 5. Compute stats (tokens, costs, tool counts, duration)
 6. Collect system events (skill listings, task reminders, hooks without toolUseId)
 7. Capture custom session title from `/rename` command (`<custom-title>` XML)
-8. Log unknown record/block types for format change detection
+8. Log unknown record/block/attachment types for format change detection
 
 ### Parser State Fields
 
@@ -109,9 +109,10 @@ Key systems:
 ### System Events Renderer (`system-events-renderer.ts`)
 
 - Renders collapsible "System events" panel after summary dashboard
-- Displays hooks (PreToolUse, PostToolUse, PermissionRequest), available skills, task reminders
+- Displays output style, command permissions, hooks (PreToolUse, PostToolUse, PermissionRequest), available skills, task reminders
 - Excludes hook events with `toolUseId` (shown inline with tool calls instead)
-- Sections: Hooks (zap icon), Available skills (list icon), Task reminders (check-square icon)
+- Sections: Output style (pen-line icon), Command permissions (shield-check icon), Hooks (zap icon), Available skills (list icon), Task reminders (check-square icon)
+- Header counts sum the *items* inside listing records (`skillCount`, `itemCount`), not the record count
 
 ### Summary Renderer (`summary-renderer.ts`)
 

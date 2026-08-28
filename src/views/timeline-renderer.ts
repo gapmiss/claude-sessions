@@ -61,7 +61,7 @@ export class TimelineRenderer {
 			const hookMap = new Map<string, InlineHookEvent[]>();
 			for (const evt of session.systemEvents) {
 				// Include both hook_success and async_hook_response events with toolUseId
-				if ((evt.type === 'hook_success' || evt.type === 'async_hook_response') && evt.toolUseId) {
+				if ((evt.type === 'hook_success' || evt.type === 'async_hook_response' || evt.type === 'hook_permission_decision') && evt.toolUseId) {
 					const existing = hookMap.get(evt.toolUseId);
 					if (existing) {
 						existing.push(evt);
@@ -95,7 +95,7 @@ export class TimelineRenderer {
 	updateHookEvents(session: Session): void {
 		const hookMap = new Map<string, InlineHookEvent[]>();
 		for (const evt of session.systemEvents) {
-			if ((evt.type === 'hook_success' || evt.type === 'async_hook_response') && evt.toolUseId) {
+			if ((evt.type === 'hook_success' || evt.type === 'async_hook_response' || evt.type === 'hook_permission_decision') && evt.toolUseId) {
 				const existing = hookMap.get(evt.toolUseId);
 				if (existing) {
 					existing.push(evt);

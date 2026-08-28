@@ -3,7 +3,7 @@ import {
 	Session, Turn, ContentBlock,
 	ToolUseBlock, ToolResultBlock, CompactionBlock,
 	BashCommandBlock, SessionStats, SubAgentSession, SystemEvent, ParseWarning,
-	SkillListingEvent, HookSuccessEvent, AsyncHookResponseEvent, TaskReminderEvent,
+	SkillListingEvent, HookSuccessEvent, AsyncHookResponseEvent, HookPermissionDecisionEvent, OutputStyleEvent, CommandPermissionsEvent, TaskReminderEvent,
 } from '../types';
 import { extractProjectName, projectFromCwd, dirname, basename } from '../utils/path-utils';
 import {
@@ -354,9 +354,10 @@ export class ClaudeParser extends BaseParser {
 		// Track unknown record types that passed through filters but weren't handled
 		const unknownRecordTypes = new Map<string, { count: number; sample?: Record<string, unknown> }>();
 		const unknownBlockTypes = new Map<string, { count: number; sample?: Record<string, unknown> }>();
+		const unknownAttachmentTypes = new Map<string, { count: number; sample?: Record<string, unknown> }>();
 
 		// Second pass: build turns from deduplicated records
-		const { turns, systemEvents } = this.buildTurns(ordered, unknownRecordTypes, unknownBlockTypes);
+		const { turns, systemEvents } = this.buildTurns(ordered, unknownRecordTypes, unknownBlockTypes, unknownAttachmentTypes);
 
 		// Attach sub-agent sessions to their corresponding Agent tool_use blocks
 		if (agentProgressMap.size > 0) {
@@ -595,6 +596,16 @@ export class ClaudeParser extends BaseParser {
 				});
 			}
 		}
+		if (unknownAttachmentTypes.size > 0) {
+			for (const [type, { count }] of unknownAttachmentTypes) {
+				Logger.warn(`Skipped unknown attachment type "${type}" (${count}x)`);
+				warnings.push({
+					type: 'unknown_attachment_type',
+					message: `Unknown attachment type "${type}" — plugin may need update`,
+					count,
+				});
+			}
+		}
 		// M2: Surface parse error count
 		if (this.parseErrorCount > 0) {
 			warnings.push({
@@ -647,6 +658,7 @@ export class ClaudeParser extends BaseParser {
 		ordered: ClaudeRecord[],
 		unknownRecordTypes?: Map<string, { count: number; sample?: Record<string, unknown> }>,
 		unknownBlockTypes?: Map<string, { count: number; sample?: Record<string, unknown> }>,
+		unknownAttachmentTypes?: Map<string, { count: number; sample?: Record<string, unknown> }>,
 	): { turns: Turn[]; systemEvents: SystemEvent[] } {
 		const turns: Turn[] = [];
 		const systemEvents: SystemEvent[] = [];
@@ -655,6 +667,12 @@ export class ClaudeParser extends BaseParser {
 		const uuidToToolResults = new Map<string, Array<{ toolUseId: string; toolName: string }>>();
 		// Map uuid → parentUuid for walking up the parent chain
 		const uuidToParent = new Map<string, string>();
+		// Map uuid → slash command name, for attributing command_permissions grants
+		const uuidToCommandName = new Map<string, string>();
+		// Most recent output_style value, used to collapse its per-record repetition
+		let lastOutputStyle: string | null = null;
+		// Most recent allowed-tools grant, used to collapse unchanged repeats
+		let lastCommandPermissions: string | null = null;
 		let currentAssistantTurn: Turn | null = null;
 		let pendingCompactMeta: { trigger?: string; preTokens?: number } | null = null;
 
@@ -670,6 +688,16 @@ export class ClaudeParser extends BaseParser {
 			// Track parent chain for async_hook_response resolution
 			if (record.uuid && record.parentUuid) {
 				uuidToParent.set(record.uuid, record.parentUuid);
+			}
+
+			// Record which slash command a uuid belongs to, so a later
+			// command_permissions attachment can name the command that asked.
+			if (record.uuid) {
+				const content = record.message?.content;
+				if (typeof content === 'string') {
+					const cmdMatch = RE_COMMAND_NAME.exec(content);
+					if (cmdMatch) uuidToCommandName.set(record.uuid, cmdMatch[1]);
+				}
 			}
 
 			// Summary records → compaction boundary
@@ -978,6 +1006,55 @@ export class ClaudeParser extends BaseParser {
 						exitCode: typeof att.exitCode === 'number' ? att.exitCode : 0,
 						toolUseId: resolvedToolUseId,
 					} as AsyncHookResponseEvent);
+				} else if (att.type === 'hook_permission_decision') {
+					// CC 2.1.214+ shape for PermissionRequest hook outcomes.
+					// toolUseID is authoritative here — no parent-chain walk needed.
+					systemEvents.push({
+						...baseEvent,
+						type: 'hook_permission_decision',
+						hookEvent: str(att.hookEvent) || 'PermissionRequest',
+						decision: att.decision === 'deny' ? 'deny' : 'allow',
+						toolUseId: typeof att.toolUseID === 'string' ? att.toolUseID : undefined,
+					} as HookPermissionDecisionEvent);
+				} else if (att.type === 'output_style') {
+					// Stamped on nearly every attachment record; collapse runs of the
+					// same value so only an actual style change adds an event.
+					const style = str(att.style);
+					if (style && style !== lastOutputStyle) {
+						lastOutputStyle = style;
+						systemEvents.push({ ...baseEvent, type: 'output_style', style } as OutputStyleEvent);
+					}
+				} else if (att.type === 'command_permissions') {
+					// Emitted on every slash command, but the list is empty unless the
+					// command declares allowed-tools. Skip empties, and collapse an
+					// unchanged repeat of the same grant.
+					const tools = Array.isArray(att.allowedTools)
+						? att.allowedTools.filter((t): t is string => typeof t === 'string')
+						: [];
+					if (tools.length > 0) {
+						const key = JSON.stringify(tools);
+						if (key !== lastCommandPermissions) {
+							lastCommandPermissions = key;
+							// The grant sits several attachment records below the user
+							// record that invoked the command, so walk the parent chain.
+							let commandName: string | undefined;
+							let cursor = record.parentUuid;
+							for (let depth = 0; depth < 15 && cursor; depth++) {
+								const found = uuidToCommandName.get(cursor);
+								if (found) {
+									commandName = found;
+									break;
+								}
+								cursor = uuidToParent.get(cursor);
+							}
+							systemEvents.push({
+								...baseEvent,
+								type: 'command_permissions',
+								allowedTools: tools,
+								commandName,
+							} as CommandPermissionsEvent);
+						}
+					}
 				} else if (att.type === 'task_reminder') {
 					systemEvents.push({
 						...baseEvent,
@@ -985,8 +1062,19 @@ export class ClaudeParser extends BaseParser {
 						content: Array.isArray(att.content) ? att.content : [],
 						itemCount: typeof att.itemCount === 'number' ? att.itemCount : 0,
 					} as TaskReminderEvent);
+				} else if (unknownAttachmentTypes && typeof att.type === 'string') {
+					// Track unknown subtypes so silently-dropped attachments surface as
+					// a warning instead of vanishing (how hook_permission_decision was missed).
+					const existing = unknownAttachmentTypes.get(att.type);
+					if (existing) {
+						existing.count++;
+					} else {
+						unknownAttachmentTypes.set(att.type, {
+							count: 1,
+							sample: { type: att.type, keys: Object.keys(att).filter(k => k !== 'type') },
+						});
+					}
 				}
-				// Unknown attachment subtypes are silently ignored
 			} else if (unknownRecordTypes) {
 				const existing = unknownRecordTypes.get(record.type);
 				if (existing) {
