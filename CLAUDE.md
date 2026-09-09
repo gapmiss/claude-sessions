@@ -63,24 +63,6 @@ src/
     logger.ts                # Configurable log levels
 ```
 
-## Code exploration (cymbal)
-
-Prefer `cymbal` over Read/Grep/Glob for code questions — its scoped output
-keeps whole files and broad greps out of context (the real token lever).
-If `cymbal` isn't on PATH, fall back to Read/Grep.
-
-Trigger → command:
-- Unfamiliar repo → `cymbal structure` (entry points, hotspots). Start here.
-- A symbol → `cymbal investigate <sym>` (source, callers, impact, members).
-  Several → `cymbal investigate A B C` — one call, batch.
-- Call graph → `cymbal trace <sym>` (downward) / `cymbal impact <sym>` (upward).
-- Before a Read → `cymbal outline <file>`, then `cymbal show <file:L1-L2>` for the hit only.
-- Before a grep → `cymbal search <query>` (symbols) / `--text` (content).
-- Ambiguous name → `cymbal show <file:Symbol>`.
-
-Setup: first use per repo, `cymbal index .` (<1s); auto-refreshes — never reindex manually.
-Don't fall back to a full Read or recursive grep when cymbal can scope the answer.
-
 ## Conventions
 
 - **Constants**: All JSONL magic strings (record types, XML tags, regexes) live in `constants.ts`

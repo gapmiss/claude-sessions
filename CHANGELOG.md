@@ -8,6 +8,19 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Mid-turn messages were unsearchable across sessions** — 0.3.23 made them visible in the timeline, but "All sessions" search still couldn't find one. The cross-session path reads JSONL line by line and handled `assistant`, `user`, and `system` records; a mid-turn message is none of those. It arrives as an `attachment` record with subtype `queued_command`, so every one was skipped. Searching for text you typed mid-turn returned only the sessions where some tool output happened to quote it
+
+  `extractSearchableContent` now handles the subtype the same way the parser does — string or array-form `prompt`, text blocks joined, task notifications skipped since they share the subtype but are background agent results indexed from their own records. Matches report as `U · queued_message` and the user role filter picks them up. In-session search was never affected; it runs on parsed turns, where the block was already indexed
+
+- **Search highlights were invisible** — both the timeline highlight and the results-panel snippet filled with `--text-highlight-bg`, which some themes never define. The declaration then resolves to nothing and the mark renders with no background at all, in the timeline and the results list alike. Both now fall back through `--color-yellow`, which the plugin already relies on elsewhere
+
+  The fade compounded it: the keyframes held the colour to 70% of a 5s animation, but the highlighter doesn't unwrap the mark until 5s, leaving 1.5 seconds of a colourless leftover in the DOM. It now holds to 90%
+
+---
+
 ## [0.3.23] - 2026-09-09
 
 ### Fixed

@@ -2944,8 +2944,17 @@
 	max-height: 3em;
 }
 
+/*
+ * Search match background. `--text-highlight-bg` is undefined in some themes,
+ * which silently renders both marks invisible — fall back through --color-yellow.
+ */
+.claude-sessions-search-snippet mark,
+.claude-sessions-search-highlight {
+	--cs-highlight-bg: var(--text-highlight-bg, color-mix(in srgb, var(--color-yellow) 40%, transparent));
+}
+
 .claude-sessions-search-snippet mark {
-	background: var(--text-highlight-bg);
+	background: var(--cs-highlight-bg);
 	color: var(--text-normal);
 	/* padding: 1px 2px; */
 	border-radius: var(--radius-s);
@@ -2998,15 +3007,19 @@
 /* ── In-session search: highlight in timeline ── */
 
 .claude-sessions-search-highlight {
-	background: var(--text-highlight-bg);
+	background: var(--cs-highlight-bg);
 	color: var(--text-normal);
 	/* padding: 1px 2px; */
 	border-radius: var(--radius-s);
 	animation: claude-sessions-highlight-fade 5s ease-out forwards;
 }
 
+/*
+ * Holds the color until 90% so the mark is never a colorless leftover: the
+ * highlighter unwraps it at the same 5s the fade ends.
+ */
 @keyframes claude-sessions-highlight-fade {
-	0%, 70% { background: var(--text-highlight-bg); }
+	0%, 90% { background: var(--cs-highlight-bg); }
 	100% { background: transparent; }
 }
 

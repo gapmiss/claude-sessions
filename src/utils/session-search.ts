@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as readline from 'readline';
 import type { Turn, TurnRole, SessionListEntry, ContentBlock } from '../types';
 import { BM25Index } from './bm25';
-import { SKIP_TYPE_STRINGS, SUBTYPE_LOCAL_COMMAND, RE_COMMAND_NAME, RE_COMMAND_ARGS, ANSI_STRIP_RE, RE_SYSTEM_REMINDER } from '../constants';
+import { SKIP_TYPE_STRINGS, SUBTYPE_LOCAL_COMMAND, RE_COMMAND_NAME, RE_COMMAND_ARGS, ANSI_STRIP_RE, RE_SYSTEM_REMINDER, RT_ATTACHMENT, ATTACHMENT_QUEUED_COMMAND, TAG_TASK_NOTIFICATION } from '../constants';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -261,6 +261,33 @@ export function extractSearchableContent(line: string): ExtractedContent | null 
 			}
 		}
 		return null;
+	}
+
+	// Mid-turn messages: typed while Claude was working, stored as an attachment
+	// record rather than a user record. The `queue-operation` twins are skipped
+	// above via SKIP_TYPE_STRINGS.
+	if (recordType === RT_ATTACHMENT) {
+		const att = record['attachment'] as Record<string, unknown> | undefined;
+		if (!att || att['type'] !== ATTACHMENT_QUEUED_COMMAND) return null;
+
+		const prompt = att['prompt'];
+		let text = '';
+		if (typeof prompt === 'string') {
+			text = prompt;
+		} else if (Array.isArray(prompt)) {
+			for (const b of prompt) {
+				const blk = b as Record<string, unknown>;
+				if (blk['type'] === 'text' && typeof blk['text'] === 'string') {
+					text += (text ? '\n' : '') + blk['text'];
+				}
+			}
+		}
+		text = text.trim();
+		// Task notifications share this subtype but are background agent results,
+		// indexed from their own records.
+		if (!text || text.startsWith(TAG_TASK_NOTIFICATION)) return null;
+
+		return { role: 'user', blockType: 'queued_message', text, timestamp };
 	}
 
 	// Handle system records with slash commands

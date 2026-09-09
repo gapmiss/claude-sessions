@@ -153,6 +153,56 @@ describe('extractSearchableContent', () => {
 		const line = JSON.stringify({ type: 'assistant', uuid: 'test' });
 		expect(extractSearchableContent(line)).toBeNull();
 	});
+
+	it('extracts mid-turn messages from queued_command attachments', () => {
+		const ts = '2026-09-06T13:56:11.844Z';
+		const line = JSON.stringify({
+			type: 'attachment',
+			uuid: 'att-1',
+			timestamp: ts,
+			isSidechain: false,
+			attachment: { type: 'queued_command', prompt: 'The scroll should happen also', commandMode: 'prompt' },
+		});
+		const result = extractSearchableContent(line);
+		expect(result).toEqual({
+			role: 'user',
+			blockType: 'queued_message',
+			text: 'The scroll should happen also',
+			timestamp: ts,
+		});
+	});
+
+	it('extracts text blocks from an array-form queued_command prompt', () => {
+		const line = JSON.stringify({
+			type: 'attachment',
+			timestamp: '2026-09-06T13:56:11.844Z',
+			attachment: {
+				type: 'queued_command',
+				prompt: [
+					{ type: 'text', text: 'first line' },
+					{ type: 'image', source: { media_type: 'image/png', data: 'abc' } },
+					{ type: 'text', text: 'second line' },
+				],
+			},
+		});
+		expect(extractSearchableContent(line)!.text).toBe('first line\nsecond line');
+	});
+
+	it('skips task notifications and non-queued attachments', () => {
+		const notification = JSON.stringify({
+			type: 'attachment',
+			timestamp: '2026-09-06T13:56:11.844Z',
+			attachment: { type: 'queued_command', prompt: '<task-notification>agent done</task-notification>' },
+		});
+		expect(extractSearchableContent(notification)).toBeNull();
+
+		const other = JSON.stringify({
+			type: 'attachment',
+			timestamp: '2026-09-06T13:56:11.844Z',
+			attachment: { type: 'task_reminder', content: [], itemCount: 0 },
+		});
+		expect(extractSearchableContent(other)).toBeNull();
+	});
 });
 
 // ── indexTextForBlock (Phase 2) ──────────────────────────────

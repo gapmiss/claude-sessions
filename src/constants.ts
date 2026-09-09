@@ -15,6 +15,10 @@ export const RT_MODE = 'mode';
 export const RT_AI_TITLE = 'ai-title';
 export const RT_PR_LINK = 'pr-link';
 export const RT_COST_STATE = 'cost-state';
+export const RT_ATTACHMENT = 'attachment';
+
+/** Attachment subtype carrying a message typed while Claude was working. */
+export const ATTACHMENT_QUEUED_COMMAND = 'queued_command';
 
 export const SKIP_RECORD_TYPES = new Set([RT_FILE_HISTORY, RT_FILE_HISTORY_DELTA, RT_LAST_PROMPT, RT_PROGRESS, RT_QUEUE_OPERATION, RT_AGENT_NAME, RT_AGENT_COLOR, RT_MODE, RT_AI_TITLE, RT_PR_LINK]);
 
