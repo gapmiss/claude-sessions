@@ -1,11 +1,10 @@
 import { App, Modal, MarkdownRenderer, Component, setIcon } from 'obsidian';
 import type {
 	Turn, ContentBlock, AnsiBlock, CompactionBlock, SlashCommandBlock, BashCommandBlock,
-	PluginSettings, Session,
+	QueuedMessageBlock, PluginSettings, Session,
 } from '../types';
-import type { InlineHookEvent } from './render-helpers';
 import {
-	type RenderContext, COLLAPSE_THRESHOLD,
+	type RenderContext, COLLAPSE_THRESHOLD, buildInlineHookEventMap,
 	makeClickable, shortModelName, addCopyButton, normalizeMarkdown, fence,
 } from './render-helpers';
 import { ANSI_PARSE_RE } from '../constants';
@@ -58,19 +57,7 @@ export class TimelineRenderer {
 
 		// Build hook events map for inline indicators
 		if (session) {
-			const hookMap = new Map<string, InlineHookEvent[]>();
-			for (const evt of session.systemEvents) {
-				// Include both hook_success and async_hook_response events with toolUseId
-				if ((evt.type === 'hook_success' || evt.type === 'async_hook_response' || evt.type === 'hook_permission_decision') && evt.toolUseId) {
-					const existing = hookMap.get(evt.toolUseId);
-					if (existing) {
-						existing.push(evt);
-					} else {
-						hookMap.set(evt.toolUseId, [evt]);
-					}
-				}
-			}
-			this.ctx.hookEventsByToolId = hookMap;
+			this.ctx.hookEventsByToolId = buildInlineHookEventMap(session.systemEvents);
 
 			renderSummary(session, this.container, this.ctx);
 			renderSystemEvents(session, this.container);
@@ -93,18 +80,7 @@ export class TimelineRenderer {
 	 * Call this before refreshing or appending turns during live watch.
 	 */
 	updateHookEvents(session: Session): void {
-		const hookMap = new Map<string, InlineHookEvent[]>();
-		for (const evt of session.systemEvents) {
-			if ((evt.type === 'hook_success' || evt.type === 'async_hook_response' || evt.type === 'hook_permission_decision') && evt.toolUseId) {
-				const existing = hookMap.get(evt.toolUseId);
-				if (existing) {
-					existing.push(evt);
-				} else {
-					hookMap.set(evt.toolUseId, [evt]);
-				}
-			}
-		}
-		this.ctx.hookEventsByToolId = hookMap;
+		this.ctx.hookEventsByToolId = buildInlineHookEventMap(session.systemEvents);
 	}
 
 	/**
@@ -449,6 +425,39 @@ export class TimelineRenderer {
 			case 'compaction':
 				this.renderCompactionBlock(block, container);
 				break;
+			case 'queued_message':
+				this.renderQueuedMessageBlock(block, container);
+				break;
+		}
+	}
+
+	/** A user message that arrived mid-turn, shown where it interrupted. */
+	private renderQueuedMessageBlock(block: QueuedMessageBlock, container: HTMLElement): void {
+		const el = container.createDiv({ cls: 'claude-sessions-queued-message' });
+
+		const header = el.createDiv({ cls: 'claude-sessions-queued-message-header' });
+		const icon = header.createSpan({ cls: 'claude-sessions-queued-message-icon' });
+		setIcon(icon, 'corner-down-right');
+		header.createSpan({ text: 'User, mid-turn' });
+		if (block.timestamp) {
+			header.createSpan({
+				cls: 'claude-sessions-queued-message-time',
+				text: new Date(block.timestamp).toLocaleTimeString(),
+			});
+		}
+
+		this.renderTextContent(block.text, el, 'claude-sessions-user-text');
+
+		for (const image of block.images) {
+			const dataUri = `data:${image.mediaType};base64,${image.data}`;
+			const img = el.createEl('img', {
+				cls: 'claude-sessions-image-thumbnail',
+				attr: { src: dataUri, alt: 'User attachment' },
+			});
+			makeClickable(img, { label: 'View image attachment' });
+			img.addEventListener('click', () => {
+				this.openImageModal(dataUri, image.mediaType);
+			});
 		}
 	}
 

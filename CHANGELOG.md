@@ -8,6 +8,30 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.23] - 2026-09-09
+
+### Fixed
+- **"Check for plugin updates" fired on healthy sessions** — 0.3.22 added the `unknown_attachment_type` warning so a silently-dropped subtype couldn't hide a format change again. It warned on every unhandled subtype, including ones already reviewed and deliberately skipped. Two appear constantly (`deferred_tools_delta`, `agent_listing_delta`) and `total_tokens_reminder` is stamped on nearly every turn, so most sessions displayed a red parse-warnings banner when nothing was wrong. Across a 1,943-session vault, every session now parses with zero warnings
+
+  The fix is a reviewed set rather than an ignore list. `REVIEWED_ATTACHMENT_TYPES` and `REVIEWED_RECORD_TYPES` in `constants.ts` record *why* each entry is skipped, so a later reader can tell a decision from a shrug; anything absent still warns. Listing every subtype seen so far would have recreated the original blindness with extra steps
+
+- **Warning hint was inconsistent between the panel and the exporter** — `summary-renderer.ts` gated the "Some data may be missing" hint on `unknown_record_type || unknown_block_type`. 0.3.22 added `unknown_attachment_type` and updated `markdown-exporter.ts` but missed this one, so the panel could list an attachment warning and withhold the hint that belonged with it
+
+- **Inline hook indicators could lag behind live watch** — the initial render and the live-watch refresh each held their own copy of the "is this event tool-scoped?" predicate. Adding a type to one meant indicators appeared only after a full re-render. Both now call a single `buildInlineHookEventMap()`
+
+- **Turn-level hook errors rendered nowhere** — a `Stop` hook carries a `toolUseID`, but that id names no tool call. Matching on the field's presence sent the event to a tool block that never claimed it, while the HOOKS section skipped it for having an id at all. The test is now whether the id names a real tool call in the session; anything else falls back to the HOOKS section
+
+- **Hook exit code was an unreadable red block** — the badge used `--background-modifier-error` as fill and `--text-error` as text colour, which most themes resolve to nearly the same red. It now renders as red text in a red outline
+
+### Added
+- **Truncated Read results are now visible** — a `read_truncation_notice` attachment means Claude saw only part of a file. The timeline showed a complete-looking result with no hint of it. Tool blocks now carry an orange scissors indicator whose tooltip quotes the truncation banner
+
+- **Hook failures render inline** — `hook_blocking_error` (the hook stopped the tool) and `hook_non_blocking_error` (the tool ran anyway) both point at a specific call through `toolUseID`. Blocking errors get a red octagon, non-blocking a yellow triangle. `hook_non_blocking_error` carries the full `hook_success` field set, so it also lands in the HOOKS section
+
+- **Mid-turn user messages** — a message sent while Claude was working is recorded only as a `queued_command` attachment, with no user record, so it was missing from the timeline entirely. It now renders inline at the point it interrupted, with any attached images. Task notifications share the subtype but are background agent results, so they are skipped, as is the occasional message Claude Code also delivered as a normal prompt
+
+---
+
 ## [0.3.22] - 2026-08-28
 
 ### Fixed

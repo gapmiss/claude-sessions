@@ -1060,6 +1060,20 @@
 	color: var(--color-red);
 }
 
+/* Read output the harness cut short */
+.claude-sessions-tool-hook-truncated {
+	color: var(--color-orange);
+}
+
+/* A hook that errored: yellow when the tool still ran, red when it was blocked */
+.claude-sessions-tool-hook-error {
+	color: var(--color-yellow);
+}
+
+.claude-sessions-tool-hook-error-blocking {
+	color: var(--color-red);
+}
+
 /* Hook details section in tool body */
 .claude-sessions-tool-hook-section {
 	border-top: var(--border-width) solid var(--background-modifier-border);
@@ -3157,12 +3171,16 @@
 	font-size: 10px;
 }
 
+/* Non-zero hook exit code. No background fill: themes set
+   --background-modifier-error and --text-error to nearly the same red, which
+   rendered the label invisible. */
 .claude-sessions-system-events-error {
-	padding: 1px 4px;
-	background: var(--background-modifier-error);
-	border-radius: 3px;
+	padding: var(--size-2-1) var(--size-2-2);
+	border: var(--border-width) solid var(--text-error);
+	border-radius: var(--radius-s);
 	color: var(--text-error);
-	font-size: 10px;
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-medium);
 }
 
 .claude-sessions-system-events-stdout {
@@ -3254,4 +3272,38 @@
 	margin-top: var(--size-4-4);
 	padding-top: var(--size-4-4);
 	border-top: var(--border-width) solid var(--background-modifier-border);
+}
+
+/* User message that arrived while Claude was working, shown inline in the turn */
+.claude-sessions-queued-message {
+	border-left: 3px solid var(--color-accent);
+	background: var(--background-secondary);
+	border-radius: var(--radius-s);
+	padding: var(--size-4-2) var(--size-4-3);
+	margin: var(--size-4-2) 0;
+}
+
+.claude-sessions-queued-message-header {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	margin-bottom: var(--size-4-1);
+}
+
+.claude-sessions-queued-message-icon {
+	display: flex;
+	align-items: center;
+	color: var(--color-accent);
+}
+
+.claude-sessions-queued-message-icon svg {
+	width: var(--icon-xs);
+	height: var(--icon-xs);
+}
+
+.claude-sessions-queued-message-time {
+	margin-left: auto;
+	color: var(--text-faint);
 }

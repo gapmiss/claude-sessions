@@ -169,7 +169,7 @@ export function renderSummary(session: Session, container: HTMLElement, ctx: Ren
 		}
 
 		// Prompt to update plugin
-		if (session.warnings.some(w => w.type === 'unknown_record_type' || w.type === 'unknown_block_type')) {
+		if (session.warnings.some(w => w.type === 'unknown_record_type' || w.type === 'unknown_block_type' || w.type === 'unknown_attachment_type')) {
 			warningCard.createDiv({
 				cls: 'claude-sessions-dash-warnings-hint',
 				text: 'Some data may be missing. Check for plugin updates.',

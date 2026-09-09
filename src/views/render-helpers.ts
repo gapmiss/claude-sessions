@@ -1,8 +1,38 @@
 import { App, Component, setIcon } from 'obsidian';
-import type { PluginSettings, HookSuccessEvent, AsyncHookResponseEvent, HookPermissionDecisionEvent } from '../types';
+import type {
+	PluginSettings, SystemEvent, HookSuccessEvent, AsyncHookResponseEvent, HookPermissionDecisionEvent,
+	ReadTruncationNoticeEvent, HookBlockingErrorEvent, HookNonBlockingErrorEvent,
+} from '../types';
 
-/** Hook events that can be displayed inline with tool calls. */
-export type InlineHookEvent = HookSuccessEvent | AsyncHookResponseEvent | HookPermissionDecisionEvent;
+/** Events that attach to a specific tool call and render as an indicator on its header. */
+export type InlineHookEvent =
+	| HookSuccessEvent | AsyncHookResponseEvent | HookPermissionDecisionEvent
+	| ReadTruncationNoticeEvent | HookBlockingErrorEvent | HookNonBlockingErrorEvent;
+
+const INLINE_EVENT_TYPES: ReadonlySet<string> = new Set([
+	'hook_success', 'async_hook_response', 'hook_permission_decision',
+	'read_truncation_notice', 'hook_blocking_error', 'hook_non_blocking_error',
+]);
+
+/**
+ * Group tool-scoped system events by the tool call they annotate.
+ *
+ * Single source of truth on purpose: the initial render and the live-watch
+ * refresh both call this. When the two had separate copies of the predicate,
+ * adding a type to one meant indicators appeared only after a full re-render.
+ */
+export function buildInlineHookEventMap(events: SystemEvent[]): Map<string, InlineHookEvent[]> {
+	const map = new Map<string, InlineHookEvent[]>();
+	for (const evt of events) {
+		if (!INLINE_EVENT_TYPES.has(evt.type)) continue;
+		const inline = evt as InlineHookEvent;
+		if (!inline.toolUseId) continue;
+		const existing = map.get(inline.toolUseId);
+		if (existing) existing.push(inline);
+		else map.set(inline.toolUseId, [inline]);
+	}
+	return map;
+}
 
 /** Shared context passed to all renderer functions. */
 export interface RenderContext {

@@ -1,5 +1,8 @@
 import { setIcon } from 'obsidian';
-import type { Session, HookSuccessEvent, AsyncHookResponseEvent, SkillListingEvent, TaskReminderEvent, OutputStyleEvent, CommandPermissionsEvent } from '../types';
+import type {
+	Session, HookSuccessEvent, AsyncHookResponseEvent, SkillListingEvent, TaskReminderEvent,
+	OutputStyleEvent, CommandPermissionsEvent, HookNonBlockingErrorEvent,
+} from '../types';
 import { makeClickable } from './render-helpers';
 import { basename } from '../utils/path-utils';
 
@@ -15,18 +18,33 @@ export function renderSystemEvents(session: Session, container: HTMLElement): vo
 	const events = session.systemEvents;
 	if (!events || events.length === 0) return;
 
-	// Group events by type
-	// Exclude events with toolUseId (shown inline with tool calls)
+	// Group events by type.
+	// A tool-scoped event belongs inline only when its toolUseId actually names a
+	// tool call in this session. A turn-level hook such as Stop carries a
+	// toolUseID that matches nothing, so testing for the field's presence alone
+	// dropped those events from both places and rendered them nowhere.
+	const toolUseIds = new Set<string>();
+	for (const turn of session.turns) {
+		for (const block of turn.contentBlocks) {
+			if (block.type === 'tool_use') toolUseIds.add(block.id);
+		}
+	}
+	const isInline = (e: { toolUseId?: string }): boolean => Boolean(e.toolUseId && toolUseIds.has(e.toolUseId));
+
 	const hooks = events.filter((e): e is HookSuccessEvent | AsyncHookResponseEvent =>
-		(e.type === 'hook_success' && !e.toolUseId) || (e.type === 'async_hook_response' && !e.toolUseId));
+		(e.type === 'hook_success' || e.type === 'async_hook_response') && !isInline(e));
 	const skills = events.filter((e): e is SkillListingEvent => e.type === 'skill_listing');
 	const tasks = events.filter((e): e is TaskReminderEvent => e.type === 'task_reminder' && e.itemCount > 0);
 	const styles = events.filter((e): e is OutputStyleEvent => e.type === 'output_style');
 	const grants = events.filter((e): e is CommandPermissionsEvent => e.type === 'command_permissions');
+	// hook_non_blocking_error carries the full hook_success field set, so it joins
+	// the HOOKS section when it isn't already shown inline on a tool call.
+	const hookErrors = events.filter((e): e is HookNonBlockingErrorEvent =>
+		e.type === 'hook_non_blocking_error' && !isInline(e));
 
 	// Don't render if nothing meaningful to show
 	if (hooks.length === 0 && skills.length === 0 && tasks.length === 0
-		&& styles.length === 0 && grants.length === 0) return;
+		&& styles.length === 0 && grants.length === 0 && hookErrors.length === 0) return;
 
 	const el = container.createDiv({ cls: 'claude-sessions-system-events' });
 
@@ -71,8 +89,8 @@ export function renderSystemEvents(session: Session, container: HTMLElement): vo
 	}
 
 	// Hooks section
-	if (hooks.length > 0) {
-		renderHooksSection(body, hooks);
+	if (hooks.length > 0 || hookErrors.length > 0) {
+		renderHooksSection(body, [...hooks, ...hookErrors]);
 	}
 
 	// Skills section
@@ -138,7 +156,9 @@ function renderCommandPermissionsSection(container: HTMLElement, grants: Command
 	}
 }
 
-function renderHooksSection(container: HTMLElement, hooks: (HookSuccessEvent | AsyncHookResponseEvent)[]): void {
+type HookRow = HookSuccessEvent | AsyncHookResponseEvent | HookNonBlockingErrorEvent;
+
+function renderHooksSection(container: HTMLElement, hooks: HookRow[]): void {
 	const section = container.createDiv({ cls: 'claude-sessions-system-events-section' });
 	const sectionHeader = section.createDiv({ cls: 'claude-sessions-system-events-section-header' });
 	const headerIcon = sectionHeader.createSpan({ cls: 'claude-sessions-system-events-section-icon' });
@@ -161,8 +181,8 @@ function renderHooksSection(container: HTMLElement, hooks: (HookSuccessEvent | A
 			badge.createSpan({ cls: 'claude-sessions-system-events-badge-tool', text: toolName });
 		}
 
-		// Duration (for hook_success)
-		if (hook.type === 'hook_success' && hook.durationMs > 0) {
+		// Duration (hook_success and hook_non_blocking_error carry the same fields)
+		if (hook.type !== 'async_hook_response' && hook.durationMs > 0) {
 			row.createSpan({
 				cls: 'claude-sessions-system-events-duration',
 				text: `${hook.durationMs}ms`,
@@ -170,7 +190,7 @@ function renderHooksSection(container: HTMLElement, hooks: (HookSuccessEvent | A
 		}
 
 		// Command (shortened)
-		if (hook.type === 'hook_success' && hook.command) {
+		if (hook.type !== 'async_hook_response' && hook.command) {
 			row.createSpan({
 				cls: 'claude-sessions-system-events-command',
 				text: basename(hook.command),

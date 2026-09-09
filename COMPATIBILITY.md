@@ -27,6 +27,10 @@ This document tracks which Claude Code versions introduced JSONL format changes 
 | `hook_permission_decision` attachment | 2.1.214+ | 0.3.22+ | New | Replaced `async_hook_response` for `PermissionRequest` outcomes. Carries `decision`, `toolUseID`, `hookEvent` — no stdout, duration, or command |
 | `output_style` attachment | ~2.1.214? | 0.3.22+ | New | Active output style, stamped on nearly every attachment record; value is session-constant |
 | `command_permissions` attachment | ~2.1.214? | 0.3.22+ | New | Slash command `allowed-tools` grant. Empty on ~99% of records |
+| `read_truncation_notice` attachment | ~2.1.214? | 0.3.23+ | New | Read output cut short. Renders as an inline indicator on the tool block via `toolUseID` |
+| `hook_blocking_error`, `hook_non_blocking_error` attachments | ~2.1.214? | 0.3.23+ | New | Hook failures. Inline indicator via `toolUseID`; the non-blocking variant also lands in the HOOKS section |
+| `queued_command` attachment | ~2.1.214? | 0.3.23+ | New | A message sent mid-turn. `prompt` is a string or an array of content blocks when images are attached. Renders inline in the turn |
+| `atis-latch` records | ~2.1.214? | 0.3.23+ | Skipped | `atis` is always an empty string |
 
 **Legend:**
 - `~` = Approximate version (not confirmed exactly when introduced)
@@ -47,27 +51,30 @@ This document tracks which Claude Code versions introduced JSONL format changes 
 
 ---
 
-## Unhandled Attachment Subtypes
+## Reviewed and Skipped Subtypes
 
-Attachment subtypes seen in real sessions that the plugin parses past without
-rendering. Anything not listed here and not handled raises an
-`unknown_attachment_type` parse warning — that warning is the early signal for a
-Claude Code format change, so this list should be kept current.
+Subtypes examined and deliberately not rendered. The reasons live in
+`REVIEWED_ATTACHMENT_TYPES` and `REVIEWED_RECORD_TYPES` in `constants.ts`;
+anything absent from those maps and not handled raises an
+`unknown_attachment_type` or `unknown_record_type` parse warning. That warning is
+the early signal for a Claude Code format change — it is what would have caught
+the 2.1.214 `hook_permission_decision` switch — so never add an entry just to
+silence noise.
 
-| Subtype | Fields | Notes |
-|---------|--------|-------|
-| `deferred_tools_delta` | `addedLines`, `addedNames`, `removedNames`, `readdedNames`, `pendingMcpServers` | Tool availability churn |
-| `agent_listing_delta` | `addedLines`, `addedTypes`, `removedTypes`, `isInitial`, `showConcurrencyNote` | Sub-agent availability churn |
-| `file` | `content`, `displayPath`, `filename` | User-attached file contents |
-| `edited_text_file` | `filename`, `snippet` | External IDE edit |
-| `diagnostics` | `files`, `isNew` | LSP diagnostics surfaced to Claude |
-| `queued_command` | `commandMode`, `prompt` | Input typed while Claude was working |
-| `plan_mode`, `plan_mode_exit` | `planExists`, `planFilePath`, `reminderType`, `isSubAgent` | Plan mode transitions |
-| `invoked_skills` | `skills` | Which skill ran |
-| `compact_file_reference`, `already_read_file`, `directory`, `plan_file_reference` | `displayPath`, `filename`, `content` | File references, largely redundant with the tool calls that produced them |
-| `read_truncation_notice` | `banner`, `toolUseID` | Explains a truncated Read result; has a `toolUseID`, so it belongs inline on the tool block |
-| `hook_blocking_error`, `hook_non_blocking_error` | `hookName`, `hookEvent`, `toolUseID`, plus `command`/`stdout`/`stderr`/`exitCode`/`durationMs` on the non-blocking variant | Hook failures; `hook_non_blocking_error` matches the `hook_success` field set |
-| `companion_intro` | `name`, `species` | Cosmetic |
+The criterion: does the record carry information that appears nowhere else in
+the timeline and changes what a reader understands happened? If yes, render it.
+
+| Subtype | Fields | Why it is skipped |
+|---------|--------|-------------------|
+| `deferred_tools_delta` | `addedLines`, `addedNames`, `removedNames`, `readdedNames`, `pendingMcpServers` | Tool-schema churn, no bearing on what happened in the session |
+| `agent_listing_delta` | `addedLines`, `addedTypes`, `removedTypes`, `isInitial`, `showConcurrencyNote` | Available-agent churn; actual agent runs appear as Agent tool calls |
+| `total_tokens_reminder` | `text` | Context-budget banner injected each turn; the counts are already in session stats |
+| `compact_file_reference` | `displayPath`, `filename` | Path only, no content; the file is visible via the tool call that read it |
+| `already_read_file` | `content`, `displayPath`, `filename` | Cache-hit marker (`content.type` is `file_unchanged`); the original read is already in the timeline |
+| `directory` | `content`, `displayPath`, `path` | Directory listing from an @-mention; the same paths surface through the tool calls that follow |
+| `plan_file_reference` | `planContent`, `planFilePath` | Plan text is already rendered via `plan_mode_exit` and the ExitPlanMode tool call |
+| `companion_intro` | `name`, `species` | Cosmetic — names the terminal companion |
+| `atis-latch` (record) | `atis`, `sessionId` | `atis` is always an empty string |
 
 ---
 

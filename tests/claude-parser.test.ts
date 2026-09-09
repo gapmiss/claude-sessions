@@ -1077,3 +1077,171 @@ describe('command_permissions command attribution', () => {
 		expect((events[0] as { commandName?: string }).commandName).toBeUndefined();
 	});
 });
+
+// ─── Reviewed attachment/record types ──────────────────────────
+
+function attachment(att: Record<string, unknown>, uuid = 'x') {
+	return { type: 'attachment', uuid, timestamp: '2026-01-01T00:00:00.000Z', attachment: att };
+}
+
+describe('reviewed attachment subtypes', () => {
+	it('stays quiet for a subtype on the reviewed list', () => {
+		const session = parse(jsonl(
+			assistantText('a'),
+			attachment({ type: 'deferred_tools_delta', addedNames: ['Read'] }),
+			attachment({ type: 'agent_listing_delta', addedTypes: ['Explore'] }, 'y'),
+			attachment({ type: 'total_tokens_reminder', text: '<total_tokens>1 tokens left</total_tokens>' }, 'z'),
+		));
+
+		expect(session.warnings?.some(w => w.type === 'unknown_attachment_type')).toBeFalsy();
+	});
+
+	it('still warns for a subtype that is neither handled nor reviewed', () => {
+		const session = parse(jsonl(
+			assistantText('a'),
+			attachment({ type: 'some_future_subtype', foo: 1 }),
+		));
+
+		expect(session.warnings?.find(w => w.type === 'unknown_attachment_type')?.message)
+			.toContain('some_future_subtype');
+	});
+
+	it('stays quiet for a reviewed record type but warns for an unreviewed one', () => {
+		const quiet = parse(jsonl(
+			assistantText('a'),
+			{ type: 'atis-latch', atis: '', sessionId: 's1' },
+		));
+		expect(quiet.warnings?.some(w => w.type === 'unknown_record_type')).toBeFalsy();
+
+		const noisy = parse(jsonl(assistantText('a'), { type: 'some-future-record' }));
+		expect(noisy.warnings?.find(w => w.type === 'unknown_record_type')?.message)
+			.toContain('some-future-record');
+	});
+});
+
+describe('tool-scoped attachments', () => {
+	it('parses read_truncation_notice with its authoritative toolUseID', () => {
+		const session = parse(jsonl(
+			assistantText('a'),
+			attachment({ type: 'read_truncation_notice', banner: '[Truncated: lines 1-10 of 900]', toolUseID: 'toolu_1' }),
+		));
+
+		expect(session.systemEvents.find(e => e.type === 'read_truncation_notice')).toMatchObject({
+			banner: '[Truncated: lines 1-10 of 900]',
+			toolUseId: 'toolu_1',
+		});
+	});
+
+	it('parses blocking and non-blocking hook errors', () => {
+		const session = parse(jsonl(
+			assistantText('a'),
+			attachment({ type: 'hook_blocking_error', blockingError: 'nope', hookName: 'guard', hookEvent: 'PreToolUse', toolUseID: 'toolu_1' }),
+			attachment({ type: 'hook_non_blocking_error', command: 'lint', hookName: 'lint', hookEvent: 'PostToolUse', exitCode: 2, durationMs: 40, stdout: 'out', stderr: 'err', toolUseID: 'toolu_2' }, 'y'),
+		));
+
+		expect(session.systemEvents.find(e => e.type === 'hook_blocking_error')).toMatchObject({
+			blockingError: 'nope', toolUseId: 'toolu_1',
+		});
+		expect(session.systemEvents.find(e => e.type === 'hook_non_blocking_error')).toMatchObject({
+			exitCode: 2, durationMs: 40, toolUseId: 'toolu_2',
+		});
+	});
+});
+
+describe('mid-turn user messages (queued_command)', () => {
+	const blocks = (turns: { contentBlocks: { type: string }[] }[]) =>
+		turns.flatMap(t => t.contentBlocks).filter(b => b.type === 'queued_message');
+
+	it('renders a string prompt inline in the running turn, not as its own turn', () => {
+		const session = parse(jsonl(
+			assistantText('working on it'),
+			attachment({ type: 'queued_command', prompt: 'open it again', commandMode: 'prompt' }),
+		));
+
+		expect(session.turns).toHaveLength(1);
+		expect(blocks(session.turns)).toMatchObject([{ text: 'open it again', images: [] }]);
+	});
+
+	it('extracts text and images from the content-block form', () => {
+		const session = parse(jsonl(
+			assistantText('working on it'),
+			attachment({
+				type: 'queued_command',
+				commandMode: 'prompt',
+				prompt: [
+					{ type: 'text', text: 'here is a screenshot: [Image #1]' },
+					{ type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'AAAA' } },
+				],
+			}),
+		));
+
+		expect(blocks(session.turns)).toMatchObject([{
+			text: 'here is a screenshot: [Image #1]',
+			images: [{ mediaType: 'image/png', data: 'AAAA' }],
+		}]);
+	});
+
+	it('skips task notifications, which are background agent results', () => {
+		const session = parse(jsonl(
+			assistantText('a'),
+			attachment({ type: 'queued_command', prompt: '<task-notification>\n<task-id>x</task-id>\n</task-notification>' }),
+		));
+
+		expect(blocks(session.turns)).toHaveLength(0);
+	});
+
+	it('skips a message Claude Code also delivered as a real user record', () => {
+		const session = parse(jsonl(
+			assistantText('a'),
+			attachment({ type: 'queued_command', prompt: 'commit' }),
+			userText('commit'),
+		));
+
+		expect(blocks(session.turns)).toHaveLength(0);
+	});
+
+	it('keeps a short message that only appears inside an unrelated later prompt', () => {
+		const session = parse(jsonl(
+			assistantText('a'),
+			attachment({ type: 'queued_command', prompt: 'npx eslint .' }),
+			userText('why did `npx eslint .` report nothing?'),
+		));
+
+		expect(blocks(session.turns)).toMatchObject([{ text: 'npx eslint .' }]);
+	});
+});
+
+describe('turn-level hooks that carry a toolUseID', () => {
+	it('parses a Stop hook error whose toolUseID names no tool call', () => {
+		const session = parse(jsonl(
+			assistantToolUse('Bash', 'toolu_1', { command: 'ls' }),
+			{
+				type: 'attachment',
+				uuid: 'a1',
+				timestamp: '2026-01-01T00:00:00.000Z',
+				attachment: {
+					type: 'hook_non_blocking_error',
+					hookName: 'Stop',
+					hookEvent: 'Stop',
+					command: 'lockpaw',
+					exitCode: 127,
+					stdout: '',
+					stderr: 'No such file or directory',
+					durationMs: 5,
+					// A plain uuid, not a toolu_ id — it matches no tool call.
+					toolUseID: '2c836d92-0bc9-4030-967b-53640f425dde',
+				},
+			},
+		));
+
+		const evt = session.systemEvents.find(e => e.type === 'hook_non_blocking_error');
+		expect(evt).toMatchObject({ hookEvent: 'Stop', exitCode: 127 });
+
+		// The renderer decides inline vs panel by matching against real tool ids,
+		// so an event like this must not be mistaken for a tool-scoped one.
+		const toolIds = new Set(
+			session.turns.flatMap(t => t.contentBlocks).filter(b => b.type === 'tool_use').map(b => (b as { id: string }).id),
+		);
+		expect(toolIds.has((evt as { toolUseId?: string }).toolUseId ?? '')).toBe(false);
+	});
+});

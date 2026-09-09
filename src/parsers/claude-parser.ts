@@ -4,6 +4,7 @@ import {
 	ToolUseBlock, ToolResultBlock, CompactionBlock,
 	BashCommandBlock, SessionStats, SubAgentSession, SystemEvent, ParseWarning,
 	SkillListingEvent, HookSuccessEvent, AsyncHookResponseEvent, HookPermissionDecisionEvent, OutputStyleEvent, CommandPermissionsEvent, TaskReminderEvent,
+	ReadTruncationNoticeEvent, HookBlockingErrorEvent, HookNonBlockingErrorEvent,
 } from '../types';
 import { extractProjectName, projectFromCwd, dirname, basename } from '../utils/path-utils';
 import {
@@ -22,6 +23,7 @@ import {
 	TEXT_SESSION_ENDED, TEXT_INTERRUPTION,
 	ANSI_COMMANDS, ANSI_RE, RE_AGENT_ID,
 	DURATION_GAP_THRESHOLD_MS,
+	REVIEWED_ATTACHMENT_TYPES, REVIEWED_RECORD_TYPES,
 } from '../constants';
 import { parseTaskNotification } from './claude-subagent';
 import { Logger } from '../utils/logger';
@@ -676,6 +678,22 @@ export class ClaudeParser extends BaseParser {
 		let currentAssistantTurn: Turn | null = null;
 		let pendingCompactMeta: { trigger?: string; preTokens?: number } | null = null;
 
+		// User-record text, used to drop a queued_command that Claude Code also
+		// delivered as a normal prompt. Collected up front so the check doesn't
+		// depend on whether the duplicate arrives before or after the attachment.
+		const queuedDuplicateTexts: string[] = [];
+		for (const record of ordered) {
+			if (record.type !== RT_USER) continue;
+			const content = record.message?.content;
+			if (typeof content === 'string') {
+				queuedDuplicateTexts.push(content.trim());
+			} else if (Array.isArray(content)) {
+				for (const b of content) {
+					if (b.type === BT_TEXT && typeof b.text === 'string') queuedDuplicateTexts.push(b.text.trim());
+				}
+			}
+		}
+
 		const flushAssistant = () => {
 			if (currentAssistantTurn && currentAssistantTurn.contentBlocks.length > 0) {
 				currentAssistantTurn.index = turns.length;
@@ -1055,6 +1073,81 @@ export class ClaudeParser extends BaseParser {
 							} as CommandPermissionsEvent);
 						}
 					}
+				} else if (att.type === 'read_truncation_notice') {
+					// A Read result the harness cut short. toolUseID is authoritative.
+					systemEvents.push({
+						...baseEvent,
+						type: 'read_truncation_notice',
+						banner: str(att.banner),
+						toolUseId: typeof att.toolUseID === 'string' ? att.toolUseID : undefined,
+					} as ReadTruncationNoticeEvent);
+				} else if (att.type === 'hook_blocking_error') {
+					systemEvents.push({
+						...baseEvent,
+						type: 'hook_blocking_error',
+						hookName: str(att.hookName),
+						hookEvent: str(att.hookEvent),
+						blockingError: str(att.blockingError),
+						toolUseId: typeof att.toolUseID === 'string' ? att.toolUseID : undefined,
+					} as HookBlockingErrorEvent);
+				} else if (att.type === 'hook_non_blocking_error') {
+					systemEvents.push({
+						...baseEvent,
+						type: 'hook_non_blocking_error',
+						hookName: str(att.hookName),
+						hookEvent: str(att.hookEvent),
+						command: str(att.command),
+						durationMs: typeof att.durationMs === 'number' ? att.durationMs : 0,
+						stdout: str(att.stdout),
+						stderr: str(att.stderr),
+						exitCode: typeof att.exitCode === 'number' ? att.exitCode : 0,
+						toolUseId: typeof att.toolUseID === 'string' ? att.toolUseID : undefined,
+					} as HookNonBlockingErrorEvent);
+				} else if (att.type === 'queued_command') {
+					// A message typed while Claude was working. `prompt` is either a
+					// plain string or an array of content blocks when the user attached
+					// images. Task notifications share this subtype but are background
+					// agent results, already rendered from their own records.
+					let text = '';
+					const images: { mediaType: string; data: string }[] = [];
+					if (typeof att.prompt === 'string') {
+						text = att.prompt;
+					} else if (Array.isArray(att.prompt)) {
+						for (const b of att.prompt) {
+							const blk = b as Record<string, unknown>;
+							if (blk.type === 'text') {
+								text += (text ? '\n' : '') + str(blk.text);
+							} else if (blk.type === 'image') {
+								const src = blk.source as Record<string, unknown> | undefined;
+								if (src && typeof src.data === 'string') {
+									images.push({ mediaType: str(src.media_type) || 'image/png', data: src.data });
+								}
+							}
+						}
+					}
+					text = text.trim();
+					const isTaskNotification = text.startsWith(TAG_TASK_NOTIFICATION);
+					// The same message occasionally also lands as a real user record.
+					// Match on equality or prefix, not containment: a short prompt like
+					// "npx eslint ." otherwise matches any later message quoting it.
+					const isDuplicate = queuedDuplicateTexts.some(u => u === text || u.startsWith(text));
+					if (text && !isTaskNotification && !isDuplicate) {
+						if (!currentAssistantTurn) {
+							currentAssistantTurn = {
+								index: turns.length,
+								role: 'assistant',
+								timestamp: this.formatTimestamp(record.timestamp),
+								contentBlocks: [],
+							};
+						}
+						currentAssistantTurn.endTimestamp = this.formatTimestamp(record.timestamp);
+						currentAssistantTurn.contentBlocks.push({
+							type: 'queued_message',
+							text,
+							images,
+							timestamp: record.timestamp,
+						});
+					}
 				} else if (att.type === 'task_reminder') {
 					systemEvents.push({
 						...baseEvent,
@@ -1062,9 +1155,11 @@ export class ClaudeParser extends BaseParser {
 						content: Array.isArray(att.content) ? att.content : [],
 						itemCount: typeof att.itemCount === 'number' ? att.itemCount : 0,
 					} as TaskReminderEvent);
-				} else if (unknownAttachmentTypes && typeof att.type === 'string') {
+				} else if (unknownAttachmentTypes && typeof att.type === 'string' && !REVIEWED_ATTACHMENT_TYPES.has(att.type)) {
 					// Track unknown subtypes so silently-dropped attachments surface as
 					// a warning instead of vanishing (how hook_permission_decision was missed).
+					// Subtypes in REVIEWED_ATTACHMENT_TYPES were examined and deliberately
+					// skipped — see the reason recorded alongside each one.
 					const existing = unknownAttachmentTypes.get(att.type);
 					if (existing) {
 						existing.count++;
@@ -1075,7 +1170,7 @@ export class ClaudeParser extends BaseParser {
 						});
 					}
 				}
-			} else if (unknownRecordTypes) {
+			} else if (unknownRecordTypes && !REVIEWED_RECORD_TYPES.has(record.type)) {
 				const existing = unknownRecordTypes.get(record.type);
 				if (existing) {
 					existing.count++;

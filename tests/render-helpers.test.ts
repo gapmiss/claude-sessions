@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeMarkdown, stripFenceMarkers } from '../src/views/render-helpers';
+import { normalizeMarkdown, stripFenceMarkers, buildInlineHookEventMap } from '../src/views/render-helpers';
+import type { SystemEvent } from '../src/types';
 
 describe('normalizeMarkdown', () => {
 	it('inserts a blank line before a GFM table', () => {
@@ -68,5 +69,37 @@ describe('stripFenceMarkers', () => {
 	it('keeps a tilde run that carries trailing content', () => {
 		const art = '   /\\\\\n ~~~~~~~~~~~ <- dirt mound';
 		expect(stripFenceMarkers(art)).toBe(art);
+	});
+});
+
+describe('buildInlineHookEventMap', () => {
+	const at = (type: string, toolUseId?: string) =>
+		({ type, uuid: type, timestamp: '2026-01-01T00:00:00.000Z', toolUseId }) as unknown as SystemEvent;
+
+	it('groups every tool-scoped event type by its tool call', () => {
+		const map = buildInlineHookEventMap([
+			at('hook_success', 't1'),
+			at('hook_permission_decision', 't1'),
+			at('read_truncation_notice', 't2'),
+			at('hook_blocking_error', 't2'),
+			at('hook_non_blocking_error', 't2'),
+			at('async_hook_response', 't3'),
+		]);
+
+		expect(map.get('t1')).toHaveLength(2);
+		expect(map.get('t2')?.map(e => e.type)).toEqual([
+			'read_truncation_notice', 'hook_blocking_error', 'hook_non_blocking_error',
+		]);
+		expect(map.get('t3')).toHaveLength(1);
+	});
+
+	it('skips events with no toolUseId and types that are not tool-scoped', () => {
+		const map = buildInlineHookEventMap([
+			at('hook_success'),
+			at('output_style', 't1'),
+			at('skill_listing', 't1'),
+		]);
+
+		expect(map.size).toBe(0);
 	});
 });

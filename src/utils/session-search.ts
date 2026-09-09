@@ -173,6 +173,8 @@ export function indexTextForBlock(block: ContentBlock): string {
 		}
 		case 'ansi':
 			return (block.text ?? '').replace(ANSI_STRIP_RE, '');
+		case 'queued_message':
+			return block.text ?? '';
 		case 'compaction':
 			return block.summary ?? '';
 		case 'image':

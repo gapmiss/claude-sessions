@@ -1,6 +1,10 @@
 import { App, TFolder, normalizePath } from 'obsidian';
 import { diffLines } from 'diff';
-import type { Session, Turn, ContentBlock, ToolUseBlock, ToolResultBlock, SystemEvent, HookSuccessEvent, AsyncHookResponseEvent, SkillListingEvent, TaskReminderEvent, OutputStyleEvent, CommandPermissionsEvent, PluginSettings } from '../types';
+import type {
+	Session, Turn, ContentBlock, ToolUseBlock, ToolResultBlock, SystemEvent,
+	HookSuccessEvent, AsyncHookResponseEvent, SkillListingEvent, TaskReminderEvent,
+	OutputStyleEvent, CommandPermissionsEvent, HookNonBlockingErrorEvent, PluginSettings,
+} from '../types';
 import { fence, langFromPath, stripLineNumbers, stripFenceMarkers } from '../views/render-helpers';
 import { ANSI_STRIP_RE } from '../constants';
 import type { ExportOptions } from '../views/export-modal';
@@ -148,7 +152,7 @@ function buildMarkdown(
 	// System events section
 	const includeEvents = options?.includeSystemEvents ?? true;
 	if (includeEvents && session.systemEvents.length > 0) {
-		const eventsSection = buildSystemEventsSection(session.systemEvents);
+		const eventsSection = buildSystemEventsSection(session.systemEvents, toolUseIds(session));
 		if (eventsSection) {
 			lines.push(eventsSection);
 			lines.push('');
@@ -275,9 +279,25 @@ function buildSummarySection(session: Session): string {
 
 // ── System events ──
 
-function buildSystemEventsSection(events: SystemEvent[]): string | null {
-	const hooks = events.filter((e): e is HookSuccessEvent | AsyncHookResponseEvent =>
-		(e.type === 'hook_success' && !e.toolUseId) || (e.type === 'async_hook_response' && !e.toolUseId));
+/** Ids of every tool call in the session, for deciding what renders inline. */
+function toolUseIds(session: Session): Set<string> {
+	const ids = new Set<string>();
+	for (const turn of session.turns) {
+		for (const block of turn.contentBlocks) {
+			if (block.type === 'tool_use') ids.add(block.id);
+		}
+	}
+	return ids;
+}
+
+function buildSystemEventsSection(events: SystemEvent[], inlineIds: Set<string>): string | null {
+	// A tool-scoped event renders inline only when its toolUseId names a real
+	// tool call. Turn-level hooks such as Stop carry an id that matches nothing.
+	const isInline = (e: { toolUseId?: string }): boolean => Boolean(e.toolUseId && inlineIds.has(e.toolUseId));
+
+	const hooks = events.filter((e): e is HookSuccessEvent | AsyncHookResponseEvent | HookNonBlockingErrorEvent =>
+		(e.type === 'hook_success' || e.type === 'async_hook_response' || e.type === 'hook_non_blocking_error')
+		&& !isInline(e));
 	const skills = events.filter((e): e is SkillListingEvent => e.type === 'skill_listing');
 	const tasks = events.filter((e): e is TaskReminderEvent => e.type === 'task_reminder' && e.itemCount > 0);
 	const styles = events.filter((e): e is OutputStyleEvent => e.type === 'output_style');
@@ -318,8 +338,8 @@ function buildSystemEventsSection(events: SystemEvent[]): string | null {
 			const toolName = nameParts[1] || '';
 			const parts: string[] = [`**${eventType}**`];
 			if (toolName) parts.push(toolName);
-			if (hook.type === 'hook_success' && hook.durationMs > 0) parts.push(`${hook.durationMs}ms`);
-			if (hook.type === 'hook_success' && hook.command) parts.push(`\`${basename(hook.command)}\``);
+			if (hook.type !== 'async_hook_response' && hook.durationMs > 0) parts.push(`${hook.durationMs}ms`);
+			if (hook.type !== 'async_hook_response' && hook.command) parts.push(`\`${basename(hook.command)}\``);
 			if (hook.exitCode !== 0) parts.push(`exit ${hook.exitCode}`);
 			lines.push(`- ${parts.join(' · ')}`);
 			if (hook.stdout?.trim()) {
@@ -461,6 +481,18 @@ function renderBlock(
 
 		case 'ansi':
 			return '```\n' + block.text.replace(ANSI_STRIP_RE, '') + '\n```';
+
+		case 'queued_message': {
+			const parts = [
+				'> [!note] User, mid-turn',
+				...block.text.split('\n').map(l => `> ${l}`),
+			];
+			for (const image of block.images) {
+				const embed = renderImage(image.mediaType, image.data, safeName, images);
+				if (embed) parts.push(`> ${embed}`);
+			}
+			return parts.join('\n');
+		}
 
 		case 'compaction': {
 			const parts = ['---', '*Context compacted*'];

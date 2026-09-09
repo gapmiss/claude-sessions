@@ -61,7 +61,8 @@ export interface Session {
 
 // ── System Events ──
 
-export type SystemEventType = 'permission-mode' | 'skill_listing' | 'hook_success' | 'async_hook_response' | 'hook_permission_decision' | 'output_style' | 'command_permissions' | 'task_reminder';
+export type SystemEventType = 'permission-mode' | 'skill_listing' | 'hook_success' | 'async_hook_response' | 'hook_permission_decision' | 'output_style' | 'command_permissions' | 'task_reminder'
+	| 'read_truncation_notice' | 'hook_blocking_error' | 'hook_non_blocking_error';
 
 export interface BaseSystemEvent {
 	type: SystemEventType;
@@ -148,7 +149,41 @@ export interface TaskReminderEvent extends BaseSystemEvent {
 	itemCount: number;
 }
 
-export type SystemEvent = PermissionModeEvent | SkillListingEvent | HookSuccessEvent | AsyncHookResponseEvent | HookPermissionDecisionEvent | OutputStyleEvent | CommandPermissionsEvent | TaskReminderEvent;
+/**
+ * A Read result that was cut short. Without this the timeline shows a complete-
+ * looking tool result with no hint that Claude saw only part of the file.
+ * `toolUseID` is authoritative — no parent-chain walk needed.
+ */
+export interface ReadTruncationNoticeEvent extends BaseSystemEvent {
+	type: 'read_truncation_notice';
+	banner: string;
+	toolUseId?: string;
+}
+
+/** A hook that failed and blocked the tool call. */
+export interface HookBlockingErrorEvent extends BaseSystemEvent {
+	type: 'hook_blocking_error';
+	hookName: string;
+	hookEvent: string;
+	blockingError: string;
+	toolUseId?: string;
+}
+
+/** A hook that failed while the tool ran anyway. Carries the full hook_success field set. */
+export interface HookNonBlockingErrorEvent extends BaseSystemEvent {
+	type: 'hook_non_blocking_error';
+	hookName: string;
+	hookEvent: string;
+	command: string;
+	durationMs: number;
+	stdout: string;
+	stderr: string;
+	exitCode: number;
+	toolUseId?: string;
+}
+
+export type SystemEvent = PermissionModeEvent | SkillListingEvent | HookSuccessEvent | AsyncHookResponseEvent | HookPermissionDecisionEvent | OutputStyleEvent | CommandPermissionsEvent | TaskReminderEvent
+	| ReadTruncationNoticeEvent | HookBlockingErrorEvent | HookNonBlockingErrorEvent;
 
 export interface Turn {
 	index: number;
@@ -218,6 +253,20 @@ export interface ImageBlock {
 	timestamp?: string;
 }
 
+/**
+ * A message the user sent while Claude was still working, which Claude Code
+ * absorbed into the running turn. Recorded only as a `queued_command`
+ * attachment — no user record exists for it — so without this block the
+ * message is invisible in the timeline. Rendered inline at the point it
+ * landed, inside the assistant turn, rather than as a turn of its own.
+ */
+export interface QueuedMessageBlock {
+	type: 'queued_message';
+	text: string;
+	images: { mediaType: string; data: string }[];
+	timestamp?: string;
+}
+
 export interface AnsiBlock {
 	type: 'ansi';
 	label: string;
@@ -247,7 +296,7 @@ export interface BashCommandBlock {
 	timestamp?: string;
 }
 
-export type ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock | ImageBlock | AnsiBlock | CompactionBlock | SlashCommandBlock | BashCommandBlock;
+export type ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock | ImageBlock | AnsiBlock | CompactionBlock | SlashCommandBlock | BashCommandBlock | QueuedMessageBlock;
 
 export interface PluginSettings {
 	sessionDirs: string[];

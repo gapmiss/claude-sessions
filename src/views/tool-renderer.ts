@@ -1,6 +1,11 @@
 import { MarkdownRenderer, setIcon } from 'obsidian';
 import { diffLines } from 'diff';
-import type { ContentBlock, ToolUseBlock, ToolResultBlock, ToolResultImage, SubAgentSession, HookSuccessEvent, HookPermissionDecisionEvent } from '../types';
+import type {
+	ContentBlock, ToolUseBlock, ToolResultBlock, ToolResultImage, SubAgentSession,
+	HookSuccessEvent, HookPermissionDecisionEvent,
+	ReadTruncationNoticeEvent, HookBlockingErrorEvent, HookNonBlockingErrorEvent,
+} from '../types';
+import type { InlineHookEvent } from './render-helpers';
 import { TASK_TOOL_NAMES, ANSI_RE, RE_SYSTEM_REMINDER } from '../constants';
 import {
 	type RenderContext, COLLAPSE_THRESHOLD,
@@ -140,15 +145,22 @@ export function renderToolCall(
 	// Hook indicators (inline hook events: PreToolUse, PermissionRequest)
 	const hookEvents = ctx.hookEventsByToolId?.get(block.id);
 	if (hookEvents && hookEvents.length > 0) {
-		const hasPreToolUse = hookEvents.some(h => h.hookEvent === 'PreToolUse');
-		const permissionEvents = hookEvents.filter(h => h.hookEvent === 'PermissionRequest');
+		// read_truncation_notice carries no hookEvent — it annotates the tool call
+		// without being a hook, so it gets its own indicator below.
+		const isHook = (h: InlineHookEvent): h is Exclude<InlineHookEvent, ReadTruncationNoticeEvent> =>
+			h.type !== 'read_truncation_notice';
+		const hasPreToolUse = hookEvents.some(h => isHook(h) && h.hookEvent === 'PreToolUse');
+		const permissionEvents = hookEvents.filter(h => isHook(h) && h.hookEvent === 'PermissionRequest');
+		const truncations = hookEvents.filter((h): h is ReadTruncationNoticeEvent => h.type === 'read_truncation_notice');
+		const hookErrors = hookEvents.filter((h): h is HookBlockingErrorEvent | HookNonBlockingErrorEvent =>
+			h.type === 'hook_blocking_error' || h.type === 'hook_non_blocking_error');
 		const hasPermission = permissionEvents.length > 0;
 		const wasDenied = permissionEvents.some(h => h.type === 'hook_permission_decision' && h.decision === 'deny');
 
 		if (hasPreToolUse) {
 			const preToolIndicator = header.createSpan({ cls: 'claude-sessions-tool-hook-indicator' });
 			setIcon(preToolIndicator, 'zap');
-			const preToolEvents = hookEvents.filter(h => h.hookEvent === 'PreToolUse');
+			const preToolEvents = hookEvents.filter(h => isHook(h) && h.hookEvent === 'PreToolUse');
 			const tooltip = preToolEvents.map(h => {
 				const parts: string[] = ['PreToolUse'];
 				if (h.type === 'hook_success' && h.durationMs > 0) parts.push(`${h.durationMs}ms`);
@@ -172,6 +184,33 @@ export function renderToolCall(
 			const tooltip = decisions.length > 0 ? [...new Set(decisions)].join('\n') : 'Permission request';
 			permIndicator.setAttribute('aria-label', tooltip);
 			permIndicator.setAttribute('data-tooltip-position', 'top');
+		}
+
+		// Truncated Read output. Without this the result reads as complete.
+		if (truncations.length > 0) {
+			const truncIndicator = header.createSpan({
+				cls: 'claude-sessions-tool-hook-indicator claude-sessions-tool-hook-truncated',
+			});
+			setIcon(truncIndicator, 'scissors');
+			truncIndicator.setAttribute('aria-label', truncations.map(t => t.banner).join('\n'));
+			truncIndicator.setAttribute('data-tooltip-position', 'top');
+		}
+
+		// A hook that errored. Blocking errors stopped the tool; non-blocking ones didn't.
+		if (hookErrors.length > 0) {
+			const blocked = hookErrors.some(h => h.type === 'hook_blocking_error');
+			const errIndicator = header.createSpan({
+				cls: blocked
+					? 'claude-sessions-tool-hook-indicator claude-sessions-tool-hook-error claude-sessions-tool-hook-error-blocking'
+					: 'claude-sessions-tool-hook-indicator claude-sessions-tool-hook-error',
+			});
+			setIcon(errIndicator, blocked ? 'octagon-x' : 'triangle-alert');
+			const tooltip = hookErrors.map(h => h.type === 'hook_blocking_error'
+				? `${h.hookName || h.hookEvent} blocked this call: ${h.blockingError}`
+				: `${h.hookName || h.hookEvent} failed (exit ${h.exitCode}); tool ran anyway`,
+			).join('\n');
+			errIndicator.setAttribute('aria-label', tooltip);
+			errIndicator.setAttribute('data-tooltip-position', 'top');
 		}
 	}
 

@@ -14,6 +14,7 @@ export const RT_AGENT_COLOR = 'agent-color';
 export const RT_MODE = 'mode';
 export const RT_AI_TITLE = 'ai-title';
 export const RT_PR_LINK = 'pr-link';
+export const RT_COST_STATE = 'cost-state';
 
 export const SKIP_RECORD_TYPES = new Set([RT_FILE_HISTORY, RT_FILE_HISTORY_DELTA, RT_LAST_PROMPT, RT_PROGRESS, RT_QUEUE_OPERATION, RT_AGENT_NAME, RT_AGENT_COLOR, RT_MODE, RT_AI_TITLE, RT_PR_LINK]);
 
@@ -52,6 +53,39 @@ export const PROGRESS_AGENT = 'agent_progress';
 // STRUCTURAL ASSUMPTION: only these tool names trigger sub-agent session
 // resolution. If Claude Code introduces new agent tool names, add them here.
 export const SUBAGENT_TOOL_NAMES = new Set(['Agent', 'Task']);
+
+// ── Reviewed attachment subtypes ─────────────────────────────
+// Attachment subtypes we looked at and chose not to render. Each entry records
+// why, so a later reader can tell a decision from a shrug. Anything absent from
+// this map still raises an `unknown_attachment_type` warning — that warning is
+// what would have caught the `hook_permission_decision` change in CC 2.1.214,
+// so do not add an entry here just to silence noise.
+//
+// Criterion: does the record carry information that appears nowhere else in the
+// timeline and changes what a reader understands happened? If yes, render it.
+export const REVIEWED_ATTACHMENT_TYPES = new Map<string, string>([
+	['deferred_tools_delta', 'Harness bookkeeping — tool-schema churn, no bearing on what happened in the session'],
+	['agent_listing_delta', 'Harness bookkeeping — available-agent churn; actual agent runs appear as Agent tool calls'],
+	['compact_file_reference', 'Path only, no content; the file is visible via the tool call that read it'],
+	['already_read_file', 'Cache hit marker (content is `file_unchanged`); the original read is already in the timeline'],
+	['directory', 'Directory listing from an @-mention; the same paths surface through the tool calls that follow'],
+	['plan_file_reference', 'Plan text is already rendered via plan_mode_exit and the ExitPlanMode tool call'],
+	['companion_intro', 'Cosmetic — names the terminal companion, carries no session information'],
+	['total_tokens_reminder', 'Context-budget banner injected each turn; the token counts it tracks are already in session stats'],
+	['edited_text_file', 'Fires whenever a file changes on disk, including edits made by a Bash command in this same session, so "edited outside Claude Code" would be wrong as often as right'],
+	['file', 'Contents of an @-mentioned file. The user attached it and the prompt referencing it is already in the timeline'],
+	['diagnostics', 'LSP errors shown to Claude. Re-sent on every turn until fixed, so a single unresolved error produces hundreds of records'],
+	['plan_mode', 'Mode transition only; the plan itself renders via the ExitPlanMode tool call'],
+	['plan_mode_exit', 'Mode transition only; the plan itself renders via the ExitPlanMode tool call'],
+	['invoked_skills', 'The skill invocation is already visible in the transcript that triggered it'],
+]);
+
+// Record types we looked at and chose not to render, same criterion and same
+// warning behaviour as REVIEWED_ATTACHMENT_TYPES above.
+export const REVIEWED_RECORD_TYPES = new Map<string, string>([
+	['atis-latch', 'Empty payload (`atis` is always an empty string) plus the session id — harness bookkeeping'],
+	['cost-state', 'Session totals. The summary panel already shows cost and token counts from per-turn usage'],
+]);
 
 // ── Special model values ─────────────────────────────────────
 export const MODEL_SYNTHETIC = '<synthetic>';
