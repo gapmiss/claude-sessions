@@ -8,7 +8,7 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
-## [Unreleased]
+## [0.3.24] - 2026-09-09
 
 ### Fixed
 - **Mid-turn messages were unsearchable across sessions** — 0.3.23 made them visible in the timeline, but "All sessions" search still couldn't find one. The cross-session path reads JSONL line by line and handled `assistant`, `user`, and `system` records; a mid-turn message is none of those. It arrives as an `attachment` record with subtype `queued_command`, so every one was skipped. Searching for text you typed mid-turn returned only the sessions where some tool output happened to quote it
