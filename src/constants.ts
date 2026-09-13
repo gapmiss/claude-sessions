@@ -82,6 +82,14 @@ export const REVIEWED_ATTACHMENT_TYPES = new Map<string, string>([
 	['plan_mode', 'Mode transition only; the plan itself renders via the ExitPlanMode tool call'],
 	['plan_mode_exit', 'Mode transition only; the plan itself renders via the ExitPlanMode tool call'],
 	['invoked_skills', 'The skill invocation is already visible in the transcript that triggered it'],
+	['environment', 'Working directory, platform, shell, OS — already extracted into session metadata (cwd, model, version)'],
+	['model', 'Model identity (id, marketing name, cutoff) — already extracted into session metadata'],
+	['instructions', 'CLAUDE.md file paths and contents — already visible as system-reminder tags in the transcript'],
+	['session_context', 'User email, git status — already visible as system-reminder tags in the transcript'],
+	['date', 'Current date — already visible as a system-reminder tag in the transcript'],
+	['remote_session_change', 'Commit/PR attribution config and managed-operation flags — harness config, not a session event'],
+	['prompt_snapshot', 'Full system prompt array — the prompt text is already in the transcript as system-reminder tags'],
+	['deferred_tools_record', 'Full tool schemas for deferred tools — same category as deferred_tools_delta (harness bookkeeping)'],
 ]);
 
 // Record types we looked at and chose not to render, same criterion and same

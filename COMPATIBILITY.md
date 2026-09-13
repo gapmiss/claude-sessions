@@ -31,6 +31,14 @@ This document tracks which Claude Code versions introduced JSONL format changes 
 | `hook_blocking_error`, `hook_non_blocking_error` attachments | ~2.1.214? | 0.3.23+ | New | Hook failures. Inline indicator via `toolUseID`; the non-blocking variant also lands in the HOOKS section |
 | `queued_command` attachment | ~2.1.214? | 0.3.23+ | New | A message sent mid-turn. `prompt` is a string or an array of content blocks when images are attached. Renders inline in the turn |
 | `atis-latch` records | ~2.1.214? | 0.3.23+ | Skipped | `atis` is always an empty string |
+| `environment` attachment | ~2.1.270? | 0.3.25+ | Skipped | Working dir, platform, shell, OS — already in session metadata |
+| `model` attachment | ~2.1.270? | 0.3.25+ | Skipped | Model identity — already in session metadata |
+| `instructions` attachment | ~2.1.270? | 0.3.25+ | Skipped | CLAUDE.md contents — already visible as system-reminder tags |
+| `session_context` attachment | ~2.1.270? | 0.3.25+ | Skipped | User email, git status — already visible as system-reminder tags |
+| `date` attachment | ~2.1.270? | 0.3.25+ | Skipped | Current date — already visible as system-reminder tag |
+| `remote_session_change` attachment | ~2.1.270? | 0.3.25+ | Skipped | Commit/PR attribution config — harness config, not a session event |
+| `prompt_snapshot` attachment | ~2.1.270? | 0.3.25+ | Skipped | Full system prompt — already in transcript as system-reminder tags |
+| `deferred_tools_record` attachment | ~2.1.270? | 0.3.25+ | Skipped | Full deferred tool schemas — harness bookkeeping like `deferred_tools_delta` |
 
 **Legend:**
 - `~` = Approximate version (not confirmed exactly when introduced)
