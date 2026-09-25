@@ -83,7 +83,7 @@ skills/distill/SKILL.md      # The /distill skill for Claude Code
 - **Network**: the only network call is the opt-in rate limit feature (beta). It calls `api.anthropic.com/api/oauth/usage` with `requestUrl()`, reads the OAuth token from the macOS Keychain or `~/.claude/.credentials.json`, and caches the result in memory for one minute.
 - **Distill**: frontmatter comes straight from session stats, with no LLM cost. LLM summaries arrive through the clipboard merge workflow.
 - **Public API**: treat it as stable. Adding things is fine; removing things is a breaking change. Other plugins reach it at `app.plugins.plugins['claude-sessions']?.api`.
-- **Docs**: write plainly. No em-dashes.
+- **Writing**: docs and anything a user sees (UI text, notices, parse warnings, exported Markdown) are written plainly, with no em-dashes. Code comments are exempt.
 
 ## Key references
 

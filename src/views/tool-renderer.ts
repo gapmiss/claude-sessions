@@ -956,8 +956,8 @@ function toolPreview(block: ToolUseBlock): string {
 				const ol = old.split('\n').length;
 				const nl = nw.split('\n').length;
 				return ol === nl
-					? `${name} \u2014 ${ol} line${ol > 1 ? 's' : ''}`
-					: `${name} \u2014 ${ol} \u2192 ${nl} lines`;
+					? `${name} \u00b7 ${ol} line${ol > 1 ? 's' : ''}`
+					: `${name} \u00b7 ${ol} \u2192 ${nl} lines`;
 			}
 			return name;
 		}
@@ -967,7 +967,7 @@ function toolPreview(block: ToolUseBlock): string {
 			const name = baseName(fp);
 			const content = input['content'] as string | undefined;
 			if (content) {
-				return `${name} \u2014 ${content.split('\n').length} lines`;
+				return `${name} \u00b7 ${content.split('\n').length} lines`;
 			}
 			return name;
 		}
@@ -979,7 +979,7 @@ function toolPreview(block: ToolUseBlock): string {
 			const offset = input['offset'] as number | undefined;
 			if (limit) {
 				const start = offset ?? 1;
-				return `${name} \u2014 lines ${start}\u2013${start + limit - 1}`;
+				return `${name} \u00b7 lines ${start}\u2013${start + limit - 1}`;
 			}
 			return name;
 		}
@@ -1011,14 +1011,14 @@ function toolPreview(block: ToolUseBlock): string {
 			if (!qs?.length) return '';
 			const first = qs[0];
 			const q = typeof first['question'] === 'string' ? first['question'] : '';
-			const prefix = qs.length > 1 ? `${qs.length} questions \u2014 ` : '';
+			const prefix = qs.length > 1 ? `${qs.length} questions: ` : '';
 			return `${prefix}${truncate(q, 40)}`;
 		}
 		case 'Agent':
 		case 'Task': {
 			const desc = typeof input['description'] === 'string' ? input['description'] : '';
 			const subType = input['subagent_type'] as string | undefined;
-			const prefix = subType ? `${subType} \u2014 ` : '';
+			const prefix = subType ? `${subType}: ` : '';
 			if (desc) return `${prefix}${truncate(desc, 40)}`;
 			return subType ?? '';
 		}

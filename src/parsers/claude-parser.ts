@@ -588,7 +588,7 @@ export class ClaudeParser extends BaseParser {
 				Logger.warn(`Skipped unknown record type "${type}" (${count}x)`);
 				warnings.push({
 					type: 'unknown_record_type',
-					message: `Unknown record type "${type}" — plugin may need update`,
+					message: `Unknown record type "${type}": the plugin may need an update`,
 					count,
 				});
 			}
@@ -598,7 +598,7 @@ export class ClaudeParser extends BaseParser {
 				Logger.warn(`Skipped unknown block type "${type}" (${count}x)`);
 				warnings.push({
 					type: 'unknown_block_type',
-					message: `Unknown block type "${type}" — plugin may need update`,
+					message: `Unknown block type "${type}": the plugin may need an update`,
 					count,
 				});
 			}
@@ -608,7 +608,7 @@ export class ClaudeParser extends BaseParser {
 				Logger.warn(`Skipped unknown attachment type "${type}" (${count}x)`);
 				warnings.push({
 					type: 'unknown_attachment_type',
-					message: `Unknown attachment type "${type}" — plugin may need update`,
+					message: `Unknown attachment type "${type}": the plugin may need an update`,
 					count,
 				});
 			}

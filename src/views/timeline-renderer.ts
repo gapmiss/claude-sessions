@@ -519,7 +519,7 @@ export class TimelineRenderer {
 
 		const body = el.createDiv({ cls: 'claude-sessions-thinking-body' });
 		if (isRedacted) {
-			body.createDiv({ cls: 'claude-sessions-thinking-redacted-body', text: 'Thinking content is not available — encrypted by Claude Code.' });
+			body.createDiv({ cls: 'claude-sessions-thinking-redacted-body', text: 'Claude Code encrypted this thinking, so its content isn\'t available.' });
 		} else {
 			void MarkdownRenderer.render(this.ctx.app, normalizeMarkdown(text), body, '', this.ctx.component);
 		}

@@ -437,7 +437,7 @@ export class TimelineView extends ItemView {
 				if (eventType === 'change') onChange();
 			});
 			watcher.on('error', () => {
-				new Notice('Session file watcher error — stopping.');
+				new Notice('Live watch stopped: the session file watcher failed.');
 				this.stopWatching();
 			});
 			this.watcher = watcher;

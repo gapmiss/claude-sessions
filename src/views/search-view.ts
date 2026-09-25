@@ -686,7 +686,7 @@ export class SearchView extends ItemView {
 				} else {
 					this.progressEl.setText(
 						resultCount > 0
-							? `Done — ${resultCount} session${resultCount !== 1 ? 's' : ''} with matches`
+							? `Done. Matches in ${resultCount} session${resultCount !== 1 ? 's' : ''}.`
 							: 'No matches found.'
 					);
 				}

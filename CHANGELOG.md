@@ -17,6 +17,9 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 ### Fixed
 - **Hook commands with a quoted path showed a stray quote**: `'/Users/me/hook.sh' stop` displayed as `hook.sh' stop`. It now shows `hook.sh stop`, in the panel and in Markdown export
 
+### Changed
+- **Plainer wording in the interface and exports**: em-dashes are gone from parse warnings, tool header previews (`file.ts · 3 lines`), search status, the encrypted thinking note, the live watch error, and Markdown export headings (`## Turn 3: User`)
+
 ---
 
 ## [0.3.26] - 2026-09-25

@@ -415,7 +415,7 @@ function renderTurn(
 	const roleLabel = turn.role === 'user' ? 'User' : 'Assistant';
 	const timeStr = turn.timestamp ? ` (${new Date(turn.timestamp).toLocaleString()})` : '';
 
-	let heading = `## Turn ${turn.index + 1} — ${roleLabel}${timeStr}`;
+	let heading = `## Turn ${turn.index + 1}: ${roleLabel}${timeStr}`;
 	if (turn.isApiError) {
 		const errLabel = turn.errorType === 'rate_limit' ? 'Rate limited' : 'API error';
 		heading += ` ⚠ ${errLabel}`;
@@ -674,7 +674,7 @@ function renderAskUserQuestionToolUse(block: ToolUseBlock): string {
 		if (options.length > 0) {
 			lines.push('>');
 			for (const opt of options) {
-				const desc = opt['description'] ? ` — ${opt['description']}` : '';
+				const desc = opt['description'] ? `: ${opt['description']}` : '';
 				lines.push(`> - ${opt['label'] ?? ''}${desc}`);
 				// Previews are ASCII mockups — fence them so alignment survives.
 				// Indent by 3 to stay inside the list item; the fence strips that
@@ -705,7 +705,7 @@ function renderSubAgentToolUse(
 	const desc = sa.description || block.input['description'] as string || '';
 	const header = desc ? `Agent${subType}: ${desc}` : `Agent${subType}`;
 	const bgLabel = sa.isBackground ? ' [background]' : '';
-	const durLabel = sa.durationMs ? ` — ${fmtDuration(sa.durationMs)}` : '';
+	const durLabel = sa.durationMs ? ` (${fmtDuration(sa.durationMs)})` : '';
 	lines.push(`> [!abstract]- ${header}${bgLabel}${durLabel}`);
 
 	// Prompt
