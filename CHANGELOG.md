@@ -8,6 +8,20 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.26] - 2026-09-25
+
+### Fixed
+- **"Check for plugin updates" banner on CC 2.1.280 sessions** — Claude Code 2.1.280 added a `silent_turn_reminder` attachment. After a long stretch with no message to the user, it tells the model to post a progress update. The model is its only audience and it carries no session data, so it now joins `REVIEWED_ATTACHMENT_TYPES` and no longer triggers the unknown-attachment warning
+
+---
+
+## [0.3.25] - 2026-09-13
+
+### Fixed
+- **"Check for plugin updates" banner on CC 2.1.270 sessions** — Claude Code 2.1.270 added eight attachment subtypes: `environment`, `model`, `instructions`, `session_context`, `date`, `remote_session_change`, `prompt_snapshot`, and `deferred_tools_record`. Each one repeats data the plugin already has: session metadata (cwd, model, version), system-reminder tags that are already in the transcript, or harness bookkeeping in the same category as `deferred_tools_delta`. All eight were reviewed and added to `REVIEWED_ATTACHMENT_TYPES`, so they no longer trigger the unknown-attachment warning
+
+---
+
 ## [0.3.24] - 2026-09-09
 
 ### Fixed
