@@ -11,25 +11,25 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 ## [0.3.26] - 2026-09-25
 
 ### Fixed
-- **"Check for plugin updates" banner on CC 2.1.280 sessions** — Claude Code 2.1.280 added a `silent_turn_reminder` attachment. After a long stretch with no message to the user, it tells the model to post a progress update. The model is its only audience and it carries no session data, so it now joins `REVIEWED_ATTACHMENT_TYPES` and no longer triggers the unknown-attachment warning
+- **"Check for plugin updates" banner on CC 2.1.280 sessions**: Claude Code 2.1.280 added a `silent_turn_reminder` attachment. After a long stretch with no message to the user, it tells the model to post a progress update. The model is its only audience and it carries no session data, so it now joins `REVIEWED_ATTACHMENT_TYPES` and no longer triggers the unknown-attachment warning
 
 ---
 
 ## [0.3.25] - 2026-09-13
 
 ### Fixed
-- **"Check for plugin updates" banner on CC 2.1.270 sessions** — Claude Code 2.1.270 added eight attachment subtypes: `environment`, `model`, `instructions`, `session_context`, `date`, `remote_session_change`, `prompt_snapshot`, and `deferred_tools_record`. Each one repeats data the plugin already has: session metadata (cwd, model, version), system-reminder tags that are already in the transcript, or harness bookkeeping in the same category as `deferred_tools_delta`. All eight were reviewed and added to `REVIEWED_ATTACHMENT_TYPES`, so they no longer trigger the unknown-attachment warning
+- **"Check for plugin updates" banner on CC 2.1.270 sessions**: Claude Code 2.1.270 added eight attachment subtypes: `environment`, `model`, `instructions`, `session_context`, `date`, `remote_session_change`, `prompt_snapshot`, and `deferred_tools_record`. Each one repeats data the plugin already has: session metadata (cwd, model, version), system-reminder tags that are already in the transcript, or harness bookkeeping in the same category as `deferred_tools_delta`. All eight were reviewed and added to `REVIEWED_ATTACHMENT_TYPES`, so they no longer trigger the unknown-attachment warning
 
 ---
 
 ## [0.3.24] - 2026-09-09
 
 ### Fixed
-- **Mid-turn messages were unsearchable across sessions** — 0.3.23 made them visible in the timeline, but "All sessions" search still couldn't find one. The cross-session path reads JSONL line by line and handled `assistant`, `user`, and `system` records; a mid-turn message is none of those. It arrives as an `attachment` record with subtype `queued_command`, so every one was skipped. Searching for text you typed mid-turn returned only the sessions where some tool output happened to quote it
+- **Mid-turn messages were unsearchable across sessions**: 0.3.23 made them visible in the timeline, but "All sessions" search still couldn't find one. The cross-session path reads JSONL line by line and handled `assistant`, `user`, and `system` records; a mid-turn message is none of those. It arrives as an `attachment` record with subtype `queued_command`, so every one was skipped. Searching for text you typed mid-turn returned only the sessions where some tool output happened to quote it
 
-  `extractSearchableContent` now handles the subtype the same way the parser does — string or array-form `prompt`, text blocks joined, task notifications skipped since they share the subtype but are background agent results indexed from their own records. Matches report as `U · queued_message` and the user role filter picks them up. In-session search was never affected; it runs on parsed turns, where the block was already indexed
+  `extractSearchableContent` now handles the subtype the same way the parser does. It accepts a string or array `prompt` and joins the text blocks. Task notifications are skipped: they share the subtype, but they are background agent results and get indexed from their own records. Matches report as `U · queued_message` and the user role filter picks them up. In-session search was never affected; it runs on parsed turns, where the block was already indexed
 
-- **Search highlights were invisible** — both the timeline highlight and the results-panel snippet filled with `--text-highlight-bg`, which some themes never define. The declaration then resolves to nothing and the mark renders with no background at all, in the timeline and the results list alike. Both now fall back through `--color-yellow`, which the plugin already relies on elsewhere
+- **Search highlights were invisible**: both the timeline highlight and the results-panel snippet filled with `--text-highlight-bg`, which some themes never define. The declaration then resolves to nothing and the mark renders with no background at all, in the timeline and the results list alike. Both now fall back through `--color-yellow`, which the plugin already relies on elsewhere
 
   The fade compounded it: the keyframes held the colour to 70% of a 5s animation, but the highlighter doesn't unwrap the mark until 5s, leaving 1.5 seconds of a colourless leftover in the DOM. It now holds to 90%
 
@@ -38,44 +38,44 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 ## [0.3.23] - 2026-09-09
 
 ### Fixed
-- **"Check for plugin updates" fired on healthy sessions** — 0.3.22 added the `unknown_attachment_type` warning so a silently-dropped subtype couldn't hide a format change again. It warned on every unhandled subtype, including ones already reviewed and deliberately skipped. Two appear constantly (`deferred_tools_delta`, `agent_listing_delta`) and `total_tokens_reminder` is stamped on nearly every turn, so most sessions displayed a red parse-warnings banner when nothing was wrong. Across a 1,943-session vault, every session now parses with zero warnings
+- **"Check for plugin updates" fired on healthy sessions**: 0.3.22 added the `unknown_attachment_type` warning so a silently-dropped subtype couldn't hide a format change again. It warned on every unhandled subtype, including ones already reviewed and deliberately skipped. Two appear constantly (`deferred_tools_delta`, `agent_listing_delta`) and `total_tokens_reminder` is stamped on nearly every turn, so most sessions displayed a red parse-warnings banner when nothing was wrong. Across a 1,943-session vault, every session now parses with zero warnings
 
   The fix is a reviewed set rather than an ignore list. `REVIEWED_ATTACHMENT_TYPES` and `REVIEWED_RECORD_TYPES` in `constants.ts` record *why* each entry is skipped, so a later reader can tell a decision from a shrug; anything absent still warns. Listing every subtype seen so far would have recreated the original blindness with extra steps
 
-- **Warning hint was inconsistent between the panel and the exporter** — `summary-renderer.ts` gated the "Some data may be missing" hint on `unknown_record_type || unknown_block_type`. 0.3.22 added `unknown_attachment_type` and updated `markdown-exporter.ts` but missed this one, so the panel could list an attachment warning and withhold the hint that belonged with it
+- **Warning hint was inconsistent between the panel and the exporter**: `summary-renderer.ts` gated the "Some data may be missing" hint on `unknown_record_type || unknown_block_type`. 0.3.22 added `unknown_attachment_type` and updated `markdown-exporter.ts` but missed this one, so the panel could list an attachment warning and withhold the hint that belonged with it
 
-- **Inline hook indicators could lag behind live watch** — the initial render and the live-watch refresh each held their own copy of the "is this event tool-scoped?" predicate. Adding a type to one meant indicators appeared only after a full re-render. Both now call a single `buildInlineHookEventMap()`
+- **Inline hook indicators could lag behind live watch**: the initial render and the live-watch refresh each held their own copy of the "is this event tool-scoped?" predicate. Adding a type to one meant indicators appeared only after a full re-render. Both now call a single `buildInlineHookEventMap()`
 
-- **Turn-level hook errors rendered nowhere** — a `Stop` hook carries a `toolUseID`, but that id names no tool call. Matching on the field's presence sent the event to a tool block that never claimed it, while the HOOKS section skipped it for having an id at all. The test is now whether the id names a real tool call in the session; anything else falls back to the HOOKS section
+- **Turn-level hook errors rendered nowhere**: a `Stop` hook carries a `toolUseID`, but that id names no tool call. Matching on the field's presence sent the event to a tool block that never claimed it, while the HOOKS section skipped it for having an id at all. The test is now whether the id names a real tool call in the session; anything else falls back to the HOOKS section
 
-- **Hook exit code was an unreadable red block** — the badge used `--background-modifier-error` as fill and `--text-error` as text colour, which most themes resolve to nearly the same red. It now renders as red text in a red outline
+- **Hook exit code was an unreadable red block**: the badge used `--background-modifier-error` as fill and `--text-error` as text colour, which most themes resolve to nearly the same red. It now renders as red text in a red outline
 
 ### Added
-- **Truncated Read results are now visible** — a `read_truncation_notice` attachment means Claude saw only part of a file. The timeline showed a complete-looking result with no hint of it. Tool blocks now carry an orange scissors indicator whose tooltip quotes the truncation banner
+- **Truncated Read results are now visible**: a `read_truncation_notice` attachment means Claude saw only part of a file. The timeline showed a complete-looking result with no hint of it. Tool blocks now carry an orange scissors indicator whose tooltip quotes the truncation banner
 
-- **Hook failures render inline** — `hook_blocking_error` (the hook stopped the tool) and `hook_non_blocking_error` (the tool ran anyway) both point at a specific call through `toolUseID`. Blocking errors get a red octagon, non-blocking a yellow triangle. `hook_non_blocking_error` carries the full `hook_success` field set, so it also lands in the HOOKS section
+- **Hook failures render inline**: `hook_blocking_error` (the hook stopped the tool) and `hook_non_blocking_error` (the tool ran anyway) both point at a specific call through `toolUseID`. Blocking errors get a red octagon, non-blocking a yellow triangle. `hook_non_blocking_error` carries the full `hook_success` field set, so it also lands in the HOOKS section
 
-- **Mid-turn user messages** — a message sent while Claude was working is recorded only as a `queued_command` attachment, with no user record, so it was missing from the timeline entirely. It now renders inline at the point it interrupted, with any attached images. Task notifications share the subtype but are background agent results, so they are skipped, as is the occasional message Claude Code also delivered as a normal prompt
+- **Mid-turn user messages**: a message sent while Claude was working is recorded only as a `queued_command` attachment, with no user record, so it was missing from the timeline entirely. It now renders inline at the point it interrupted, with any attached images. Task notifications share the subtype but are background agent results, so they are skipped, as is the occasional message Claude Code also delivered as a normal prompt
 
 ---
 
 ## [0.3.22] - 2026-08-28
 
 ### Fixed
-- **Permission indicators stopped appearing** — Claude Code 2.1.214 changed how a `PermissionRequest` hook records its outcome. Versions 2.1.98 through 2.1.117 wrote an `async_hook_response` attachment with `hookName: "PermissionRequest:<Tool>"`; 2.1.214 writes a dedicated `hook_permission_decision` attachment carrying `decision`, `toolUseID`, and `hookEvent`. The parser knew only the old shape, so every approval since the upgrade was dropped and no tool block showed the shield indicator. Both shapes are now handled
+- **Permission indicators stopped appearing**: Claude Code 2.1.214 changed how a `PermissionRequest` hook records its outcome. Versions 2.1.98 through 2.1.117 wrote an `async_hook_response` attachment with `hookName: "PermissionRequest:<Tool>"`; 2.1.214 writes a dedicated `hook_permission_decision` attachment carrying `decision`, `toolUseID`, and `hookEvent`. The parser knew only the old shape, so every approval since the upgrade was dropped and no tool block showed the shield indicator. Both shapes are now handled
 
-  The new record carries less than the old one — no stdout, duration, or command — so it drives the header indicator only, not a HOOKS detail row. A denial renders a red `shield-x` instead of the green `shield-check`, and the tooltip names the decision. `toolUseID` is authoritative on the new shape, so it needs none of the parent-chain walking the old one required
+  The new record carries less than the old one (no stdout, duration, or command), so it drives the header indicator only, not a HOOKS detail row. A denial renders a red `shield-x` instead of the green `shield-check`, and the tooltip names the decision. `toolUseID` is authoritative on the new shape, so it needs none of the parent-chain walking the old one required
 
-- **"1 skills" in the System events header** — the collapsed header counted `skill_listing` *records* rather than the skills inside them. One record listing two skills read "1 skills". Task reminders had the same bug and were inconsistent with their own section heading, which already summed `itemCount`. Both now count items, and all four counts pluralize correctly
+- **"1 skills" in the System events header**: the collapsed header counted `skill_listing` *records* rather than the skills inside them. One record listing two skills read "1 skills". Task reminders had the same bug and were inconsistent with their own section heading, which already summed `itemCount`. Both now count items, and all four counts pluralize correctly
 
 ### Added
-- **Output style in System events** — the active output style now appears as its own section and in the collapsed header line. Claude Code stamps this on nearly every attachment record (roughly 6,000 across a working vault), but the value is session-constant, so the parser emits one event per distinct value; a mid-session style change would produce a second, timestamped entry. The badge preserves the style's exact casing rather than uppercasing it like hook event names, since output styles are user-authored files whose names you may need to match
+- **Output style in System events**: the active output style now appears as its own section and in the collapsed header line. Claude Code stamps this on nearly every attachment record (roughly 6,000 across a working vault), but the value is session-constant, so the parser emits one event per distinct value; a mid-session style change would produce a second, timestamped entry. The badge preserves the style's exact casing rather than uppercasing it like hook event names, since output styles are user-authored files whose names you may need to match
 
-- **Command permissions in System events** — a slash command can pre-authorize tools through its `allowed-tools` frontmatter. These grants were invisible, which matters because they can be broad: Claude Code's built-in `/statusline` requests `Read(~/**)`, unrestricted read access to your home directory, for the duration of the command. The section lists each grant with the command that requested it, resolved by walking the parent chain from the attachment back to the `<command-name>` record that invoked it
+- **Command permissions in System events**: a slash command can pre-authorize tools through its `allowed-tools` frontmatter. These grants were invisible, which matters because they can be broad: Claude Code's built-in `/statusline` requests `Read(~/**)`, unrestricted read access to your home directory, for the duration of the command. The section lists each grant with the command that requested it, resolved by walking the parent chain from the attachment back to the `<command-name>` record that invoked it
 
   The array is empty on the overwhelming majority of records (266 of 268 in a real vault), so the section stays hidden unless a grant has entries. These are scoped to a single command invocation and are not written to `settings.json`
 
-- **Unknown attachment subtypes now warn** — unknown *record* types were already tracked and surfaced; unknown *attachment* subtypes were silently discarded. That blind spot is what let the permission regression go unnoticed. A new `unknown_attachment_type` parse warning reports the subtype and its count
+- **Unknown attachment subtypes now warn**: unknown *record* types were already tracked and surfaced; unknown *attachment* subtypes were silently discarded. That blind spot is what let the permission regression go unnoticed. A new `unknown_attachment_type` parse warning reports the subtype and its count
 
 ### Changed
 - Markdown export gains matching Output style and Command permissions sections, and renders an `*Allowed by PermissionRequest hook*` line under any tool call that carries a decision. HTML export inherits all of it through the DOM snapshot
@@ -85,14 +85,14 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 ## [0.3.21] - 2026-08-15
 
 ### Fixed
-- **Search input hover background obscuring parent border** — the hover state painted over the container's border edge
+- **Search input hover background obscuring parent border**: the hover state painted over the container's border edge
 
 ---
 
 ## [0.3.20] - 2026-08-15
 
 ### Added
-- **Copy button on file paths** — Edit and Write tool blocks show a copy-to-clipboard control on the file path in their header
+- **Copy button on file paths**: Edit and Write tool blocks show a copy-to-clipboard control on the file path in their header
 
 ### Fixed
 - Release workflow corrections in `release.mjs` and the GitHub Actions release job
@@ -102,16 +102,16 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 ## [0.3.19] - 2026-08-06
 
 ### Changed
-- **CSS tokenization** — hardcoded pixel values across `styles.css` replaced with Obsidian CSS variables so spacing and sizing follow the active theme
+- **CSS tokenization**: hardcoded pixel values across `styles.css` replaced with Obsidian CSS variables so spacing and sizing follow the active theme
 
 ---
 
 ## [0.3.18] - 2026-08-02
 
 ### Fixed
-- **Cache-write costs understated on long sessions** — Anthropic bills a prompt-cache write at 1.25x the input rate for the 5-minute TTL but 2x for the 1-hour TTL. Every cache write was priced at 1.25x, so any session using the 1-hour cache read low. Claude Code has used the 1-hour cache for the whole conversation for some time now, which means the error applied to the entire cache-write total rather than a fraction of it. On a 114k cache-write session the reported cost moved from $6.25 to $6.68
+- **Cache-write costs understated on long sessions**: Anthropic bills a prompt-cache write at 1.25x the input rate for the 5-minute TTL but 2x for the 1-hour TTL. Every cache write was priced at 1.25x, so any session using the 1-hour cache read low. Claude Code has used the 1-hour cache for the whole conversation for some time now, which means the error applied to the entire cache-write total rather than a fraction of it. On a 114k cache-write session the reported cost moved from $6.25 to $6.68
 
-  `MODEL_PRICING` now carries `cacheWrite5m` and `cacheWrite1h` per model family, and the parser reads the `cache_creation.ephemeral_1h_input_tokens` breakdown that Claude Code records alongside the flat `cache_creation_input_tokens` total. Sessions from older versions that carry no breakdown still bill entirely at the 5-minute rate, unchanged from before. Token counts and context-window figures are unaffected — only the cost math changed
+  `MODEL_PRICING` now carries `cacheWrite5m` and `cacheWrite1h` per model family, and the parser reads the `cache_creation.ephemeral_1h_input_tokens` breakdown that Claude Code records alongside the flat `cache_creation_input_tokens` total. Sessions from older versions that carry no breakdown still bill entirely at the 5-minute rate, unchanged from before. Token counts and context-window figures are unaffected. Only the cost math changed
 
   Note that Claude Code's own `/config` → Usage panel can disagree, and says so: when it shows "costs may be inaccurate due to usage of unknown models" it has no price entry for the model in use and falls back to Sonnet rates. On the session above it reported $4.01, which is Sonnet pricing applied to Opus tokens
 
@@ -120,61 +120,61 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 ## [0.3.17] - 2026-07-25
 
 ### Fixed
-- **Community scanner: `prefer-create-el`** — `activeDocument.createDocumentFragment()` replaced with Obsidian's `createFragment()` helper in the search view result cache and the timeline summary refresh
-- **Community scanner: deprecated `setWarning`** — the session directory removal button now uses `setDestructive()`; same styling, non-deprecated spelling. Requires 1.10.0+, already covered by the 1.13.0 `minAppVersion`
-- **Community scanner: CSS compat** — closes out the `text-decoration` back-and-forth from 0.3.12 and 0.3.14. Neither the shorthand nor the longhands clear the compat lint, so the declaration is gone entirely, along with the `color`/`:hover` rules beside it: the WebFetch URL is a plain `<a>`, so Obsidian's built-in anchor styling already supplied all three. The removed shorthand carried an unresolved `var(--link-decoration-color)` that invalidated it at computed-value time anyway, meaning the underline it named was never actually rendering. Themes setting `--link-decoration: none` are now respected
+- **Community scanner: `prefer-create-el`**: `activeDocument.createDocumentFragment()` replaced with Obsidian's `createFragment()` helper in the search view result cache and the timeline summary refresh
+- **Community scanner: deprecated `setWarning`**: the session directory removal button now uses `setDestructive()`; same styling, non-deprecated spelling. Requires 1.10.0+, already covered by the 1.13.0 `minAppVersion`
+- **Community scanner: CSS compat**: closes out the `text-decoration` back-and-forth from 0.3.12 and 0.3.14. Neither the shorthand nor the longhands clear the compat lint, so the declaration is gone entirely, along with the `color`/`:hover` rules beside it: the WebFetch URL is a plain `<a>`, so Obsidian's built-in anchor styling already supplied all three. The removed shorthand carried an unresolved `var(--link-decoration-color)` that invalidated it at computed-value time anyway, meaning the underline it named was never actually rendering. Themes setting `--link-decoration: none` are now respected
 
 ---
 
 ## [0.3.16] - 2026-07-25
 
 ### Added
-- **AskUserQuestion option previews** — the `preview` field on each option (ASCII mockups, code samples, layout comparisons) was parsed but never rendered. Each option with a preview now gets a collapsible disclosure under its description, auto-opened for the option the user selected. Previews render preformatted rather than as markdown, because a markdown pass collapses the whitespace that ASCII art depends on and reinterprets `---`/`#`/`*` as block syntax. Included in Markdown and HTML exports
+- **AskUserQuestion option previews**: the `preview` field on each option (ASCII mockups, code samples, layout comparisons) was parsed but never rendered. Each option with a preview now gets a collapsible disclosure under its description, auto-opened for the option the user selected. Previews render preformatted rather than as markdown, because a markdown pass collapses the whitespace that ASCII art depends on and reinterprets `---`/`#`/`*` as block syntax. Included in Markdown and HTML exports
 
 ### Fixed
-- **Blank assistant turns** — a text block opening with `---` was read by `MarkdownRenderer` as a YAML frontmatter delimiter, swallowing everything up to the next `---`. The turn rendered empty while its "Show more (N lines)" button still reported the full line count. `normalizeMarkdown()` now rewrites a leading `---` to the equivalent `***` thematic break; setext heading underlines and longer dash runs are left alone
-- **Markdown normalization coverage** — thinking blocks, slash-command output, and compaction summaries rendered raw text through `MarkdownRenderer` and shared the same latent frontmatter bug; all now go through `normalizeMarkdown()`
-- **`file-history-delta`, `agent-color`, and `pr-link` record types** — three metadata-only records were triggering "unknown record type" warnings. Added to both `SKIP_RECORD_TYPES` and `SKIP_TYPE_STRINGS` so they are also excluded from search and streaming
+- **Blank assistant turns**: a text block opening with `---` was read by `MarkdownRenderer` as a YAML frontmatter delimiter, swallowing everything up to the next `---`. The turn rendered empty while its "Show more (N lines)" button still reported the full line count. `normalizeMarkdown()` now rewrites a leading `---` to the equivalent `***` thematic break; setext heading underlines and longer dash runs are left alone
+- **Markdown normalization coverage**: thinking blocks, slash-command output, and compaction summaries rendered raw text through `MarkdownRenderer` and shared the same latent frontmatter bug; all now go through `normalizeMarkdown()`
+- **`file-history-delta`, `agent-color`, and `pr-link` record types**: three metadata-only records were triggering "unknown record type" warnings. Added to both `SKIP_RECORD_TYPES` and `SKIP_TYPE_STRINGS` so they are also excluded from search and streaming
 
 ---
 
 ## [0.3.15] - 2026-07-13
 
 ### Fixed
-- **Inline code wrapping** — the 0.3.13 fix did not take effect. Obsidian's `.markdown-rendered :not(.print) code` rule (specificity 0,2,1) outweighed it, so `white-space: pre-wrap` and `word-break: break-all` never applied. Now scoped through `.claude-sessions-block-wrapper .claude-sessions-text-block` for specificity 0,3,1
+- **Inline code wrapping**: the 0.3.13 fix did not take effect. Obsidian's `.markdown-rendered :not(.print) code` rule (specificity 0,2,1) outweighed it, so `white-space: pre-wrap` and `word-break: break-all` never applied. Now scoped through `.claude-sessions-block-wrapper .claude-sessions-text-block` for specificity 0,3,1
 
 ---
 
 ## [0.3.14] - 2026-07-13
 
 ### Fixed
-- **Community scanner: CSS compat** — reverted the `text-decoration` longhand split from 0.3.12; the scanner warns on both the shorthand and the longhands, and the shorthand is the smaller surface
+- **Community scanner: CSS compat**: reverted the `text-decoration` longhand split from 0.3.12; the scanner warns on both the shorthand and the longhands, and the shorthand is the smaller surface
 
 ---
 
 ## [0.3.13] - 2026-07-13
 
 ### Changed
-- **Declarative settings** — migrated settings tab from imperative `display()` to Obsidian 1.13.0 `getSettingDefinitions()` API; settings are now searchable in global settings search
-- **Folder pickers** — replaced custom `FolderSuggest` with built-in `folder` control type
-- **Session directory delete** — now shows a `ConfirmationModal` before removing a directory
+- **Declarative settings**: migrated settings tab from imperative `display()` to Obsidian 1.13.0 `getSettingDefinitions()` API; settings are now searchable in global settings search
+- **Folder pickers**: replaced custom `FolderSuggest` with built-in `folder` control type
+- **Session directory delete**: now shows a `ConfirmationModal` before removing a directory
 - **Bump `minAppVersion`** to 1.13.0
 
 ### Fixed
-- **Inline code overflow** — long URLs and paths in inline `<code>` elements in user and assistant turns now wrap instead of overflowing (this did not actually take effect — see 0.3.15)
+- **Inline code overflow**: long URLs and paths in inline `<code>` elements in user and assistant turns now wrap instead of overflowing (this did not actually take effect; see 0.3.15)
 
 ### Removed
-- `FolderSuggest` utility (`utils/folder-suggest.ts`) — superseded by built-in folder control
+- `FolderSuggest` utility (`utils/folder-suggest.ts`), superseded by the built-in folder control
 
 ---
 
 ## [0.3.12] - 2026-07-13
 
 ### Fixed
-- **Context total dropping after compaction** — the Context hero card total (`contextWindowTokens + cumulativeDroppedTokens`) could decrease after compaction because the two values used different token counting bases; now computes cumulative dropped using our own cache-aware context measure instead of Claude Code's `compact_boundary` metadata
-- **Peak context underreported** — peak now uses cache-aware context window size at compaction time instead of Claude Code's `preTokens` value
-- **Community scanner: cross-window instanceof** — `instanceof HTMLElement` replaced with `.instanceOf(HTMLElement)` in mermaid preview modal
-- **Community scanner: CSS compat** — `text-decoration` shorthand split into `text-decoration-line` + `text-decoration-color` longhands
+- **Context total dropping after compaction**: the Context hero card total (`contextWindowTokens + cumulativeDroppedTokens`) could decrease after compaction because the two values used different token counting bases; now computes cumulative dropped using our own cache-aware context measure instead of Claude Code's `compact_boundary` metadata
+- **Peak context underreported**: peak now uses cache-aware context window size at compaction time instead of Claude Code's `preTokens` value
+- **Community scanner: cross-window instanceof**: `instanceof HTMLElement` replaced with `.instanceOf(HTMLElement)` in mermaid preview modal
+- **Community scanner: CSS compat**: `text-decoration` shorthand split into `text-decoration-line` + `text-decoration-color` longhands
 
 ---
 
@@ -188,34 +188,34 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 ## [0.3.10] - 2026-07-11
 
 ### Added
-- **WebFetch rendering** — clickable URL link + prompt text with copy button instead of raw JSON; result body renders with code/preview markdown toggle
-- **Context compaction stats** — Context hero card now shows full context footprint (current + dropped tokens) with compaction subtitle (e.g. "Peak: 181.6k · 2× compacted")
+- **WebFetch rendering**: clickable URL link + prompt text with copy button instead of raw JSON; result body renders with code/preview markdown toggle
+- **Context compaction stats**: Context hero card now shows full context footprint (current + dropped tokens) with compaction subtitle (e.g. "Peak: 181.6k · 2× compacted")
 
 ### Fixed
-- **`mode` and `ai-title` record types** — new Claude Code per-turn metadata records are now skipped instead of triggering unknown record type warnings
-- **Context hero card during rate limit** — summary dashboard no longer loses the context/token count card when session usage hits 100%; rate-limit placeholder records with all-zero tokens no longer zero out the context window stat
-- **AskUserQuestion embedded quotes** — answer parsing no longer breaks when question text contains literal double quotes (e.g. `"Binary file"`, `"All features"`); uses known-question search instead of fragile regex
-- **AskUserQuestion comma-in-label** — option labels containing commas (e.g. "Yes, as experimental") now match correctly instead of appearing as custom free-text answers; uses greedy label matching instead of comma-splitting
+- **`mode` and `ai-title` record types**: new Claude Code per-turn metadata records are now skipped instead of triggering unknown record type warnings
+- **Context hero card during rate limit**: summary dashboard no longer loses the context/token count card when session usage hits 100%; rate-limit placeholder records with all-zero tokens no longer zero out the context window stat
+- **AskUserQuestion embedded quotes**: answer parsing no longer breaks when question text contains literal double quotes (e.g. `"Binary file"`, `"All features"`); uses known-question search instead of fragile regex
+- **AskUserQuestion comma-in-label**: option labels containing commas (e.g. "Yes, as experimental") now match correctly instead of appearing as custom free-text answers; uses greedy label matching instead of comma-splitting
 
 ### Changed
-- **Rate limit refresh** — cache TTL reduced from 5 minutes to 1 minute for more responsive dashboard updates during active sessions
+- **Rate limit refresh**: cache TTL reduced from 5 minutes to 1 minute for more responsive dashboard updates during active sessions
 
 ---
 
 ## [0.3.9] - 2026-06-28
 
 ### Added
-- **Export options modal** — shown before HTML and Markdown exports with persistent toggles for including summary dashboard and system events panel
-- **Markdown export: summary section** — hero stats, token usage table, tool usage table, session details, session IDs, and parse warnings
-- **Markdown export: system events section** — hooks (event type, duration, command, exit code, stdout), available skills, task reminders
-- **Markdown export: rich tool rendering** — Write (syntax-highlighted), Bash (command fence), Read (file path + line range), AskUserQuestion (question/answer callout), Agent/Task (nested sub-agent turns), ToolSearch (matched tool list)
-- **Markdown export: enriched results** — Bash stderr/exitCode from enrichedResult, AskUserQuestion parsed answers, ToolSearch matches
-- **Markdown export: frontmatter** — cost_usd, duration_ms, all token counts (input/output/cache-read/cache-write/total/context-window/peak), compaction_count
-- **Markdown export: turn indicators** — API error and max-tokens warnings on turn headings
-- **Markdown export: compaction preTokens** — pre-compaction context size now included
+- **Export options modal**: shown before HTML and Markdown exports with persistent toggles for including summary dashboard and system events panel
+- **Markdown export: summary section**: hero stats, token usage table, tool usage table, session details, session IDs, and parse warnings
+- **Markdown export: system events section**: hooks (event type, duration, command, exit code, stdout), available skills, task reminders
+- **Markdown export: rich tool rendering**: Write (syntax-highlighted), Bash (command fence), Read (file path + line range), AskUserQuestion (question/answer callout), Agent/Task (nested sub-agent turns), ToolSearch (matched tool list)
+- **Markdown export: enriched results**: Bash stderr/exitCode from enrichedResult, AskUserQuestion parsed answers, ToolSearch matches
+- **Markdown export: frontmatter**: cost_usd, duration_ms, all token counts (input/output/cache-read/cache-write/total/context-window/peak), compaction_count
+- **Markdown export: turn indicators**: API error and max-tokens warnings on turn headings
+- **Markdown export: compaction preTokens**: pre-compaction context size now included
 
 ### Fixed
-- **Markdown export tool/result ordering** — tool calls now render paired with their results instead of all calls grouped before all results
+- **Markdown export tool/result ordering**: tool calls now render paired with their results instead of all calls grouped before all results
 
 ### Changed
 - Export commands now show options modal before exporting (replaces direct export)
@@ -226,7 +226,7 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 ## [0.3.8] - 2026-06-25
 
 ### Fixed
-- **Text block padding** — added right padding so copy icon doesn't obscure content
+- **Text block padding**: added right padding so copy icon doesn't obscure content
 
 ---
 
@@ -241,13 +241,13 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 ## [0.3.6] - 2026-06-13
 
 ### Fixed
-- **Cost calculation** — per-model pricing with updated Claude 4 family rates (Opus, Fable, Sonnet, Haiku); previously applied single model pricing to all tokens, inflating costs ~3x in mixed-model sessions
-- **API error display** — assistant turns with API errors (rate limits, overloaded) now shown instead of filtered out
-- **Search input** — focus outline clipping and native hover background bleed-through
+- **Cost calculation**: per-model pricing with updated Claude 4 family rates (Opus, Fable, Sonnet, Haiku); previously applied single model pricing to all tokens, inflating costs ~3x in mixed-model sessions
+- **API error display**: assistant turns with API errors (rate limits, overloaded) now shown instead of filtered out
+- **Search input**: focus outline clipping and native hover background bleed-through
 
 ### Added
-- **Thinking copy button** — copy-to-clipboard button on thinking block headers
-- **Custom user answers** — AskUserQuestion renderer shows free-text responses that don't match preset options (dashed accent border + pencil icon)
+- **Thinking copy button**: copy-to-clipboard button on thinking block headers
+- **Custom user answers**: AskUserQuestion renderer shows free-text responses that don't match preset options (dashed accent border + pencil icon)
 
 ### Changed
 - Update dev dependencies to fix vulnerabilities
@@ -257,17 +257,17 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 ## [0.3.5] - 2026-05-31
 
 ### Added
-- **CONTRIBUTING guide** — contributor documentation
+- **CONTRIBUTING guide**: contributor documentation
 
 ### Changed
-- **README** — security notices section addressing community scanner warnings
+- **README**: security notices section addressing community scanner warnings
 
 ---
 
 ## [0.3.4] - 2026-05-12
 
 ### Fixed
-- **Additional Obsidian community review compliance** — `window.requestAnimationFrame` (7 locations), `window.setTimeout`/`clearTimeout`, `nodeName === 'LINK'` check, removed 25 `!important` CSS declarations via selector specificity, removed duplicate padding property
+- **Additional Obsidian community review compliance**: `window.requestAnimationFrame` (7 locations), `window.setTimeout`/`clearTimeout`, `nodeName === 'LINK'` check, removed 25 `!important` CSS declarations via selector specificity, removed duplicate padding property
 
 ---
 
@@ -285,11 +285,11 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
   - Use `el.createDiv()` instead of `el.createEl('div')` in folder suggest
   - Remove all 25 `!important` CSS declarations by increasing selector specificity
   - Remove duplicate `padding` property in search clear button styles
-- **Rate limit cards** — missing label text now displayed (was defined but unused)
+- **Rate limit cards**: missing label text now displayed (was defined but unused)
 
 ### Added
-- **GitHub Actions release workflow** — artifact attestations for `main.js` and `styles.css` on tag push
-- **README callout** — explains system identity access (`HOME`, `os.homedir()`) for locating Claude files
+- **GitHub Actions release workflow**: artifact attestations for `main.js` and `styles.css` on tag push
+- **README callout**: explains system identity access (`HOME`, `os.homedir()`) for locating Claude files
 
 ### Changed
 - `release.mjs` now delegates release creation to GitHub Actions (local script only bumps, builds, tags, and pushes)
@@ -299,34 +299,38 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 ## [0.3.2] - 2026-04-19
 
 ### Fixed
-- **Rate limits** - return null on error instead of stale cached data
-- **Timeline thinking blocks** - preserve thinking block state across UI refreshes
+- **Rate limits**: return null on error instead of stale cached data
+- **Timeline thinking blocks**: preserve thinking block state across UI refreshes
+
+---
 
 ## [0.3.1] - 2026-04-18
 
 ### Fixed
-- **Search** - Refresh session from live view before in-session search
+- **Search**: refresh session from live view before in-session search
+
+---
 
 ## [0.3.0] - 2026-04-18
 
 ### Added
-- **Compaction tracking** — stats now include compaction event count and peak context window size
-- **mjs/cjs syntax highlighting** — JavaScript module extensions recognized in code blocks
+- **Compaction tracking**: stats now include compaction event count and peak context window size
+- **mjs/cjs syntax highlighting**: JavaScript module extensions recognized in code blocks
 
 ### Fixed
-- **Search highlight precision** — clicking search results now highlights the exact match text within INPUT blocks (Bash, Edit, Write, generic), not just scrolling to the turn
-- **Edit/Write search noise** — filtered out "The file has been updated successfully" boilerplate from search index (these messages aren't rendered)
-- **Closed session detection** — search panel detects when tracked session is closed and clears stale state
-- **Search keyboard navigation** — options menu positioning fixed, proper focus management
-- **Search view styles** — consistent styling across light/dark themes
+- **Search highlight precision**: clicking search results now highlights the exact match text within INPUT blocks (Bash, Edit, Write, generic), not just scrolling to the turn
+- **Edit/Write search noise**: filtered out "The file has been updated successfully" boilerplate from search index (these messages aren't rendered)
+- **Closed session detection**: search panel detects when tracked session is closed and clears stale state
+- **Search keyboard navigation**: options menu positioning fixed, proper focus management
+- **Search view styles**: consistent styling across light/dark themes
 
 ### Changed
-- **Turn-based in-session search** — refactored to use precise content-block coordinates with `data-content-block-idx` stamps for DOM highlighting
+- **Turn-based in-session search**: refactored to use precise content-block coordinates with `data-content-block-idx` stamps for DOM highlighting
 - Rate limit cache TTL reduced to 1 minute (was 5 minutes) to reduce 429 errors
 
 ---
 
-## [0.2.15]
+## [0.2.15] - 2026-04-15
 
 ### Added
 - `context_tokens` field in distill frontmatter (context window size from session stats)
@@ -334,7 +338,7 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 - Logger-based debugging for rate limits module
 
 ### Fixed
-- Duration calculation now uses active time instead of wall-clock time — resumed sessions no longer show inflated durations (e.g., 17,000+ minutes for sessions spanning multiple days)
+- Duration calculation now uses active time instead of wall-clock time, so resumed sessions no longer show inflated durations (e.g., 17,000+ minutes for sessions spanning multiple days)
 - Tab title updates correctly when session is renamed during live watch
 - Line number indentation preserved when stripping from Read tool output
 - System-reminder tags stripped from Read tool results
@@ -471,6 +475,15 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+[0.3.26]: https://github.com/gapmiss/claude-sessions/compare/0.3.25...0.3.26
+[0.3.25]: https://github.com/gapmiss/claude-sessions/compare/0.3.24...0.3.25
+[0.3.24]: https://github.com/gapmiss/claude-sessions/compare/0.3.23...0.3.24
+[0.3.23]: https://github.com/gapmiss/claude-sessions/compare/0.3.22...0.3.23
+[0.3.22]: https://github.com/gapmiss/claude-sessions/compare/0.3.21...0.3.22
+[0.3.21]: https://github.com/gapmiss/claude-sessions/compare/0.3.20...0.3.21
+[0.3.20]: https://github.com/gapmiss/claude-sessions/compare/0.3.19...0.3.20
+[0.3.19]: https://github.com/gapmiss/claude-sessions/compare/0.3.18...0.3.19
+[0.3.18]: https://github.com/gapmiss/claude-sessions/compare/0.3.17...0.3.18
 [0.3.17]: https://github.com/gapmiss/claude-sessions/compare/0.3.16...0.3.17
 [0.3.16]: https://github.com/gapmiss/claude-sessions/compare/0.3.15...0.3.16
 [0.3.15]: https://github.com/gapmiss/claude-sessions/compare/0.3.14...0.3.15

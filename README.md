@@ -1,191 +1,172 @@
 # Claude Sessions
 
-An [Obsidian](https://obsidian.md/) plugin for viewing [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions. Browse, search, analyze, and export your Claude Code sessions as interactive timelines with live watch and rich tool rendering — right alongside your notes.
+An [Obsidian](https://obsidian.md/) plugin for reading your [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions. Browse, search, and export them as interactive timelines, with live watch and proper rendering for each tool, right next to your notes.
 
-**Local-first and private.** Claude Sessions reads your JSONL session files directly from disk — no uploads, no syncing, no external services. Your conversations stay on your machine.
+**Local and private.** The plugin reads Claude Code's JSONL files straight from disk. Nothing is uploaded or synced, and your conversations stay on your machine. The one exception is the optional rate limit display, covered under [Security notices](#security-notices).
 
 > [!IMPORTANT]
-> **v0.3.26** — Desktop-only.
+> **v0.3.26**. Desktop only.
 
 > [!NOTE]
-> **System identity access:** This plugin reads `HOME` environment variable and `os.homedir()` to locate Claude Code's session files at `~/.claude/projects/` and OAuth credentials for rate limit display. No data is transmitted — these values are used only to construct local file paths.
+> **System identity access:** the plugin reads the `HOME` environment variable and `os.homedir()` to find Claude Code's session files in `~/.claude/projects/`, and the OAuth credentials used by the rate limit display. These values only build local file paths. Nothing is sent anywhere.
 
 ---
 
 ## Installation
 
-[Install from community.obsidian.md](https://community.obsidian.md/plugins/claude-sessions)
+[Install from community.obsidian.md](https://community.obsidian.md/plugins/claude-sessions), or from inside Obsidian:
 
-From Obsidian's settings or preferences:
+1. Open **Settings > Community plugins > Browse**
+2. Search for "Claude Sessions" and install it
 
-1. Community Plugins > Browse
-2. Search for "Claude Sessions"
+To install manually:
 
-Manually:
-
-1. download the latest [release](https://github.com/gapmiss/claude-sessions/releases/latest) archive
-2. uncompress the downloaded archive
-3. move the `claude-sessions` folder to `/path/to/vault/.obsidian/plugins/` 
-4.  Settings > Community plugins > reload **Installed plugins**
-5.  enable plugin
-
-or:
-
-1.  download `main.js`, `manifest.json` & `styles.css` from the latest [release](https://github.com/gapmiss/claude-sessions/releases/latest)
-2.  create a new folder `/path/to/vault/.obsidian/plugins/claude-sessions`
-3.  move all 3 files to `/path/to/vault/.obsidian/plugins/claude-sessions`
-4.  Settings > Community plugins > reload **Installed plugins**
-5.  enable plugin
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/gapmiss/claude-sessions/releases/latest)
+2. Put them in a new folder at `/path/to/vault/.obsidian/plugins/claude-sessions`
+3. In **Settings > Community plugins**, reload **Installed plugins** and enable Claude Sessions
 
 ---
 
 ## Features
 
-### Session Timeline
+### Session timeline
 
-- All turns rendered in a scrollable timeline — no pagination, no lazy loading
-- Collapsible turn headers with role labels (USER / CLAUDE) and colored left borders
-- Progress bar with per-turn dots positioned by real timestamps
-- Content filter menu: hierarchical toggles for User (text, images) and Assistant (text, thinking, tool calls, tool results)
+- Every turn in one scrollable timeline, with no pagination
+- Collapsible turns labeled USER or CLAUDE, with a colored left border for each role
+- A progress bar with one dot per turn, placed by its real timestamp
+- A filter menu to show or hide user text and images, assistant text, thinking, tool calls, and tool results
+- Context compactions appear as dividers you can expand to read the summary
+- Messages you sent while Claude was working show up where they interrupted
 
-### Tool Rendering
+### Tool rendering
 
-Every tool type gets purpose-built rendering:
+Common tools get their own layout instead of raw JSON:
 
-- **Bash** — syntax-highlighted code block with command description; diff detection for unified diff output
-- **Edit** — red/green diff view (success messages hidden; errors shown)
-- **Write** — syntax-highlighted code with language detection from file extension
-- **Read** — language-specific syntax highlighting
-- **AskUserQuestion** — header badges, option cards with selected/rejected state, answer summary, copy raw JSON
-- **ToolSearch** — matched tool names with icons and deferred tool count
-- **MCP tools** — displayed as `server / tool_name` instead of raw `mcp__server__tool`
-- **Sub-agent sessions** — inline with collapsible prompt, tool groups, and output (supports both legacy inline and separate JSONL file formats)
-- **Tool grouping** — consecutive calls above a configurable threshold (default 4) collapse into a summary bar
+- **Bash**: the command with its description, highlighted. Output keeps its ANSI colors, unified diffs render as diffs, and failures show the exit code and stderr
+- **Edit**: a red and green diff
+- **Write**: the file content, highlighted by file extension
+- **Read**: highlighted by language. Markdown files get a code/preview toggle
+- **WebFetch**: a clickable URL and the prompt, with the result in a code/preview toggle
+- **TaskCreate, TaskUpdate, TaskList, TaskGet**: a running checklist of tasks and their status
+- **AskUserQuestion**: each question with its options, which one was picked, any free-text answer, and option previews
+- **ToolSearch**: the matched tools and how many were deferred
+- **MCP tools**: shown as `server / tool_name` rather than `mcp__server__tool`
+- **Sub-agents**: rendered inline with their prompt, tool calls, and output. Both the old inline format and the newer separate JSONL files work
 
-- **Orphan detection** — tool calls without results show "in progress" (last turn) or "interrupted" (mid-session)
-- Tool result images rendered as clickable thumbnails with full-size modal
+Every tool shows a one-line preview in its collapsed header. Runs of consecutive tool calls longer than a set threshold (4 by default) collapse into a single group. A tool call with no result is marked "in progress" on the last turn and "interrupted" anywhere else. Images in tool results appear as thumbnails that open full size.
 
-### Summary Dashboard
+### Summary dashboard
 
-Collapsible panel at the top of each session:
+A collapsible panel at the top of each session:
 
-- **Hero cards** — cost, context window, turns, duration, and rate limit utilization (beta, opt-in) with pinnable sticky bar
-- **Token chart** — stacked horizontal bar (cache read, cache write, uncached, output)
-- **Tool chart** — horizontal bars sorted by invocation count
-- **Metadata grid** — project, model, version, branch, start time, duration, working directory
-- Session ID and Obsidian URI with copy buttons
+- **Hero cards**: cost, context size, turns, and active duration. With the beta rate limit setting on, it also shows your 5-hour and 7-day usage. You can pin the cards as a sticky bar
+- **Token usage**: a stacked bar for cache reads, cache writes, and uncached input, plus output
+- **Tool usage**: calls per tool, most used first
+- **Session details**: project, model, Claude Code version, branch, start time, duration, and working directory
+- The session ID and an Obsidian link to the session, each with a copy button
 
-### Live Watch
+### Live watch
 
-- File watcher auto-reloads the session on JSONL changes
-- UI state preserved across re-renders (expanded tools, scroll position, show-more, turn collapse)
-- Optional pending tool notification — Obsidian Notice + system notification when a tool call is waiting for permission
-- Configurable auto-scroll on update
+- Reloads the session whenever its JSONL file changes
+- Keeps your place: expanded tools, collapsed turns, "show more" sections, and scroll position all survive the reload
+- Can scroll to the newest content automatically
+- Can notify you (in Obsidian and as a system notification) when a tool call is waiting for your permission
 
 ### Search
 
-Dual-mode search panel in the right sidebar:
+A search panel in the right sidebar with two modes:
 
-- **Cross-session** — keyword search across all JSONL files with progressive results; sort by relevance (BM25) or chronological order
-- **In-session** — scoped to the active timeline with DOM highlighting and auto-expand of collapsed sections
-- Role filter (all / user / assistant), debounced input, arrow key navigation between results
-- Cached cross-session results restored instantly when switching tabs
+- **All sessions**: searches every JSONL file, streaming results in as they're found. Sort by relevance (BM25) or by date
+- **This session**: searches the open timeline, highlights the match, and expands whatever was hiding it
+- Filter by role (all, user, or assistant) and move between results with the arrow keys
+- Your last cross-session results come back instantly when you switch tabs
 
-### Session Browser
+### Session browser
 
-- Scans configured directories for JSONL session files
-- Cached session index — only new/modified files are re-read
-- Empty sessions filtered automatically
+- Finds JSONL files in the directories you configure
+- Keeps an index on disk, so only new or changed files get read again
+- Leaves out empty sessions
 - Fuzzy search by project name, path, or session ID
+- Pin sessions to keep them at the top of the list
 
 ### Export
 
-- **Markdown** — YAML frontmatter + Obsidian callouts
-- **HTML** — self-contained, zero-dependency file with embedded CSS (captures your current theme), inline images, and standalone JS for all interactive features
+- **Markdown**: YAML frontmatter with the session's stats, and Obsidian callouts for the conversation
+- **HTML**: one self-contained file with your current theme's CSS, images, and the interactive features built in. It opens in any browser
 
-### Session Distillation
+Before each export you can choose whether to include the summary dashboard and the system events panel. The plugin remembers your choice.
 
-Convert sessions into structured Obsidian notes with queryable frontmatter — zero LLM cost (Layer 0 extraction).
+### Session distillation
 
-- **Distill to note** — extracts session metadata into YAML frontmatter: project, cost, tokens, duration, tools used, files touched, error count
-- **Clipboard merge** — combine LLM-generated summaries (using the [`/distill`](./skills/distill/SKILL.md) skill) with exact session stats
-- **Obsidian Bases dashboards** — pre-built `.base` templates for aggregate views:
-  - Session Dashboard — all sessions with cost/tokens/duration summaries
-  - Cost Tracker — grouped by project
-  - Recent Sessions — last 7 days
-  - Error Patterns — sessions with errors
+Turn a session into an Obsidian note with frontmatter you can query. This step doesn't call any LLM.
 
-Distilled notes are ideal for:
-- Querying sessions with Dataview or Bases
-- Tracking costs and token usage over time
-- Finding sessions by project, date, or error count
-- Building personal knowledge bases from Claude conversations
+- **Distill session to note**: writes the session's project, cost, tokens, duration, tools, files touched, and error count into YAML frontmatter, followed by a short stats table
+- **Merge from clipboard**: combines a summary written by the [`/distill`](./skills/distill/SKILL.md) skill with the plugin's exact numbers
+- **Bases dashboards**: four ready-made `.base` views of your distilled notes:
+  - Session Dashboard: every session, with cost, token, and duration totals
+  - Cost Tracker: cost grouped by project
+  - Recent Sessions: the last 7 days
+  - Error Patterns: sessions that hit errors
 
-#### `/distill` Workflow
+Use distilled notes to track spending over time, find past sessions by project, date, or errors, or build up notes from your Claude work with Bases or Dataview.
 
-Since `/distill` runs in Claude Code (not Obsidian), it outputs to stdout with a placeholder `session_id`. To get accurate metadata merged with your narrative:
+#### The `/distill` skill
 
-1. Run `/distill` at the end of your session
-2. **Copy the output** to clipboard
-3. Open the same session in the Obsidian plugin timeline view
-4. Run command: **"Merge /distill output from clipboard"**
+`/distill` runs inside Claude Code, not Obsidian. It writes the summary, decisions, and learnings from the conversation, but it can only estimate the numbers. The plugin has the exact ones. To combine them:
 
-The plugin will:
-- Use the real `session_id` from the active session
-- Replace approximate token/cost values with exact parsed values
-- Preserve your Summary, Decisions, Learnings, Key Exchanges sections
-- Merge `files_touched` and `tags` arrays from both sources
+1. Run `/distill` at the end of a Claude Code session
+2. Copy its output
+3. Open the same session in Obsidian
+4. Run **Merge /distill output from clipboard**
 
-#### Installation
+The plugin fills in the real `session_id`, replaces the estimated token and cost figures with exact ones, keeps the skill's narrative sections, and merges the `files_touched` and `tags` lists from both sources.
 
-To install this skill globally for all projects:
+Running **Distill session to note** again later refreshes the numbers in a merged note and leaves its text alone.
+
+To install the skill for all your projects, copy it from this repository:
 
 ```bash
-cp -r .claude/skills/distill ~/.claude/skills/
+cp -r skills/distill ~/.claude/skills/
 ```
 
-Then run `/distill` at the end of any Claude Code session.
+### System events
 
-### System Events
+A collapsible panel for things that happened around the conversation rather than in it:
 
-Collapsible panel showing session-level context:
+- **Hooks**: PreToolUse, PostToolUse, PermissionRequest, and others, with duration and exit code
+- **Available skills**: the slash commands the session could use
+- **Output style**: the active output style
+- **Command permissions**: tools a slash command pre-approved through its `allowed-tools` frontmatter
+- **Task reminders**: background task counts
 
-- **Hooks** — PreToolUse, PostToolUse, PermissionRequest events with duration and exit codes
-- **Available skills** — slash commands available during the session
-- **Task reminders** — background task counts
-
-Inline indicators on tool calls: zap icon for PreToolUse hooks, shield icon for PermissionRequest.
+Some events belong to a specific tool call, and those show as icons on the call itself: a zap for a PreToolUse hook, a shield for a permission decision (green if allowed, red if denied), scissors when a Read result was truncated, and a red or yellow warning when a hook failed.
 
 ### Theming
 
-- 42 CSS custom properties (`--cs-*`) for colors, spacing, typography, and dimensions
-- Create custom themes via [Obsidian CSS snippets](https://help.obsidian.md/Extending+Obsidian/CSS+snippets) — no plugin changes needed
-- Included [Claude brand theme](examples/claude-sessions-theme-claude.css) with light/dark variants
-- See [THEMING.md](THEMING.md) for the full variable reference
+- 45 CSS variables (`--cs-*`) for colors, spacing, type, and sizes
+- Override them with an [Obsidian CSS snippet](https://help.obsidian.md/Extending+Obsidian/CSS+snippets). No plugin changes needed
+- Includes a [Claude brand theme](examples/claude-sessions-theme-claude.css) with light and dark variants
+- [THEMING.md](THEMING.md) lists every variable
 
-### Deep Linking
+### Deep links
 
-Open sessions directly via protocol handler:
+Open a session, optionally at a specific turn, with a link:
 
 ```
 obsidian://claude-sessions?session=/path/to/session.jsonl&turn=7
 ```
 
-Paths can use `~` for the home directory, e.g. `obsidian://claude-sessions?session=~/.claude/projects/.../session.jsonl`.
+Paths can start with `~`, for example `obsidian://claude-sessions?session=~/.claude/projects/.../session.jsonl`.
 
 ---
 
 ## Usage
 
-### Browse sessions
+### Open a session
 
-1. Run the **Claude Sessions: Browse sessions** command (`Ctrl/Cmd+P`)
-2. The plugin scans your configured session directories for JSONL files
-3. Select a session from the fuzzy search modal
+Run **Claude Sessions: Browse sessions** from the command palette (`Ctrl/Cmd+P`) and pick a session.
 
-### Import a file
-
-Run **Claude Sessions: Import session file** — drag-and-drop a `.jsonl` file, use the file picker, or paste a path.
+To open a file from somewhere else, run **Claude Sessions: Import session file**, then drop a `.jsonl` file, choose one, or paste its path.
 
 ### Export
 
@@ -193,92 +174,84 @@ With a session open, run **Export session to Markdown** or **Export session to H
 
 ### Distill a session
 
-1. Open a session in the timeline view
+1. Open a session
 2. Run **Claude Sessions: Distill session to note**
-3. A structured note is created in your distill folder with:
-   - YAML frontmatter (project, cost, tokens, duration, tools, files, errors)
-   - Placeholder sections for Summary, Key Changes, Learnings, Related
+3. The note appears in your distill folder
 
-**To add LLM-generated summaries:**
-
-1. In Claude Code, run [`/distill`](./skills/distill/SKILL.md) on your session
-2. Copy the output to clipboard
-3. In Obsidian, open the same session
-4. Run **Claude Sessions: Merge /distill output from clipboard**
-5. The plugin merges the LLM narrative with exact session stats
+To add a written summary, see [the `/distill` skill](#the-distill-skill).
 
 ### Set up Bases dashboards
 
 1. Run **Claude Sessions: Install bases dashboard templates**
-2. Templates are created in your bases folder
-3. Open a `.base` file to see aggregate session data (requires Obsidian 1.8+ with Bases enabled)
+2. Open any of the `.base` files it creates in your bases folder. This needs the Bases core plugin enabled
 
 ---
 
 ## Commands
 
-| Command                                                             | Description                                        |
-| ------------------------------------------------------------------- | -------------------------------------------------- |
-| Browse sessions                                                     | Open a session from the fuzzy search modal         |
-| Search sessions                                                     | Open the cross-session search panel                |
-| Search in session                                                   | Search within the active session                   |
-| Import session file                                                 | Open a session from file path or drag-and-drop     |
-| Export session to Markdown                                          | Export as Markdown with frontmatter                |
-| Export session to HTML                                              | Export as self-contained HTML                      |
-| Expand all turns                                                    | Expand all collapsed turns                         |
-| Collapse all turns                                                  | Collapse all turns                                 |
-| Expand all blocks                                                   | Expand all tools, thinking blocks, and summary     |
-| Collapse all blocks                                                 | Collapse all tools, thinking blocks, and summary   |
-| Refresh session                                                     | Re-read and re-render the current session          |
-| Toggle live watch                                                   | Start/stop watching the session file for changes   |
-| Copy resume to clipboard                                            | Copy `claude --resume <id>` command                |
-| Distill session to note                                             | Create/update a structured note with session stats |
-| Merge [`/distill`](./skills/distill/SKILL.md) output from clipboard | Combine LLM summary with Layer 0 frontmatter       |
-| Install bases dashboard templates                                   | Add Obsidian Bases templates to your vault         |
+| Command | What it does |
+| --- | --- |
+| Browse sessions | Pick a session from a searchable list |
+| Search sessions | Open the search panel across all sessions |
+| Search in session | Search the open session |
+| Import session file | Open a session from a path or by drag-and-drop |
+| Export session to Markdown | Export as Markdown with frontmatter |
+| Export session to HTML | Export as a self-contained HTML file |
+| Expand all turns | Expand every turn |
+| Collapse all turns | Collapse every turn |
+| Expand all blocks (tools, thinking, summary) | Expand every tool, thinking block, and the summary |
+| Collapse all blocks (tools, thinking, summary) | Collapse them again |
+| Refresh session | Re-read and redraw the session |
+| Toggle live watch | Start or stop watching the file for changes |
+| Copy resume to clipboard | Copy `claude --resume <id>` |
+| Distill session to note | Create or update a note with the session's stats |
+| Merge [`/distill`](./skills/distill/SKILL.md) output from clipboard | Combine the skill's summary with exact stats |
+| Install bases dashboard templates | Add the Bases dashboards to your vault |
 
 ---
 
 ## Settings
 
-| Setting                | Default                     | Description                                                       |
-| ---------------------- | --------------------------- | ----------------------------------------------------------------- |
-| Session directories    | `~/.claude/projects`        | Directories to scan for JSONL files (supports `~`)                |
-| Export folder          | `Claude sessions`           | Vault folder for exported files                                   |
-| Distill folder         | `Claude sessions/distilled` | Vault folder for distilled session notes                          |
-| Bases folder           | `Claude sessions/bases`     | Vault folder for Obsidian Bases dashboard templates               |
-| Show thinking blocks   | On                          | Display thinking/reasoning blocks                                 |
-| Show tool calls        | On                          | Display tool use blocks                                           |
-| Show tool results      | On                          | Display tool result output                                        |
-| Content width          | 960px                       | Maximum width of session content (presets: 680–1200px or full)    |
-| Tool group threshold   | 4                           | Consecutive tool calls above this collapse into a group           |
-| Auto-scroll on update  | On                          | Scroll to bottom on live watch changes                            |
-| Notify on pending tool | Off                         | System notification when a tool call awaits permission            |
-| Show rate limits       | Off                         | Display Claude account rate limit utilization (5-hour and weekly) |
+| Setting | Default | What it does |
+| --- | --- | --- |
+| Session directories | `~/.claude/projects` | Where to look for JSONL files. `~` works |
+| Export folder | `Claude sessions` | Where exports are saved |
+| Distill folder | `Claude sessions/distilled` | Where distilled notes are saved |
+| Bases folder | `Claude sessions/bases` | Where the Bases dashboards are saved |
+| Show thinking blocks | On | Show Claude's thinking |
+| Show tool calls | On | Show tool calls |
+| Show tool results | On | Show tool output |
+| Content width | 960px | Maximum content width: 680, 800, 960, 1200px, or full |
+| Tool group threshold | 4 | Longer runs of consecutive tool calls collapse into a group |
+| Auto-scroll on update | On | Scroll to the bottom when live watch picks up changes |
+| Notify on pending tool | Off | Send a notification when a tool call needs permission |
+| Show rate limits (beta) | Off | Show your Claude 5-hour and 7-day usage on the dashboard |
+| Debug level | Warnings and errors | How much the plugin logs to the developer console |
 
 ---
 
 ## How it works
 
-The Claude Code JSONL format stores each content block (text, thinking, tool_use) as a separate record. The parser:
+Claude Code writes each piece of an assistant message (text, thinking, a tool call) as its own JSONL record. The parser:
 
-1. **Merges** consecutive assistant records into single logical turns
-2. **Deduplicates** streaming records by UUID (keeps the most complete version)
-3. **Attaches** tool results from user records to the preceding assistant turn
-4. **Extracts** token usage, deduplicated by message ID, then summed into session stats
-5. **Resolves** sub-agent sessions from `subagents/agent-<id>.jsonl` files
-6. **Captures** system events (hooks, skills, task reminders) and custom session titles
-7. **Skips** encrypted thinking blocks (Claude Code v2.1.79+) and non-content record types
+1. **Merges** consecutive assistant records into one turn
+2. **Deduplicates** streamed records by uuid, keeping the most complete copy
+3. **Attaches** each tool result to the tool call it answers
+4. **Totals** token usage, counting each message once
+5. **Loads** sub-agent sessions from `subagents/agent-<id>.jsonl`
+6. **Collects** system events (hooks, skills, output style, permissions) and custom session titles
+7. **Skips** encrypted thinking and records that carry no content
 
-The timeline view renders all turns immediately into a scrollable container. An `IntersectionObserver` drives scroll-based opacity. Tool-specific renderers handle Bash, Edit, Write, Read, AskUserQuestion, and ToolSearch with syntax highlighting, diff views, and structured displays.
+When a newer Claude Code version writes a record type the plugin hasn't seen, the summary panel shows a warning so the gap gets noticed and fixed.
 
 ---
 
-## Preserving Session History
+## Keep your session history
 
 > [!WARNING]
-> Claude Code automatically deletes session files older than **30 days** by default. If you're using this plugin for cost tracking, session analysis, or building a knowledge base from past conversations, you'll want to extend this.
+> By default, Claude Code deletes session files older than **30 days**. If you use this plugin to track costs or keep notes on past work, raise that limit.
 
-Add to `~/.claude/settings.json`:
+In `~/.claude/settings.json`:
 
 ```json
 {
@@ -290,25 +263,27 @@ Add to `~/.claude/settings.json`:
 
 ## Public API
 
-Other plugins can access session data via the public API:
+Other plugins can read session data:
 
 ```typescript
 const api = app.plugins.plugins['claude-sessions']?.api as ClaudeSessionsAPI;
 
-// Get the active session
+// The session in the active timeline
 const session = api.getActiveSession();
 
-// Parse a JSONL file
-const session = await api.parseSessionFile('/path/to/session.jsonl');
+// Parse any JSONL file (sub-agents are not resolved)
+const parsed = await api.parseSessionFile('/path/to/session.jsonl');
 
-// Subscribe to session load/reload events
+// Run a callback whenever a session loads or live watch reloads it
 const unsubscribe = api.onSessionParsed((session) => {
   console.log('Session loaded:', session.metadata.project);
 });
 
-// Get all indexed sessions (lightweight metadata)
+// Lightweight metadata for every indexed session
 const entries = await api.getSessionIndex();
 ```
+
+The API is stable. New methods may be added, and removing one would be a breaking change.
 
 ---
 
@@ -316,21 +291,21 @@ const entries = await api.getSessionIndex();
 
 [Community scorecard](https://community.obsidian.md/plugins/claude-sessions#scorecard)
 
-This plugin is flagged by the Obsidian community scanner for two patterns. Both originate in the **opt-in, beta** rate limit feature (`src/utils/rate-limits.ts`) and are used solely to read your existing Claude Code OAuth credential. No data is collected, transmitted to third parties, or used for fingerprinting.
+The Obsidian community scanner flags two patterns in this plugin. Both are in the rate limit feature (`src/utils/rate-limits.ts`), which is in beta and off by default, and both exist only to read the Claude Code OAuth credential you already have. Nothing is collected, sent to third parties, or used to identify you.
 
-| Warning | What triggers it | Why it exists |
-|---------|-----------------|---------------|
-| Shell execution (`child_process`) | `execSync` calls macOS `security` CLI (line 55) | Reads your Claude OAuth token from macOS Keychain to query your account's rate limit utilization. Only runs on macOS, only when the "Show rate limits" setting is enabled. |
-| System identity / environment variables | `process.env.HOME` (line 49) | Locates `~/.claude/.credentials.json` as a fallback credential source on Linux. Not used for identification or telemetry. |
+| Warning | Where | Why |
+| --- | --- | --- |
+| Shell execution (`child_process`) | `execSync` runs the macOS `security` command (line 55) | Reads your Claude OAuth token from the macOS Keychain so the plugin can ask Anthropic for your rate limit usage. Runs only on macOS, and only with "Show rate limits" on |
+| System identity and environment variables | `process.env.HOME` (line 49) | Finds `~/.claude/.credentials.json`, where Claude Code keeps the token on Linux. Not used for identification or telemetry |
 
-**Scope of access:**
+What it touches:
 
-- The Keychain query targets exactly one entry: `"Claude Code-credentials"`.
-- The token is sent only to `api.anthropic.com/api/oauth/usage` via Obsidian's `requestUrl()`.
-- Both paths are gated behind `Platform.isDesktop` and the "Show rate limits" toggle (off by default).
-- No data leaves the plugin except the single Anthropic API call above.
+- One Keychain entry: `"Claude Code-credentials"`
+- The token goes only to `api.anthropic.com/api/oauth/usage`, through Obsidian's `requestUrl()`
+- Both paths require the desktop app and the "Show rate limits" setting
+- Nothing else leaves the plugin
 
-If you prefer not to grant these capabilities, leave the "Show rate limits" setting disabled and the code paths are never reached.
+Leave "Show rate limits" off and this code never runs.
 
 ---
 
@@ -339,22 +314,18 @@ If you prefer not to grant these capabilities, leave the "Show rate limits" sett
 ```bash
 npm install
 npm run dev          # watch mode with source maps
-npm run build        # typecheck + production bundle
+npm run build        # typecheck and production bundle
 npm test             # vitest
-npm run test:watch   # watch mode tests
-npx eslint .         # lint with eslint-plugin-obsidianmd
+npm run test:watch   # vitest in watch mode
+npx eslint .         # lint, including eslint-plugin-obsidianmd
 ```
 
-### Tech stack
+Built with TypeScript 5.8 and esbuild, [diff](https://www.npmjs.com/package/diff) for Edit diffs, [eslint-plugin-obsidianmd](https://www.npmjs.com/package/eslint-plugin-obsidianmd) for linting, and Vitest for tests. It uses Node's `fs`, which is why it's desktop only.
 
-- TypeScript 5.8 / esbuild
-- [diff](https://www.npmjs.com/package/diff) for Edit tool rendering
-- [eslint-plugin-obsidianmd](https://www.npmjs.com/package/eslint-plugin-obsidianmd) for Obsidian-specific linting
-- Vitest for testing
-- Obsidian API (desktop only — requires Node.js `fs` access)
+See [CONTRIBUTING.md](CONTRIBUTING.md) to get involved.
 
 ---
 
 ## License
 
-[MIT](LICENSE) — Copyright (c) 2026 [@gapmiss](https://github.com/gapmiss)
+[MIT](LICENSE). Copyright (c) 2026 [@gapmiss](https://github.com/gapmiss)

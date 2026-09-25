@@ -1,6 +1,6 @@
 # Theming
 
-Claude Sessions exposes CSS custom properties (`--cs-*`) that you can override via [Obsidian CSS snippets](https://help.obsidian.md/Extending+Obsidian/CSS+snippets) to create your own visual theme. By default, all values resolve to Obsidian's built-in CSS variables, so the plugin looks native in any Obsidian theme.
+Claude Sessions has 45 CSS variables (`--cs-*`) that you can override with an [Obsidian CSS snippet](https://help.obsidian.md/Extending+Obsidian/CSS+snippets). Most default to Obsidian's own variables, so the plugin fits whatever theme you use.
 
 ## Quick start
 
@@ -32,7 +32,7 @@ For light/dark variants, scope with the body class:
 
 ## Example theme
 
-A complete Claude brand theme is included at [`examples/claude-sessions-theme-claude.css`](examples/claude-sessions-theme-claude.css). Copy it to `.obsidian/snippets/` and enable it to try it out.
+A full Claude brand theme is in [`examples/claude-sessions-theme-claude.css`](examples/claude-sessions-theme-claude.css). Copy it to `.obsidian/snippets/` and enable it to try it.
 
 ## Available variables
 
@@ -42,8 +42,8 @@ A complete Claude brand theme is included at [`examples/claude-sessions-theme-cl
 |---|---|---|
 | `--cs-accent` | `var(--interactive-accent)` | Primary interactive/accent color |
 | `--cs-accent-hover` | `var(--interactive-accent-hover)` | Accent hover state |
-| `--cs-accent-rgb` | `var(--interactive-accent-rgb)` | RGB triplet for `rgba()` usage |
-| `--cs-accent-subtle` | `rgba(--cs-accent-rgb, 0.08)` | Low-opacity accent background |
+| `--cs-accent-rgb` | `var(--interactive-accent-rgb, 124, 108, 228)` | RGB triplet for use inside `rgba()` |
+| `--cs-accent-subtle` | `rgba(var(--cs-accent-rgb), 0.08)` | Low-opacity accent background |
 
 ### Role colors
 
@@ -81,8 +81,8 @@ A complete Claude brand theme is included at [`examples/claude-sessions-theme-cl
 | `--cs-block-gap` | `var(--size-2-3)` (6px) | Space between tool/thinking/slash blocks |
 | `--cs-padding-header` | `var(--size-2-3) 10px` | Padding inside collapsible headers |
 | `--cs-padding-tool-body` | `var(--size-4-2) 10px` | Padding inside tool body panels |
-| `--cs-padding-badge` | `1px 6px` | Padding inside small badges/pills |
-| `--cs-padding-card` | `10px 6px 8px` | Dashboard hero card padding |
+| `--cs-padding-badge` | `1px var(--size-2-3)` (1px 6px) | Padding inside small badges/pills |
+| `--cs-padding-card` | `10px var(--size-2-3) var(--size-4-2)` (10px 6px 8px) | Dashboard hero card padding |
 | `--cs-collapse-height` | `13em` | Max height before "Show more" |
 | `--cs-max-scroll-height` | `400px` | Max scroll height for body panels |
 | `--cs-max-scroll-height-sm` | `300px` | Max scroll height for tool input/result |
@@ -114,19 +114,19 @@ A complete Claude brand theme is included at [`examples/claude-sessions-theme-cl
 
 | Variable | Default | Description |
 |---|---|---|
-| `--cs-indicator-size` | `8px` | Tool status dot diameter |
+| `--cs-indicator-size` | `var(--size-4-2)` (8px) | Tool status dot diameter |
 | `--cs-bar-height` | `10px` | Stacked bar chart track height |
-| `--cs-bar-height-sm` | `8px` | Tool usage bar height |
-| `--cs-progress-height` | `12px` | Scrub bar height |
+| `--cs-bar-height-sm` | `var(--size-4-2)` (8px) | Tool usage bar height |
+| `--cs-progress-height` | `var(--size-4-3)` (12px) | Scrub bar height |
 | `--cs-thumb-max-w` | `200px` | Image thumbnail max width |
 | `--cs-thumb-max-h` | `150px` | Image thumbnail max height |
 
 ## What stays constant
 
-These values are **not** themeable and always follow your Obsidian theme:
+These can't be changed with `--cs-*` variables. They always follow your Obsidian theme:
 
-- **Body text colors** (`--text-normal`, `--text-muted`, `--text-faint`) -- legibility depends on your Obsidian theme
-- **Semantic colors** (`--color-red`, `--color-green`, `--color-yellow`) -- error/success/warning meaning
-- **Border radii** (`--radius-s`, `--radius-m`) -- structural, not decorative
-- **Accessibility targets** (`min-height: 44px`) -- WCAG touch target size
-- **Animation timings** -- interaction feel, not visual identity
+- **Body text colors** (`--text-normal`, `--text-muted`, `--text-faint`), because legibility depends on your theme's background
+- **Semantic colors** (`--color-red`, `--color-green`, `--color-yellow`), because red, green, and yellow mean error, success, and warning
+- **Border radii** (`--radius-s`, `--radius-m`)
+- **Touch targets** (`min-height: 44px`), the WCAG minimum
+- **Animation timings**
