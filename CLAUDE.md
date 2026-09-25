@@ -2,7 +2,7 @@
 
 Desktop-only viewer for Claude Code JSONL sessions. Browse, search, and export sessions with rich tool rendering, live watch, and a summary dashboard.
 
-**Version**: 0.3.26 | **Branch**: main
+**Version**: 0.3.27 | **Branch**: main
 
 ## Development
 

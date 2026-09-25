@@ -18,10 +18,10 @@ Which Claude Code versions changed the JSONL format in ways that matter to this 
 | `hook_success` attachment | ~2.1.90? | 0.2.13+ | Stable | Hook runs with command, duration, and exit code. Feeds the HOOKS section and inline indicators |
 | `skill_listing` attachment | ~2.1.90? | 0.2.13+ | Stable | Skills available in the session |
 | `task_reminder` attachment | ~2.1.90? | 0.2.13+ | Stable | Background task counts |
-| `permission-mode` records | ~2.1.90? | Unreleased | New | Permission mode, repeated up to ~100 times per session. No uuid or timestamp. Repeats are collapsed and each change is shown with the turn it applies from |
+| `permission-mode` records | ~2.1.90? | 0.3.27+ | New | Permission mode, repeated up to ~100 times per session. No uuid or timestamp. Repeats are collapsed and each change is shown with the turn it applies from |
 | `custom-title` records | ~2.1.90? | 0.2.13+ | Stable | The title set with `/rename`, in `customTitle` |
 | `PermissionRequest` hook (`async_hook_response`) | 2.1.98 to 2.1.117 | 0.2.13+ | Stable | Shield icon on the tool call. Replaced in 2.1.214, still parsed for older sessions |
-| `stop_hook_summary` system records | 2.0.42 to at least 2.1.282 | Unreleased | New | The only record of Stop hooks, written after nearly every turn. `hookInfos[]` (command, optional `durationMs`), `hookErrors[]`, `preventedContinuation`. Grouped by command in the HOOKS section |
+| `stop_hook_summary` system records | 2.0.42 to at least 2.1.282 | 0.3.27+ | New | The only record of Stop hooks, written after nearly every turn. `hookInfos[]` (command, optional `durationMs`), `hookErrors[]`, `preventedContinuation`. Grouped by command in the HOOKS section |
 | `pr-link` records | ~2.1.50? | 0.3.16+ | Skipped | PR number, URL, and repo. Nothing to render |
 | `AskUserQuestion` option `preview` | ~2.1.92? | 0.3.16+ | Stable | A mockup or code sample per option, shown as a collapsible preformatted block |
 | `agent-color` records | ~2.1.119? | 0.3.16+ | Skipped | Sibling of `agent-name`. Metadata only |
@@ -42,7 +42,7 @@ Which Claude Code versions changed the JSONL format in ways that matter to this 
 | `prompt_snapshot` attachment | ~2.1.270? | 0.3.25+ | Skipped | The full system prompt. Already in the transcript as system-reminder tags |
 | `deferred_tools_record` attachment | ~2.1.270? | 0.3.25+ | Skipped | Full schemas for deferred tools. Bookkeeping, like `deferred_tools_delta` |
 | `silent_turn_reminder` attachment | ~2.1.280? | 0.3.26+ | Skipped | Tells the model to post a progress update after a long silence. Only the model sees it, and it holds no session data |
-| `credential_org` attachment | ~2.1.282? | Unreleased | Skipped | The account organization UUID behind the session credential. Login bookkeeping, and an identifier better kept out of exports |
+| `credential_org` attachment | ~2.1.282? | 0.3.27+ | Skipped | The account organization UUID behind the session credential. Login bookkeeping, and an identifier better kept out of exports |
 
 **Legend**
 

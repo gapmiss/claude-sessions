@@ -5,7 +5,7 @@ An [Obsidian](https://obsidian.md/) plugin for reading your [Claude Code](https:
 **Local and private.** The plugin reads Claude Code's JSONL files straight from disk. Nothing is uploaded or synced, and your conversations stay on your machine. The one exception is the optional rate limit display, covered under [Security notices](#security-notices).
 
 > [!IMPORTANT]
-> **v0.3.26**. Desktop only.
+> **v0.3.27**. Desktop only.
 
 > [!NOTE]
 > **System identity access:** the plugin reads the `HOME` environment variable and `os.homedir()` to find Claude Code's session files in `~/.claude/projects/`, and the OAuth credentials used by the rate limit display. These values only build local file paths. Nothing is sent anywhere.

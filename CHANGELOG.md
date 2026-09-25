@@ -8,20 +8,20 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
-## [Unreleased]
+## [0.3.27] - 2026-09-25
 
 ### Added
 - **Stop hooks in System events**: Claude Code records Stop hooks only in `stop_hook_summary` system records, written after nearly every turn. The parser never read them, so Stop hooks were missing from every session. On one machine that was 7,201 records across 805 sessions. They now appear in the HOOKS section with one row per hook command: how many times it ran, its average duration, any error messages, and how often it kept Claude working. One row per run would have meant hundreds of identical lines. Markdown export gets the same rows
 - **Permission mode in System events**: the session's permission mode (default, acceptEdits, plan, auto) and each change, with the turn it applies from. Claude Code repeats the record up to about 100 times per session with no timestamp, so repeats are collapsed and the change is placed by turn. Included in Markdown export
 
 ### Fixed
-- **Hook commands with a quoted path showed a stray quote**: `'/Users/me/hook.sh' stop` displayed as `hook.sh' stop`. It now shows `hook.sh stop`, in the panel and in Markdown export
-
-- **"Check for plugin updates" banner on CC 2.1.282 sessions**: Claude Code 2.1.282 added a `credential_org` attachment holding the account's organization UUID. It's login bookkeeping, not a session event, and an account identifier has no place in an export, so it joins `REVIEWED_ATTACHMENT_TYPES`
 - **Parse warnings banner was unreadable**: it filled with `--background-modifier-error` and colored its heading `--text-error`, which many themes resolve to the same red. The heading vanished and the warnings were grey on solid red. The banner now uses a faint red tint with normal text color, and keeps red for the border and heading
+- **"Check for plugin updates" banner on CC 2.1.282 sessions**: Claude Code 2.1.282 added a `credential_org` attachment holding the account's organization UUID. It's login bookkeeping, not a session event, and an account identifier has no place in an export, so it joins `REVIEWED_ATTACHMENT_TYPES`
+- **Hook commands with a quoted path showed a stray quote**: `'/Users/me/hook.sh' stop` displayed as `hook.sh' stop`. It now shows `hook.sh stop`, in the panel and in Markdown export
 
 ### Changed
 - **Plainer wording in the interface and exports**: em-dashes are gone from parse warnings, tool header previews (`file.ts · 3 lines`), search status, the encrypted thinking note, the live watch error, and Markdown export headings (`## Turn 3: User`)
+- **Documentation rewritten**: every doc was checked against the code and brought up to date, in plainer language
 
 ---
 
@@ -492,6 +492,7 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+[0.3.27]: https://github.com/gapmiss/claude-sessions/compare/0.3.26...0.3.27
 [0.3.26]: https://github.com/gapmiss/claude-sessions/compare/0.3.25...0.3.26
 [0.3.25]: https://github.com/gapmiss/claude-sessions/compare/0.3.24...0.3.25
 [0.3.24]: https://github.com/gapmiss/claude-sessions/compare/0.3.23...0.3.24
