@@ -6,6 +6,7 @@ import {
 	fileHistorySnapshot, sidechainAssistant, metaAssistant,
 	syntheticAssistant, userInterruption, userSlashCommand, metaSkillExpansion,
 	userBashInput, userBashOutput, userBashCaveat, hookPermissionDecision, outputStyle, commandPermissions,
+	systemStopHookSummary, permissionMode,
 } from './fixtures';
 
 function parse(content: string, filePath = '/test/session.jsonl') {
@@ -1243,5 +1244,55 @@ describe('turn-level hooks that carry a toolUseID', () => {
 			session.turns.flatMap(t => t.contentBlocks).filter(b => b.type === 'tool_use').map(b => (b as { id: string }).id),
 		);
 		expect(toolIds.has((evt as { toolUseId?: string }).toolUseId ?? '')).toBe(false);
+	});
+});
+
+// ─── System events: Stop hooks and permission mode ─────────────
+
+describe('stop_hook_summary system records', () => {
+	it('captures each summary with its hooks and errors', () => {
+		const session = parse(jsonl(
+			userText('hi'),
+			assistantText('hello'),
+			systemStopHookSummary(
+				[{ command: '~/.doorman/hook.sh stop', durationMs: 50 }, { command: 'Stop notification' }],
+				{ errors: ['Failed with non-blocking status code: lockpaw: No such file or directory'] },
+			),
+		));
+
+		const events = session.systemEvents.filter(e => e.type === 'stop_hook_summary');
+		expect(events).toHaveLength(1);
+		expect(events[0]).toMatchObject({
+			hooks: [{ command: '~/.doorman/hook.sh stop', durationMs: 50 }, { command: 'Stop notification', durationMs: undefined }],
+			errors: ['Failed with non-blocking status code: lockpaw: No such file or directory'],
+			preventedContinuation: false,
+		});
+	});
+
+	it('skips a summary that ran no hooks', () => {
+		const session = parse(jsonl(assistantText('a'), systemStopHookSummary([])));
+		expect(session.systemEvents.filter(e => e.type === 'stop_hook_summary')).toHaveLength(0);
+	});
+});
+
+describe('permission-mode records', () => {
+	it('keeps only actual changes, with the turn each took effect', () => {
+		const session = parse(jsonl(
+			permissionMode('default'),
+			userText('one'),
+			assistantText('a'),
+			permissionMode('default'),
+			userText('two'),
+			assistantText('b'),
+			permissionMode('plan'),
+			permissionMode('plan'),
+			userText('three'),
+		));
+
+		const modes = session.systemEvents.filter(e => e.type === 'permission-mode');
+		expect(modes.map(m => [(m as { permissionMode: string }).permissionMode, (m as { turnIndex: number }).turnIndex]))
+			.toEqual([['default', 0], ['plan', 4]]);
+		// The plan change lands on the user turn that follows it.
+		expect(session.turns[4].role).toBe('user');
 	});
 });

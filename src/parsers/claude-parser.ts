@@ -5,6 +5,7 @@ import {
 	BashCommandBlock, SessionStats, SubAgentSession, SystemEvent, ParseWarning,
 	SkillListingEvent, HookSuccessEvent, AsyncHookResponseEvent, HookPermissionDecisionEvent, OutputStyleEvent, CommandPermissionsEvent, TaskReminderEvent,
 	ReadTruncationNoticeEvent, HookBlockingErrorEvent, HookNonBlockingErrorEvent,
+	PermissionModeEvent, StopHookSummaryEvent,
 } from '../types';
 import { extractProjectName, projectFromCwd, dirname, basename } from '../utils/path-utils';
 import {
@@ -12,7 +13,7 @@ import {
 	SKIP_RECORD_TYPES,
 	BT_TEXT, BT_TOOL_USE, BT_TOOL_RESULT, BT_IMAGE,
 	PROGRESS_AGENT,
-	SUBAGENT_TOOL_NAMES, MODEL_SYNTHETIC, SUBTYPE_LOCAL_COMMAND,
+	SUBAGENT_TOOL_NAMES, MODEL_SYNTHETIC, SUBTYPE_LOCAL_COMMAND, SUBTYPE_STOP_HOOK_SUMMARY,
 	TAG_TASK_NOTIFICATION, TAG_COMMAND_MESSAGE_OPEN,
 	RE_COMMAND_NAME, RE_COMMAND_ARGS,
 	RE_EXIT_COMMAND, RE_SLASH_COMMAND,
@@ -88,6 +89,10 @@ interface ClaudeRecord {
 	isApiErrorMessage?: boolean;
 	// permission-mode records
 	permissionMode?: string;
+	// system stop_hook_summary records
+	hookInfos?: { command?: string; durationMs?: number }[];
+	hookErrors?: string[];
+	preventedContinuation?: boolean;
 	// attachment records
 	attachment?: Record<string, unknown>;
 	message?: {
@@ -675,6 +680,9 @@ export class ClaudeParser extends BaseParser {
 		let lastOutputStyle: string | null = null;
 		// Most recent allowed-tools grant, used to collapse unchanged repeats
 		let lastCommandPermissions: string | null = null;
+		// Most recent permission mode. Claude Code repeats the record many times
+		// per session (up to ~100) while the mode itself changes a handful of times.
+		let lastPermissionMode: string | null = null;
 		let currentAssistantTurn: Turn | null = null;
 		let pendingCompactMeta: { trigger?: string; preTokens?: number } | null = null;
 
@@ -741,6 +749,20 @@ export class ClaudeParser extends BaseParser {
 				// compact_boundary → stash metadata for the isCompactSummary user record that follows
 				if (record.subtype === 'compact_boundary' && record.compactMetadata) {
 					pendingCompactMeta = record.compactMetadata;
+				}
+				if (record.subtype === SUBTYPE_STOP_HOOK_SUMMARY && Array.isArray(record.hookInfos) && record.hookInfos.length > 0) {
+					systemEvents.push({
+						type: 'stop_hook_summary',
+						uuid: record.uuid || '',
+						timestamp: this.formatTimestamp(record.timestamp) || '',
+						parentUuid: record.parentUuid ?? undefined,
+						hooks: record.hookInfos.map(h => ({
+							command: typeof h.command === 'string' ? h.command : '',
+							durationMs: typeof h.durationMs === 'number' ? h.durationMs : undefined,
+						})),
+						errors: Array.isArray(record.hookErrors) ? record.hookErrors.filter((e): e is string => typeof e === 'string') : [],
+						preventedContinuation: record.preventedContinuation === true,
+					} satisfies StopHookSummaryEvent);
 				}
 				if (record.subtype === SUBTYPE_LOCAL_COMMAND && record.content) {
 					const blocks = this.extractSystemContent(record);
@@ -957,13 +979,23 @@ export class ClaudeParser extends BaseParser {
 					}
 				}
 			} else if (record.type === 'permission-mode') {
-				// Permission mode system event
-				systemEvents.push({
-					type: 'permission-mode',
-					uuid: record.uuid || '',
-					timestamp: this.formatTimestamp(record.timestamp) || '',
-					permissionMode: record.permissionMode || 'unknown',
-				});
+				// Keep only actual changes. The record carries no timestamp, so note
+				// the first turn it applies to instead: the next one to be pushed. An
+				// assistant turn still being built counts as already pushed. Usually
+				// that's the next user prompt, but a mid-turn Shift+Tab lands on the
+				// assistant reply.
+				const mode = record.permissionMode || 'unknown';
+				if (mode !== lastPermissionMode) {
+					lastPermissionMode = mode;
+					const pendingAssistant = currentAssistantTurn !== null && currentAssistantTurn.contentBlocks.length > 0;
+					systemEvents.push({
+						type: 'permission-mode',
+						uuid: record.uuid || '',
+						timestamp: this.formatTimestamp(record.timestamp) || '',
+						permissionMode: mode,
+						turnIndex: turns.length + (pendingAssistant ? 1 : 0),
+					} satisfies PermissionModeEvent);
+				}
 			} else if (record.type === 'attachment' && record.attachment) {
 				// Attachment system events (hooks, skills, tasks)
 				const att = record.attachment;

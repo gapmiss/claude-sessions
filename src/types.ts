@@ -62,7 +62,7 @@ export interface Session {
 // ── System Events ──
 
 export type SystemEventType = 'permission-mode' | 'skill_listing' | 'hook_success' | 'async_hook_response' | 'hook_permission_decision' | 'output_style' | 'command_permissions' | 'task_reminder'
-	| 'read_truncation_notice' | 'hook_blocking_error' | 'hook_non_blocking_error';
+	| 'read_truncation_notice' | 'hook_blocking_error' | 'hook_non_blocking_error' | 'stop_hook_summary';
 
 export interface BaseSystemEvent {
 	type: SystemEventType;
@@ -74,6 +74,19 @@ export interface BaseSystemEvent {
 export interface PermissionModeEvent extends BaseSystemEvent {
 	type: 'permission-mode';
 	permissionMode: string;
+	/** 0-based index of the turn in progress when the mode took effect. The record has no timestamp. */
+	turnIndex: number;
+}
+
+/**
+ * Stop hooks that ran at the end of a turn, from a `system` record with
+ * subtype `stop_hook_summary`. This is the only place Stop hooks are recorded.
+ */
+export interface StopHookSummaryEvent extends BaseSystemEvent {
+	type: 'stop_hook_summary';
+	hooks: { command: string; durationMs?: number }[];
+	errors: string[];
+	preventedContinuation: boolean;
 }
 
 export interface SkillListingEvent extends BaseSystemEvent {
@@ -183,7 +196,7 @@ export interface HookNonBlockingErrorEvent extends BaseSystemEvent {
 }
 
 export type SystemEvent = PermissionModeEvent | SkillListingEvent | HookSuccessEvent | AsyncHookResponseEvent | HookPermissionDecisionEvent | OutputStyleEvent | CommandPermissionsEvent | TaskReminderEvent
-	| ReadTruncationNoticeEvent | HookBlockingErrorEvent | HookNonBlockingErrorEvent;
+	| ReadTruncationNoticeEvent | HookBlockingErrorEvent | HookNonBlockingErrorEvent | StopHookSummaryEvent;
 
 export interface Turn {
 	index: number;

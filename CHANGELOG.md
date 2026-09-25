@@ -8,6 +8,17 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Stop hooks in System events**: Claude Code records Stop hooks only in `stop_hook_summary` system records, written after nearly every turn. The parser never read them, so Stop hooks were missing from every session. On one machine that was 7,201 records across 805 sessions. They now appear in the HOOKS section with one row per hook command: how many times it ran, its average duration, any error messages, and how often it kept Claude working. One row per run would have meant hundreds of identical lines. Markdown export gets the same rows
+- **Permission mode in System events**: the session's permission mode (default, acceptEdits, plan, auto) and each change, with the turn it applies from. Claude Code repeats the record up to about 100 times per session with no timestamp, so repeats are collapsed and the change is placed by turn. Included in Markdown export
+
+### Fixed
+- **Hook commands with a quoted path showed a stray quote**: `'/Users/me/hook.sh' stop` displayed as `hook.sh' stop`. It now shows `hook.sh stop`, in the panel and in Markdown export
+
+---
+
 ## [0.3.26] - 2026-09-25
 
 ### Fixed

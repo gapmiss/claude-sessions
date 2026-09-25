@@ -56,6 +56,8 @@ Pitfalls we've already hit, so nobody has to hit them twice. It isn't loaded int
 ### Hooks
 
 - Hooks were once `progress` records with `data.type: "hook_progress"`. Those are gone. Hooks now arrive as attachments (`hook_success`, `async_hook_response`, `hook_permission_decision`, `hook_blocking_error`, `hook_non_blocking_error`)
+- Stop hooks are recorded only in `system` records with subtype `stop_hook_summary`, one after nearly every turn. They almost never appear as `hook_success` attachments, so reading attachments alone misses them. Unhandled `system` subtypes don't raise a warning, which is how these went unrendered for months
+- `permission-mode` records have no uuid or timestamp and repeat constantly. Collapse repeats in the parser and record the turn the change applies to. A mode switched with Shift+Tab mid-turn lands on the assistant reply, not a user prompt
 - A hook event either belongs to a tool call or to the turn. Tool events show on the tool call; turn events go in the System events panel. Having a `toolUseID` isn't enough: a `Stop` hook carries one that names no tool call. Check that the id matches a real tool call
 - `PermissionRequest` changed shape in Claude Code 2.1.214. From 2.1.98 to 2.1.117 it was an `async_hook_response` attachment with `hookName: "PermissionRequest:<Tool>"`. Now it's a `hook_permission_decision` attachment with `decision` and an authoritative `toolUseID`. The parser reads both. The new one has no stdout, duration, or command, so it only drives the header icon
 

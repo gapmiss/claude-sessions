@@ -3,12 +3,11 @@ import { diffLines } from 'diff';
 import type {
 	Session, Turn, ContentBlock, ToolUseBlock, ToolResultBlock, SystemEvent,
 	HookSuccessEvent, AsyncHookResponseEvent, SkillListingEvent, TaskReminderEvent,
-	OutputStyleEvent, CommandPermissionsEvent, HookNonBlockingErrorEvent, PluginSettings,
+	OutputStyleEvent, CommandPermissionsEvent, HookNonBlockingErrorEvent, PermissionModeEvent, PluginSettings,
 } from '../types';
-import { fence, langFromPath, stripLineNumbers, stripFenceMarkers } from '../views/render-helpers';
+import { fence, langFromPath, stripLineNumbers, stripFenceMarkers, summarizeStopHooks, shortHookCommand } from '../views/render-helpers';
 import { ANSI_STRIP_RE } from '../constants';
 import type { ExportOptions } from '../views/export-modal';
-import { basename } from '../utils/path-utils';
 
 interface PendingImage {
 	fileName: string;
@@ -302,9 +301,11 @@ function buildSystemEventsSection(events: SystemEvent[], inlineIds: Set<string>)
 	const tasks = events.filter((e): e is TaskReminderEvent => e.type === 'task_reminder' && e.itemCount > 0);
 	const styles = events.filter((e): e is OutputStyleEvent => e.type === 'output_style');
 	const grants = events.filter((e): e is CommandPermissionsEvent => e.type === 'command_permissions');
+	const modes = events.filter((e): e is PermissionModeEvent => e.type === 'permission-mode');
+	const stopHooks = summarizeStopHooks(events);
 
-	if (hooks.length === 0 && skills.length === 0 && tasks.length === 0
-		&& styles.length === 0 && grants.length === 0) return null;
+	if (hooks.length === 0 && skills.length === 0 && tasks.length === 0 && styles.length === 0
+		&& grants.length === 0 && modes.length === 0 && stopHooks.totalRuns === 0) return null;
 
 	const lines: string[] = [];
 	lines.push('## System events');
@@ -319,18 +320,28 @@ function buildSystemEventsSection(events: SystemEvent[], inlineIds: Set<string>)
 		lines.push('');
 	}
 
+	if (modes.length > 0) {
+		lines.push(modes.length > 1 ? `### Permission mode (${modes.length - 1} ${modes.length === 2 ? 'change' : 'changes'})` : '### Permission mode');
+		lines.push('');
+		for (const mode of modes) {
+			const when = mode.turnIndex === 0 ? 'from the start' : `from turn ${mode.turnIndex + 1}`;
+			lines.push(`- **${mode.permissionMode}**, ${when}`);
+		}
+		lines.push('');
+	}
+
 	if (grants.length > 0) {
 		lines.push('### Command permissions');
 		lines.push('');
 		for (const grant of grants) {
 			const tools = grant.allowedTools.map(t => `\`${t}\``).join(', ');
-			lines.push(grant.commandName ? `- **${grant.commandName}** — ${tools}` : `- ${tools}`);
+			lines.push(grant.commandName ? `- **${grant.commandName}**: ${tools}` : `- ${tools}`);
 		}
 		lines.push('');
 	}
 
-	if (hooks.length > 0) {
-		lines.push(`### Hooks (${hooks.length})`);
+	if (hooks.length > 0 || stopHooks.totalRuns > 0) {
+		lines.push(`### Hooks (${hooks.length + stopHooks.totalRuns})`);
 		lines.push('');
 		for (const hook of hooks) {
 			const nameParts = hook.hookName.split(':');
@@ -339,7 +350,7 @@ function buildSystemEventsSection(events: SystemEvent[], inlineIds: Set<string>)
 			const parts: string[] = [`**${eventType}**`];
 			if (toolName) parts.push(toolName);
 			if (hook.type !== 'async_hook_response' && hook.durationMs > 0) parts.push(`${hook.durationMs}ms`);
-			if (hook.type !== 'async_hook_response' && hook.command) parts.push(`\`${basename(hook.command)}\``);
+			if (hook.type !== 'async_hook_response' && hook.command) parts.push(`\`${shortHookCommand(hook.command)}\``);
 			if (hook.exitCode !== 0) parts.push(`exit ${hook.exitCode}`);
 			lines.push(`- ${parts.join(' · ')}`);
 			if (hook.stdout?.trim()) {
@@ -347,6 +358,20 @@ function buildSystemEventsSection(events: SystemEvent[], inlineIds: Set<string>)
 				const preview = stdout.length > 200 ? stdout.slice(0, 200) + '...' : stdout;
 				lines.push(`  \`\`\`\n  ${preview}\n  \`\`\``);
 			}
+		}
+		for (const group of stopHooks.groups) {
+			const parts: string[] = ['**Stop**', `${group.runs} ${group.runs === 1 ? 'run' : 'runs'}`];
+			if (group.avgMs !== undefined) parts.push(`avg ${group.avgMs}ms`);
+			if (group.command) parts.push(`\`${shortHookCommand(group.command)}\``);
+			lines.push(`- ${parts.join(' · ')}`);
+		}
+		for (const error of stopHooks.errors) {
+			const times = error.count > 1 ? `, ${error.count} times` : '';
+			lines.push(`- **Stop** · error${times}: ${error.message}`);
+		}
+		if (stopHooks.preventedCount > 0) {
+			const times = stopHooks.preventedCount === 1 ? 'once' : `${stopHooks.preventedCount} times`;
+			lines.push(`- **Stop** · kept Claude working ${times}`);
 		}
 		lines.push('');
 	}

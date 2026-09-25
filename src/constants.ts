@@ -105,6 +105,7 @@ export const MODEL_SYNTHETIC = '<synthetic>';
 
 // ── System record subtypes ───────────────────────────────────
 export const SUBTYPE_LOCAL_COMMAND = 'local_command';
+export const SUBTYPE_STOP_HOOK_SUMMARY = 'stop_hook_summary';
 
 // ── XML tags (Claude Code internal protocol) ─────────────────
 // STRUCTURAL ASSUMPTION: these tags are parsed via regex (see RE_* constants below).

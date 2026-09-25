@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeMarkdown, stripFenceMarkers, buildInlineHookEventMap } from '../src/views/render-helpers';
+import { normalizeMarkdown, stripFenceMarkers, buildInlineHookEventMap, summarizeStopHooks, shortHookCommand } from '../src/views/render-helpers';
 import type { SystemEvent } from '../src/types';
 
 describe('normalizeMarkdown', () => {
@@ -101,5 +101,54 @@ describe('buildInlineHookEventMap', () => {
 		]);
 
 		expect(map.size).toBe(0);
+	});
+});
+
+describe('summarizeStopHooks', () => {
+	const summary = (hooks: { command: string; durationMs?: number }[], errors: string[] = [], preventedContinuation = false): SystemEvent => ({
+		type: 'stop_hook_summary', uuid: crypto.randomUUID(), timestamp: '', hooks, errors, preventedContinuation,
+	});
+
+	it('groups runs by command and averages only reported durations', () => {
+		const result = summarizeStopHooks([
+			summary([{ command: 'bridge.sh', durationMs: 40 }, { command: 'Stop notification' }]),
+			summary([{ command: 'bridge.sh', durationMs: 60 }, { command: 'Stop notification' }]),
+		]);
+
+		expect(result.groups).toEqual([
+			{ command: 'bridge.sh', runs: 2, avgMs: 50 },
+			{ command: 'Stop notification', runs: 2, avgMs: undefined },
+		]);
+		expect(result.totalRuns).toBe(4);
+	});
+
+	it('counts repeated errors and blocked stops', () => {
+		const result = summarizeStopHooks([
+			summary([{ command: 'a' }], ['missing script']),
+			summary([{ command: 'a' }], ['missing script'], true),
+		]);
+
+		expect(result.errors).toEqual([{ message: 'missing script', count: 2 }]);
+		expect(result.preventedCount).toBe(1);
+	});
+
+	it('ignores other event types', () => {
+		const result = summarizeStopHooks([
+			{ type: 'output_style', uuid: 'x', timestamp: '', style: 'Terse' } as SystemEvent,
+		]);
+		expect(result).toEqual({ groups: [], errors: [], preventedCount: 0, totalRuns: 0 });
+	});
+});
+
+describe('shortHookCommand', () => {
+	it('drops the directory from a quoted path and keeps arguments', () => {
+		expect(shortHookCommand("'/Users/gm/.doorman/hook.sh' stop")).toBe('hook.sh stop');
+		expect(shortHookCommand('"$HOME/.local/bin/lockpaw" ping')).toBe('lockpaw ping');
+	});
+
+	it('handles unquoted commands and plain labels', () => {
+		expect(shortHookCommand('/Users/gm/.ccnotify/bridge.sh')).toBe('bridge.sh');
+		expect(shortHookCommand('python3 ~/.claude/hooks/state.py')).toBe('python3 ~/.claude/hooks/state.py');
+		expect(shortHookCommand('Stop notification')).toBe('Stop notification');
 	});
 });

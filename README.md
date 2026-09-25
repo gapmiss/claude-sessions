@@ -133,9 +133,10 @@ cp -r skills/distill ~/.claude/skills/
 
 A collapsible panel for things that happened around the conversation rather than in it:
 
-- **Hooks**: PreToolUse, PostToolUse, PermissionRequest, and others, with duration and exit code
+- **Hooks**: PreToolUse, PostToolUse, PermissionRequest, and others, with duration and exit code. Stop hooks, which run after every turn, get one row per hook with its run count, average time, and any errors
 - **Available skills**: the slash commands the session could use
 - **Output style**: the active output style
+- **Permission mode**: each mode the session used (default, acceptEdits, plan, auto) and the turn it started
 - **Command permissions**: tools a slash command pre-approved through its `allowed-tools` frontmatter
 - **Task reminders**: background task counts
 

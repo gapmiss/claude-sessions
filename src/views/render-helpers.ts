@@ -1,7 +1,7 @@
 import { App, Component, setIcon } from 'obsidian';
 import type {
 	PluginSettings, SystemEvent, HookSuccessEvent, AsyncHookResponseEvent, HookPermissionDecisionEvent,
-	ReadTruncationNoticeEvent, HookBlockingErrorEvent, HookNonBlockingErrorEvent,
+	ReadTruncationNoticeEvent, HookBlockingErrorEvent, HookNonBlockingErrorEvent, StopHookSummaryEvent,
 } from '../types';
 
 /** Events that attach to a specific tool call and render as an indicator on its header. */
@@ -32,6 +32,90 @@ export function buildInlineHookEventMap(events: SystemEvent[]): Map<string, Inli
 		else map.set(inline.toolUseId, [inline]);
 	}
 	return map;
+}
+
+/**
+ * Short label for a hook command: the executable's file name plus its
+ * arguments. Handles a quoted path, so `'/a/b/hook.sh' stop` becomes
+ * `hook.sh stop` rather than `hook.sh' stop`.
+ */
+export function shortHookCommand(command: string): string {
+	const trimmed = command.trim();
+	const quote = trimmed[0];
+	let exe: string;
+	let rest: string;
+	if ((quote === '"' || quote === "'") && trimmed.indexOf(quote, 1) > 0) {
+		const end = trimmed.indexOf(quote, 1);
+		exe = trimmed.slice(1, end);
+		rest = trimmed.slice(end + 1).trim();
+	} else {
+		const space = trimmed.search(/\s/);
+		exe = space === -1 ? trimmed : trimmed.slice(0, space);
+		rest = space === -1 ? '' : trimmed.slice(space + 1).trim();
+	}
+	const name = exe.slice(exe.lastIndexOf('/') + 1) || exe;
+	return rest ? `${name} ${rest}` : name;
+}
+
+export interface StopHookGroup {
+	command: string;
+	runs: number;
+	/** Average over the runs that reported a duration. Undefined if none did. */
+	avgMs?: number;
+}
+
+export interface StopHookSummary {
+	groups: StopHookGroup[];
+	/** Distinct error messages with how often each occurred. */
+	errors: { message: string; count: number }[];
+	/** Runs where a Stop hook kept Claude from finishing its turn. */
+	preventedCount: number;
+	/** Total hook runs across all groups. */
+	totalRuns: number;
+}
+
+/**
+ * Collapse `stop_hook_summary` events into one row per hook command.
+ *
+ * Claude Code writes a summary after nearly every turn, so listing each run
+ * would bury the Hooks section under hundreds of identical rows. Errors are
+ * reported per summary rather than per hook, so they're kept separately.
+ */
+export function summarizeStopHooks(events: SystemEvent[]): StopHookSummary {
+	const byCommand = new Map<string, { runs: number; totalMs: number; timed: number }>();
+	const errors = new Map<string, number>();
+	let preventedCount = 0;
+	let totalRuns = 0;
+
+	for (const evt of events) {
+		if (evt.type !== 'stop_hook_summary') continue;
+		const summary: StopHookSummaryEvent = evt;
+		if (summary.preventedContinuation) preventedCount++;
+		for (const message of summary.errors) {
+			errors.set(message, (errors.get(message) ?? 0) + 1);
+		}
+		for (const hook of summary.hooks) {
+			totalRuns++;
+			const group = byCommand.get(hook.command) ?? { runs: 0, totalMs: 0, timed: 0 };
+			group.runs++;
+			if (hook.durationMs !== undefined) {
+				group.totalMs += hook.durationMs;
+				group.timed++;
+			}
+			byCommand.set(hook.command, group);
+		}
+	}
+
+	return {
+		groups: [...byCommand].map(([command, g]) => ({
+			command,
+			runs: g.runs,
+			avgMs: g.timed > 0 ? Math.round(g.totalMs / g.timed) : undefined,
+		})),
+		errors: [...errors].map(([message, count]) => ({ message, count })),
+		preventedCount,
+		totalRuns,
+	};
 }
 
 /** Shared context passed to all renderer functions. */

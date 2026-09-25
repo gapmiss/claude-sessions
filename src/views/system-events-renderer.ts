@@ -1,10 +1,9 @@
 import { setIcon } from 'obsidian';
 import type {
 	Session, HookSuccessEvent, AsyncHookResponseEvent, SkillListingEvent, TaskReminderEvent,
-	OutputStyleEvent, CommandPermissionsEvent, HookNonBlockingErrorEvent,
+	OutputStyleEvent, CommandPermissionsEvent, HookNonBlockingErrorEvent, PermissionModeEvent,
 } from '../types';
-import { makeClickable } from './render-helpers';
-import { basename } from '../utils/path-utils';
+import { makeClickable, shortHookCommand, summarizeStopHooks, type StopHookSummary } from './render-helpers';
 
 /** Format a count with its noun, pluralized. */
 function plural(count: number, noun: string): string {
@@ -12,7 +11,8 @@ function plural(count: number, noun: string): string {
 }
 
 /**
- * Render the System Events panel (collapsible) showing hooks, skills, and task reminders.
+ * Render the collapsible System events panel: output style, permission mode,
+ * command permissions, hooks, skills, and task reminders.
  */
 export function renderSystemEvents(session: Session, container: HTMLElement): void {
 	const events = session.systemEvents;
@@ -41,10 +41,12 @@ export function renderSystemEvents(session: Session, container: HTMLElement): vo
 	// the HOOKS section when it isn't already shown inline on a tool call.
 	const hookErrors = events.filter((e): e is HookNonBlockingErrorEvent =>
 		e.type === 'hook_non_blocking_error' && !isInline(e));
+	const modes = events.filter((e): e is PermissionModeEvent => e.type === 'permission-mode');
+	const stopHooks = summarizeStopHooks(events);
 
 	// Don't render if nothing meaningful to show
-	if (hooks.length === 0 && skills.length === 0 && tasks.length === 0
-		&& styles.length === 0 && grants.length === 0 && hookErrors.length === 0) return;
+	if (hooks.length === 0 && skills.length === 0 && tasks.length === 0 && styles.length === 0
+		&& grants.length === 0 && hookErrors.length === 0 && modes.length === 0 && stopHooks.totalRuns === 0) return;
 
 	const el = container.createDiv({ cls: 'claude-sessions-system-events' });
 
@@ -56,13 +58,15 @@ export function renderSystemEvents(session: Session, container: HTMLElement): vo
 	header.createSpan({ cls: 'claude-sessions-system-events-title', text: 'System events' });
 
 	// Inline count. Skills and tasks count the items inside their listing
-	// records, not the records themselves — one skill_listing can carry many.
+	// records, not the records themselves. One skill_listing can carry many.
 	const skillCount = skills.reduce((sum, s) => sum + s.skillCount, 0);
 	const taskCount = tasks.reduce((sum, t) => sum + t.itemCount, 0);
 
 	const counts: string[] = [];
 	if (styles.length > 0) counts.push(styles[styles.length - 1].style);
-	if (hooks.length > 0) counts.push(plural(hooks.length, 'hook'));
+	if (modes.length > 1) counts.push(plural(modes.length - 1, 'mode change'));
+	const hookRuns = hooks.length + hookErrors.length + stopHooks.totalRuns;
+	if (hookRuns > 0) counts.push(plural(hookRuns, 'hook'));
 	if (skillCount > 0) counts.push(plural(skillCount, 'skill'));
 	if (taskCount > 0) counts.push(plural(taskCount, 'task'));
 	if (grants.length > 0) counts.push(plural(grants.length, 'grant'));
@@ -83,14 +87,19 @@ export function renderSystemEvents(session: Session, container: HTMLElement): vo
 		renderOutputStyleSection(body, styles);
 	}
 
+	// Permission mode section
+	if (modes.length > 0) {
+		renderPermissionModeSection(body, modes);
+	}
+
 	// Command permissions section
 	if (grants.length > 0) {
 		renderCommandPermissionsSection(body, grants);
 	}
 
 	// Hooks section
-	if (hooks.length > 0 || hookErrors.length > 0) {
-		renderHooksSection(body, [...hooks, ...hookErrors]);
+	if (hookRuns > 0) {
+		renderHooksSection(body, [...hooks, ...hookErrors], stopHooks);
 	}
 
 	// Skills section
@@ -131,6 +140,29 @@ function renderOutputStyleSection(container: HTMLElement, styles: OutputStyleEve
 	}
 }
 
+function renderPermissionModeSection(container: HTMLElement, modes: PermissionModeEvent[]): void {
+	const section = container.createDiv({ cls: 'claude-sessions-system-events-section' });
+	const sectionHeader = section.createDiv({ cls: 'claude-sessions-system-events-section-header' });
+	const headerIcon = sectionHeader.createSpan({ cls: 'claude-sessions-system-events-section-icon' });
+	setIcon(headerIcon, 'lock-keyhole');
+	sectionHeader.createSpan({ text: modes.length > 1 ? `Permission mode (${plural(modes.length - 1, 'change')})` : 'Permission mode' });
+
+	const list = section.createDiv({ cls: 'claude-sessions-system-events-list' });
+	for (const mode of modes) {
+		const row = list.createDiv({ cls: 'claude-sessions-system-events-row' });
+		const badge = row.createSpan({ cls: 'claude-sessions-system-events-badge' });
+		// Mode names are camelCase identifiers (acceptEdits), so keep their casing.
+		badge.createSpan({
+			cls: 'claude-sessions-system-events-badge-event claude-sessions-system-events-badge-style',
+			text: mode.permissionMode,
+		});
+		row.createSpan({
+			cls: 'claude-sessions-system-events-duration',
+			text: mode.turnIndex === 0 ? 'from the start' : `from turn ${mode.turnIndex + 1}`,
+		});
+	}
+}
+
 function renderCommandPermissionsSection(container: HTMLElement, grants: CommandPermissionsEvent[]): void {
 	const section = container.createDiv({ cls: 'claude-sessions-system-events-section' });
 	const sectionHeader = section.createDiv({ cls: 'claude-sessions-system-events-section-header' });
@@ -158,12 +190,12 @@ function renderCommandPermissionsSection(container: HTMLElement, grants: Command
 
 type HookRow = HookSuccessEvent | AsyncHookResponseEvent | HookNonBlockingErrorEvent;
 
-function renderHooksSection(container: HTMLElement, hooks: HookRow[]): void {
+function renderHooksSection(container: HTMLElement, hooks: HookRow[], stopHooks: StopHookSummary): void {
 	const section = container.createDiv({ cls: 'claude-sessions-system-events-section' });
 	const sectionHeader = section.createDiv({ cls: 'claude-sessions-system-events-section-header' });
 	const headerIcon = sectionHeader.createSpan({ cls: 'claude-sessions-system-events-section-icon' });
 	setIcon(headerIcon, 'zap');
-	sectionHeader.createSpan({ text: `Hooks (${hooks.length})` });
+	sectionHeader.createSpan({ text: `Hooks (${hooks.length + stopHooks.totalRuns})` });
 
 	const list = section.createDiv({ cls: 'claude-sessions-system-events-list' });
 
@@ -193,7 +225,7 @@ function renderHooksSection(container: HTMLElement, hooks: HookRow[]): void {
 		if (hook.type !== 'async_hook_response' && hook.command) {
 			row.createSpan({
 				cls: 'claude-sessions-system-events-command',
-				text: basename(hook.command),
+				text: shortHookCommand(hook.command),
 				attr: { title: hook.command },
 			});
 		}
@@ -224,6 +256,49 @@ function renderHooksSection(container: HTMLElement, hooks: HookRow[]): void {
 				row.createDiv({ cls: 'claude-sessions-system-events-stdout', text: stdout });
 			}
 		}
+	}
+
+	renderStopHookRows(list, stopHooks);
+}
+
+/** One row per Stop hook command, then any errors and blocked stops. */
+function renderStopHookRows(list: HTMLElement, stopHooks: StopHookSummary): void {
+	for (const group of stopHooks.groups) {
+		const row = list.createDiv({ cls: 'claude-sessions-system-events-row' });
+		const badge = row.createSpan({ cls: 'claude-sessions-system-events-badge' });
+		badge.createSpan({ cls: 'claude-sessions-system-events-badge-event', text: 'Stop' });
+		row.createSpan({ cls: 'claude-sessions-system-events-duration', text: plural(group.runs, 'run') });
+		if (group.avgMs !== undefined) {
+			row.createSpan({ cls: 'claude-sessions-system-events-duration', text: `avg ${group.avgMs}ms` });
+		}
+		if (group.command) {
+			row.createSpan({
+				cls: 'claude-sessions-system-events-command',
+				text: shortHookCommand(group.command),
+				attr: { title: group.command },
+			});
+		}
+	}
+
+	for (const error of stopHooks.errors) {
+		const row = list.createDiv({ cls: 'claude-sessions-system-events-row' });
+		const badge = row.createSpan({ cls: 'claude-sessions-system-events-badge' });
+		badge.createSpan({ cls: 'claude-sessions-system-events-badge-event', text: 'Stop' });
+		row.createSpan({
+			cls: 'claude-sessions-system-events-error',
+			text: error.count > 1 ? `error, ${error.count} times` : 'error',
+		});
+		row.createDiv({ cls: 'claude-sessions-system-events-stdout', text: error.message });
+	}
+
+	if (stopHooks.preventedCount > 0) {
+		const row = list.createDiv({ cls: 'claude-sessions-system-events-row' });
+		const badge = row.createSpan({ cls: 'claude-sessions-system-events-badge' });
+		badge.createSpan({ cls: 'claude-sessions-system-events-badge-event', text: 'Stop' });
+		row.createSpan({
+			cls: 'claude-sessions-system-events-error',
+			text: `kept Claude working ${stopHooks.preventedCount === 1 ? 'once' : `${stopHooks.preventedCount} times`}`,
+		});
 	}
 }
 

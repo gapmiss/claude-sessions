@@ -11,10 +11,10 @@ How the plugin is put together: parsing, rendering, export, and distill. It isn'
 | `user` | String content becomes a user turn. Array content holds tool results, which attach to the preceding assistant turn |
 | `assistant` | Each content block (thinking, text, tool_use) is a **separate record** with its own uuid. Consecutive records merge into one turn |
 | `attachment` | Subtypes carry hooks, skills, output style, command permissions, task reminders, mid-turn messages, and more. See `buildTurns()` and `REVIEWED_ATTACHMENT_TYPES` |
-| `system` | `compact_boundary` supplies compaction stats. `local_command` becomes a slash command display. Others are ignored |
+| `system` | `compact_boundary` supplies compaction stats. `local_command` becomes a slash command display. `stop_hook_summary` records Stop hook runs. Others are ignored |
 | `summary` | Compaction boundary marker |
 | `custom-title` | The session title from `/rename` (`customTitle` field). The last one wins |
-| `permission-mode` | Captured as a system event. Not displayed yet |
+| `permission-mode` | Becomes a system event when the mode changes, tagged with the turn it applies from |
 | `progress` | Skipped, except `agent_progress`, which feeds legacy inline sub-agents |
 | `queue-operation` | Skipped, except `<task-notification>` XML, which carries background agent results |
 | Metadata-only types | In `SKIP_RECORD_TYPES` (`file-history-snapshot`, `mode`, `ai-title`, `pr-link`, and others) or `REVIEWED_RECORD_TYPES`. Anything unlisted raises a parse warning |
@@ -115,7 +115,8 @@ An `ItemView` of type `claude-sessions-timeline`.
 ### System events renderer (`system-events-renderer.ts`)
 
 - A collapsible "System events" panel below the summary
-- Sections: output style, command permissions, hooks, available skills, task reminders
+- Sections: output style, permission mode, command permissions, hooks, available skills, task reminders
+- Stop hooks are grouped by command (`summarizeStopHooks()`): runs, average duration, errors, and blocked stops. One row per run would mean hundreds of identical rows
 - Hook events tied to a tool call are left out here, because they show on the tool call
 - Header counts add up the *items* in listing records (`skillCount`, `itemCount`), not the number of records
 
@@ -221,7 +222,7 @@ Built from the parsed `Session`, not the DOM:
 
 - **Frontmatter**: cost, tokens (input, output, cache read and write, total, context, peak), compaction count, duration
 - **Summary** (optional): hero stats, token and tool tables, details, parse warnings
-- **System events** (optional): hooks with event, duration, command, and exit code; skills; output style; command permissions; task reminders
+- **System events** (optional): output style; permission mode; command permissions; hooks with event, duration, command, and exit code, plus grouped Stop hooks; skills; task reminders
 - **Tools**: Edit as a diff, Write highlighted, Bash as a command block, Read as path and line range, AskUserQuestion as questions and answers with option previews, Agent and Task as nested turns, ToolSearch as a list of matches
 - **Enriched results**: Bash stderr and exit code, AskUserQuestion answers, ToolSearch matches, permission decisions
 - **Turn headings** flag API errors and max-token stops

@@ -18,10 +18,10 @@ Which Claude Code versions changed the JSONL format in ways that matter to this 
 | `hook_success` attachment | ~2.1.90? | 0.2.13+ | Stable | Hook runs with command, duration, and exit code. Feeds the HOOKS section and inline indicators |
 | `skill_listing` attachment | ~2.1.90? | 0.2.13+ | Stable | Skills available in the session |
 | `task_reminder` attachment | ~2.1.90? | 0.2.13+ | Stable | Background task counts |
-| `permission-mode` records | ~2.1.90? | 0.2.13+ | Stable | Permission mode changes. Captured as system events, but not displayed yet |
+| `permission-mode` records | ~2.1.90? | Unreleased | New | Permission mode, repeated up to ~100 times per session. No uuid or timestamp. Repeats are collapsed and each change is shown with the turn it applies from |
 | `custom-title` records | ~2.1.90? | 0.2.13+ | Stable | The title set with `/rename`, in `customTitle` |
 | `PermissionRequest` hook (`async_hook_response`) | 2.1.98 to 2.1.117 | 0.2.13+ | Stable | Shield icon on the tool call. Replaced in 2.1.214, still parsed for older sessions |
-| `stop_hook_summary` system records | ? to at least 2.1.119 | none | Ignored | Stop hook summary (`hookInfos[]`, `hookErrors[]`). Not rendered and not warned about |
+| `stop_hook_summary` system records | 2.0.42 to at least 2.1.282 | Unreleased | New | The only record of Stop hooks, written after nearly every turn. `hookInfos[]` (command, optional `durationMs`), `hookErrors[]`, `preventedContinuation`. Grouped by command in the HOOKS section |
 | `pr-link` records | ~2.1.50? | 0.3.16+ | Skipped | PR number, URL, and repo. Nothing to render |
 | `AskUserQuestion` option `preview` | ~2.1.92? | 0.3.16+ | Stable | A mockup or code sample per option, shown as a collapsible preformatted block |
 | `agent-color` records | ~2.1.119? | 0.3.16+ | Skipped | Sibling of `agent-name`. Metadata only |
@@ -50,7 +50,6 @@ Which Claude Code versions changed the JSONL format in ways that matter to this 
 - Stable: confirmed working across several versions
 - New: implemented recently, needs more testing
 - Skipped: reviewed and deliberately not rendered
-- Ignored: exists in real sessions, but the plugin neither renders nor warns about it
 
 ---
 

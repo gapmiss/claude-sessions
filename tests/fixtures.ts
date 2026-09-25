@@ -273,58 +273,36 @@ export function userInterruption(opts?: {
 	};
 }
 
-/** User record with custom session title from /rename command. CC ~2.1.90+ */
-export function userCustomTitle(title: string, opts?: {
+/**
+ * Stop hook summary, written after a turn ends. CC 2.0.42 through at least
+ * 2.1.282. This is the only record of Stop hooks; they don't appear as
+ * hook_success attachments. The toolUseID names no tool call.
+ */
+export function systemStopHookSummary(hooks: { command: string; durationMs?: number }[], opts?: {
 	uuid?: string;
 	timestamp?: string;
-}): Record<string, unknown> {
-	return {
-		type: 'user',
-		uuid: opts?.uuid ?? crypto.randomUUID(),
-		timestamp: opts?.timestamp ?? '2026-01-01T00:01:00.000Z',
-		message: {
-			role: 'user',
-			content: `<custom-title>${title}</custom-title>`,
-		},
-	};
-}
-
-/** System record with hook summary. CC ~2.1.90+ */
-export function systemHookSummary(hooks: { hookName: string; hookEvent: string; command: string; durationMs: number; exitCode?: number; stdout?: string; toolUseId?: string }[], opts?: {
-	uuid?: string;
-	timestamp?: string;
+	errors?: string[];
+	preventedContinuation?: boolean;
 }): Record<string, unknown> {
 	return {
 		type: 'system',
 		subtype: 'stop_hook_summary',
 		uuid: opts?.uuid ?? crypto.randomUUID(),
 		timestamp: opts?.timestamp ?? '2026-01-01T00:01:00.000Z',
-		hookInfos: hooks.map(h => ({
-			hookName: h.hookName,
-			hookEvent: h.hookEvent,
-			command: h.command,
-			durationMs: h.durationMs,
-			exitCode: h.exitCode ?? 0,
-			stdout: h.stdout ?? '',
-			stderr: '',
-			toolUseId: h.toolUseId,
-		})),
+		hookCount: hooks.length,
+		hookInfos: hooks,
+		hookErrors: opts?.errors ?? [],
+		preventedContinuation: opts?.preventedContinuation ?? false,
+		stopReason: '',
+		hasOutput: false,
+		level: 'suggestion',
+		toolUseID: crypto.randomUUID(),
 	};
 }
 
-/** System record with skill listing. CC ~2.1.90+ */
-export function systemSkillListing(skills: string[], opts?: {
-	uuid?: string;
-	timestamp?: string;
-}): Record<string, unknown> {
-	const content = skills.map(s => `- ${s}: Description`).join('\n');
-	return {
-		type: 'system',
-		subtype: 'skill_listing',
-		uuid: opts?.uuid ?? crypto.randomUUID(),
-		timestamp: opts?.timestamp ?? '2026-01-01T00:00:00.000Z',
-		content,
-	};
+/** Permission mode record. No uuid or timestamp. CC ~2.1.90+ */
+export function permissionMode(mode: string): Record<string, unknown> {
+	return { type: 'permission-mode', permissionMode: mode, sessionId: 'test-session' };
 }
 
 /** Assistant record with tool_reference result (ToolSearch). CC ~2.1.88+ */
