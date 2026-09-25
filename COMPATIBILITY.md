@@ -39,6 +39,7 @@ This document tracks which Claude Code versions introduced JSONL format changes 
 | `remote_session_change` attachment | ~2.1.270? | 0.3.25+ | Skipped | Commit/PR attribution config — harness config, not a session event |
 | `prompt_snapshot` attachment | ~2.1.270? | 0.3.25+ | Skipped | Full system prompt — already in transcript as system-reminder tags |
 | `deferred_tools_record` attachment | ~2.1.270? | 0.3.25+ | Skipped | Full deferred tool schemas — harness bookkeeping like `deferred_tools_delta` |
+| `silent_turn_reminder` attachment | ~2.1.280? | 0.3.26+ | Skipped | Model-facing nudge to post a progress update after a long silent stretch — no session data |
 
 **Legend:**
 - `~` = Approximate version (not confirmed exactly when introduced)

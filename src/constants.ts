@@ -90,6 +90,7 @@ export const REVIEWED_ATTACHMENT_TYPES = new Map<string, string>([
 	['remote_session_change', 'Commit/PR attribution config and managed-operation flags — harness config, not a session event'],
 	['prompt_snapshot', 'Full system prompt array — the prompt text is already in the transcript as system-reminder tags'],
 	['deferred_tools_record', 'Full tool schemas for deferred tools — same category as deferred_tools_delta (harness bookkeeping)'],
+	['silent_turn_reminder', 'Harness nudge telling the model to post a progress update after a long silent stretch — model-facing only, no session data'],
 ]);
 
 // Record types we looked at and chose not to render, same criterion and same
