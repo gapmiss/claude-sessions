@@ -389,9 +389,15 @@
 
 /* --- H4: Parse warnings banner --- */
 
+/*
+ * Many themes resolve --background-modifier-error and --text-error to the same
+ * red, which hid the header and left grey text on solid red. Use a faint tint
+ * so the text keeps normal contrast, and keep red for the border and header.
+ */
 .claude-sessions-dash-warnings {
-	background: var(--background-modifier-error);
-	border-color: var(--text-error);
+	background: rgba(var(--color-red-rgb), 0.1);
+	border-color: var(--color-red);
+	border-left-width: var(--cs-role-border-width);
 }
 
 .claude-sessions-dash-warnings-header {
@@ -416,13 +422,13 @@
 
 .claude-sessions-dash-warnings-item {
 	font-size: var(--cs-font-size-xs);
-	color: var(--text-muted);
+	color: var(--text-normal);
 }
 
 .claude-sessions-dash-warnings-hint {
 	margin-top: var(--size-2-3);
 	font-size: var(--cs-font-size-xs);
-	color: var(--text-faint);
+	color: var(--text-muted);
 	font-style: italic;
 }
 

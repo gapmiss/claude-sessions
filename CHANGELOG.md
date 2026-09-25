@@ -17,6 +17,9 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 ### Fixed
 - **Hook commands with a quoted path showed a stray quote**: `'/Users/me/hook.sh' stop` displayed as `hook.sh' stop`. It now shows `hook.sh stop`, in the panel and in Markdown export
 
+- **"Check for plugin updates" banner on CC 2.1.282 sessions**: Claude Code 2.1.282 added a `credential_org` attachment holding the account's organization UUID. It's login bookkeeping, not a session event, and an account identifier has no place in an export, so it joins `REVIEWED_ATTACHMENT_TYPES`
+- **Parse warnings banner was unreadable**: it filled with `--background-modifier-error` and colored its heading `--text-error`, which many themes resolve to the same red. The heading vanished and the warnings were grey on solid red. The banner now uses a faint red tint with normal text color, and keeps red for the border and heading
+
 ### Changed
 - **Plainer wording in the interface and exports**: em-dashes are gone from parse warnings, tool header previews (`file.ts · 3 lines`), search status, the encrypted thinking note, the live watch error, and Markdown export headings (`## Turn 3: User`)
 

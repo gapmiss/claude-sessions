@@ -42,6 +42,7 @@ Which Claude Code versions changed the JSONL format in ways that matter to this 
 | `prompt_snapshot` attachment | ~2.1.270? | 0.3.25+ | Skipped | The full system prompt. Already in the transcript as system-reminder tags |
 | `deferred_tools_record` attachment | ~2.1.270? | 0.3.25+ | Skipped | Full schemas for deferred tools. Bookkeeping, like `deferred_tools_delta` |
 | `silent_turn_reminder` attachment | ~2.1.280? | 0.3.26+ | Skipped | Tells the model to post a progress update after a long silence. Only the model sees it, and it holds no session data |
+| `credential_org` attachment | ~2.1.282? | Unreleased | Skipped | The account organization UUID behind the session credential. Login bookkeeping, and an identifier better kept out of exports |
 
 **Legend**
 
