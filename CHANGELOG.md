@@ -8,6 +8,12 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Narration shown as Thinking**: since Claude Code 2.1.286, some `thinking` blocks are actually replies meant for the user, and Claude Code shows them as normal assistant text. The only marker is a `narration` tag inside the block's signature. The plugin read every such block as thinking, so in one session 72 replies sat in collapsed Thinking blocks. The parser now reads the tag the same way Claude Code does, and these blocks render, export, and search as assistant text. Blocks without the tag stay as thinking
+- **"Check for plugin updates" banner on CC 2.1.286 sessions**: the new `auto_mode` and `auto_mode_exit` attachments mark auto mode turning on and off, plus a reminder only the model sees. The mode already shows in System events through `permission-mode` records, so both join `REVIEWED_ATTACHMENT_TYPES`
+
 ## [0.3.27] - 2026-09-25
 
 ### Added

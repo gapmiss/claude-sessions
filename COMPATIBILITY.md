@@ -43,6 +43,8 @@ Which Claude Code versions changed the JSONL format in ways that matter to this 
 | `deferred_tools_record` attachment | ~2.1.270? | 0.3.25+ | Skipped | Full schemas for deferred tools. Bookkeeping, like `deferred_tools_delta` |
 | `silent_turn_reminder` attachment | ~2.1.280? | 0.3.26+ | Skipped | Tells the model to post a progress update after a long silence. Only the model sees it, and it holds no session data |
 | `credential_org` attachment | ~2.1.282? | 0.3.27+ | Skipped | The account organization UUID behind the session credential. Login bookkeeping, and an identifier better kept out of exports |
+| `auto_mode`, `auto_mode_exit` attachments | ~2.1.286? | 0.3.28+ | Skipped | Auto mode on and off, plus a reminder only the model sees. The mode already shows in System events through `permission-mode` records |
+| Narration `thinking` blocks | ~2.1.286? | 0.3.28+ | New | A `thinking` block whose signature is tagged `narration` is text meant for the user, and Claude Code shows it as a normal reply. Rendered, exported, and searched as assistant text |
 
 **Legend**
 

@@ -1,5 +1,6 @@
 import type { ContentBlock, ToolResultBlock, ToolResultImage } from '../types';
 import { BT_TEXT, BT_THINKING, BT_TOOL_USE, BT_TOOL_RESULT, PREFIX_INTERRUPTION, RE_TOOL_USE_ERROR } from '../constants';
+import { isNarrationSignature } from './thinking-signature';
 
 interface ClaudeContentBlock {
 	type: string;
@@ -42,6 +43,10 @@ export function parseContentBlock(
 
 		case BT_THINKING:
 			if (block.thinking && block.thinking.trim()) {
+				// Narration-tagged thinking is shown to the user as plain text
+				if (isNarrationSignature(block.signature)) {
+					return { type: 'text', text: block.thinking.trim(), timestamp };
+				}
 				return { type: 'thinking', thinking: block.thinking, timestamp };
 			}
 			// Encrypted thinking (signature-only) — skip, nothing useful to display

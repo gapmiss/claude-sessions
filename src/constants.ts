@@ -48,6 +48,15 @@ export const BT_TEXT = 'text';
 export const BT_THINKING = 'thinking';
 export const BT_TOOL_USE = 'tool_use';
 export const BT_TOOL_RESULT = 'tool_result';
+
+// ── Thinking signature tags ──────────────────────────────────
+// Since ~2.1.286 some `thinking` blocks are user-facing narration that Claude
+// Code renders as plain assistant text. The only marker is inside the opaque
+// signature: base64 protobuf, field 2 -> field 1 -> field 8 holds a tag string.
+// Mirrors Claude Code's own classifier; unlisted tags stay ordinary thinking.
+export const SIGNATURE_TAG_PATH = [2, 1] as const;
+export const SIGNATURE_TAG_FIELD = 8;
+export const SIGNATURE_TAG_NARRATION = 'narration';
 export const BT_IMAGE = 'image';
 
 // ── Progress data subtypes ───────────────────────────────────
@@ -91,6 +100,8 @@ export const REVIEWED_ATTACHMENT_TYPES = new Map<string, string>([
 	['prompt_snapshot', 'Full system prompt array — the prompt text is already in the transcript as system-reminder tags'],
 	['deferred_tools_record', 'Full tool schemas for deferred tools — same category as deferred_tools_delta (harness bookkeeping)'],
 	['credential_org', 'The account organization UUID behind the session credential. Login bookkeeping, not a session event, and an account identifier best kept out of exports'],
+	['auto_mode', 'Mode transition plus a model-facing reminder (prefer Bash for reads and small edits). The mode itself shows in System events via permission-mode records'],
+	['auto_mode_exit', 'Mode transition plus a model-facing reminder to resume the dedicated tools. Same reasoning as auto_mode'],
 	['silent_turn_reminder','Harness nudge telling the model to post a progress update after a long silent stretch — model-facing only, no session data'],
 ]);
 

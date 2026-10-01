@@ -4,6 +4,7 @@ import * as readline from 'readline';
 import type { Turn, TurnRole, SessionListEntry, ContentBlock } from '../types';
 import { BM25Index } from './bm25';
 import { SKIP_TYPE_STRINGS, SUBTYPE_LOCAL_COMMAND, RE_COMMAND_NAME, RE_COMMAND_ARGS, ANSI_STRIP_RE, RE_SYSTEM_REMINDER, RT_ATTACHMENT, ATTACHMENT_QUEUED_COMMAND, TAG_TASK_NOTIFICATION } from '../constants';
+import { isNarrationSignature } from '../parsers/thinking-signature';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -226,7 +227,8 @@ export function extractSearchableContent(line: string): ExtractedContent | null 
 				return { role: 'assistant', blockType: 'text', text: block['text'], timestamp };
 			}
 			if (blockType === 'thinking' && typeof block['thinking'] === 'string' && block['thinking']) {
-				return { role: 'assistant', blockType: 'thinking', text: block['thinking'], timestamp };
+				const narration = isNarrationSignature(block['signature'] as string | undefined);
+				return { role: 'assistant', blockType: narration ? 'text' : 'thinking', text: block['thinking'], timestamp };
 			}
 			if (blockType === 'tool_use') {
 				const name = (block['name'] as string) || '';
