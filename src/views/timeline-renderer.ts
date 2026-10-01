@@ -5,7 +5,7 @@ import type {
 } from '../types';
 import {
 	type RenderContext, COLLAPSE_THRESHOLD, buildInlineHookEventMap,
-	makeClickable, shortModelName, addCopyButton, normalizeMarkdown, fence,
+	makeClickable, shortModelName, addCopyButton, normalizeMarkdown, fence, queuedMessageLabel, revealToolOutput,
 } from './render-helpers';
 import { ANSI_PARSE_RE } from '../constants';
 import { renderSummary } from './summary-renderer';
@@ -431,14 +431,18 @@ export class TimelineRenderer {
 		}
 	}
 
-	/** A user message that arrived mid-turn, shown where it interrupted. */
+	/** A message that arrived mid-turn, from the user or another agent, shown where it landed. */
 	private renderQueuedMessageBlock(block: QueuedMessageBlock, container: HTMLElement): void {
+		if (block.reportToolUseId) {
+			this.renderHandbackMarker(block, block.reportToolUseId, container);
+			return;
+		}
 		const el = container.createDiv({ cls: 'claude-sessions-queued-message' });
 
 		const header = el.createDiv({ cls: 'claude-sessions-queued-message-header' });
 		const icon = header.createSpan({ cls: 'claude-sessions-queued-message-icon' });
 		setIcon(icon, 'corner-down-right');
-		header.createSpan({ text: 'User, mid-turn' });
+		header.createSpan({ text: queuedMessageLabel(block) });
 		if (block.timestamp) {
 			header.createSpan({
 				cls: 'claude-sessions-queued-message-time',
@@ -446,7 +450,7 @@ export class TimelineRenderer {
 			});
 		}
 
-		this.renderTextContent(block.text, el, 'claude-sessions-user-text');
+		this.renderTextContent(block.text, el, block.from ? 'claude-sessions-assistant-text' : 'claude-sessions-user-text');
 
 		for (const image of block.images) {
 			const dataUri = `data:${image.mediaType};base64,${image.data}`;
@@ -459,6 +463,32 @@ export class TimelineRenderer {
 				this.openImageModal(dataUri, image.mediaType);
 			});
 		}
+	}
+
+	/**
+	 * Where a subagent's report arrived. The report itself is the output of
+	 * its Agent call, often far above, so this row links back to it.
+	 */
+	private renderHandbackMarker(block: QueuedMessageBlock, toolUseId: string, container: HTMLElement): void {
+		const label = queuedMessageLabel(block);
+		const el = container.createDiv({
+			cls: 'claude-sessions-handback-marker',
+			attr: { 'data-target-tool-use-id': toolUseId },
+		});
+		const icon = el.createSpan({ cls: 'claude-sessions-queued-message-icon' });
+		setIcon(icon, 'corner-down-right');
+		el.createSpan({ cls: 'claude-sessions-handback-marker-label', text: label });
+		el.createSpan({ cls: 'claude-sessions-handback-marker-hint', text: 'Show in Agent call' });
+		if (block.timestamp) {
+			el.createSpan({
+				cls: 'claude-sessions-queued-message-time',
+				text: new Date(block.timestamp).toLocaleTimeString(),
+			});
+		}
+		makeClickable(el, { label: `${label}. Show the report in its Agent call` });
+		el.addEventListener('click', () => {
+			revealToolOutput(el, toolUseId);
+		});
 	}
 
 	private renderTextContent(text: string, container: HTMLElement, cls: string): void {

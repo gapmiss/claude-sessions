@@ -1,6 +1,6 @@
 import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon } from 'obsidian';
 import * as fs from 'fs';
-import { makeClickable } from './render-helpers';
+import { makeClickable, expandAncestors } from './render-helpers';
 import { Session, PluginSettings } from '../types';
 import { TimelineRenderer } from './timeline-renderer';
 import { readFileContent, listDirectoryFiles } from '../utils/streaming-reader';
@@ -633,7 +633,7 @@ expandAll(): void {
 		if (!blockEl) return;
 
 		// Expand any collapsed ancestors (tool blocks, groups) before text search
-		this.expandAncestors(blockEl, turnEl);
+		expandAncestors(blockEl, turnEl);
 
 		// Text-search the rendered DOM (not indexed offsets) because markdown
 		// syntax like **bold** is in the indexed text but stripped from the DOM.
@@ -690,72 +690,11 @@ expandAll(): void {
 
 		if (marks.length === 0) return;
 
-		this.expandAncestors(marks[0], turnEl);
+		expandAncestors(marks[0], turnEl);
 		this.activeHighlights = marks;
 		marks[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
 
 		this.highlightTimer = window.setTimeout(() => this.clearHighlight(), 5000);
-	}
-
-	private expandAncestors(node: Node, boundary: HTMLElement): void {
-		let el = node.parentElement;
-		while (el && el !== boundary) {
-			// Tool block
-			if (el.hasClass('claude-sessions-tool-block') && !el.hasClass('open')) {
-				el.addClass('open');
-				const h = el.querySelector('.claude-sessions-tool-header');
-				if (h) h.setAttribute('aria-expanded', 'true');
-			}
-			// Tool group
-			if (el.hasClass('claude-sessions-tool-group') && !el.hasClass('open')) {
-				el.addClass('open');
-				const h = el.querySelector('.claude-sessions-tool-group-header');
-				if (h) h.setAttribute('aria-expanded', 'true');
-			}
-			// Thinking block
-			if (el.hasClass('claude-sessions-thinking-block') && !el.hasClass('open')) {
-				el.addClass('open');
-				const h = el.querySelector('.claude-sessions-thinking-header');
-				if (h) h.setAttribute('aria-expanded', 'true');
-			}
-			// Show-more collapse
-			if (el.hasClass('claude-sessions-collapsible-wrap') && el.hasClass('is-collapsed')) {
-				el.removeClass('is-collapsed');
-				const btn = el.querySelector('.claude-sessions-collapsible-toggle');
-				if (btn) btn.setAttribute('aria-expanded', 'true');
-			}
-			// Sub-agent prompt
-			if (el.hasClass('claude-sessions-subagent-prompt') && !el.hasClass('open')) {
-				el.addClass('open');
-				const h = el.querySelector('.claude-sessions-subagent-prompt-header');
-				if (h) h.setAttribute('aria-expanded', 'true');
-			}
-			// Slash command block
-			if (el.hasClass('claude-sessions-slash-command-block') && !el.hasClass('open')) {
-				el.addClass('open');
-				const h = el.querySelector('.claude-sessions-slash-command-header');
-				if (h) h.setAttribute('aria-expanded', 'true');
-			}
-			// Compaction summary
-			if (el.hasClass('claude-sessions-compaction-block') && !el.hasClass('open')) {
-				el.addClass('open');
-				const h = el.querySelector('.claude-sessions-compaction-summary-header');
-				if (h) h.setAttribute('aria-expanded', 'true');
-			}
-			// Markdown preview toggle — if match is in the hidden code view, show it
-			if (el.hasClass('claude-sessions-read-md-hidden')) {
-				el.removeClass('claude-sessions-read-md-hidden');
-				// Hide the sibling view and update toggle buttons
-				const parent = el.parentElement;
-				if (parent) {
-					const sibling = el.hasClass('claude-sessions-read-md-code')
-						? parent.querySelector('.claude-sessions-read-md-preview')
-						: parent.querySelector('.claude-sessions-read-md-code');
-					if (sibling) sibling.addClass('claude-sessions-read-md-hidden');
-				}
-			}
-			el = el.parentElement;
-		}
 	}
 
 	private clearHighlight(): void {
@@ -1300,7 +1239,6 @@ expandAll(): void {
 			const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
 			this.scrollToTurn(this.turnFromPct(pct));
 		});
-
 
 
 	}

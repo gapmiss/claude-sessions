@@ -278,6 +278,16 @@ export interface QueuedMessageBlock {
 	text: string;
 	images: { mediaType: string; data: string }[];
 	timestamp?: string;
+	/** Set when another agent sent the message, not the user: the sender's name. */
+	from?: string;
+	/** The sender is a subagent handing back its final report. */
+	handback?: boolean;
+	/**
+	 * Set when the report itself is shown as the output of this Agent call.
+	 * The block is then only a marker at the point the report arrived, with
+	 * empty `text`, and links to the Agent block.
+	 */
+	reportToolUseId?: string;
 }
 
 export interface AnsiBlock {

@@ -34,6 +34,33 @@ export function getStandaloneScript(): string {
     }
   }
 
+  /* ── Reveal a tool call's output (mirrors revealToolOutput in render-helpers) ── */
+  function revealToolOutput(toolUseId) {
+    var toolEl = null;
+    var blocks = document.querySelectorAll('.claude-sessions-tool-block[data-tool-use-id]');
+    for (var i = 0; i < blocks.length; i++) {
+      if (blocks[i].getAttribute('data-tool-use-id') === toolUseId) { toolEl = blocks[i]; break; }
+    }
+    if (!toolEl) return;
+    var target = toolEl.querySelector('.claude-sessions-subagent-output') || toolEl;
+    var el = target;
+    while (el && el !== document.body) {
+      if (el.classList.contains('claude-sessions-turn') && el.classList.contains('collapsed')) {
+        el.classList.remove('collapsed');
+        var th = el.querySelector('.claude-sessions-turn-header');
+        if (th) th.setAttribute('aria-expanded', 'true');
+      }
+      if ((el.classList.contains('claude-sessions-tool-block') || el.classList.contains('claude-sessions-tool-group'))
+        && !el.classList.contains('open')) {
+        el.classList.add('open');
+        var h = el.querySelector('.claude-sessions-tool-header, .claude-sessions-tool-group-header');
+        if (h) h.setAttribute('aria-expanded', 'true');
+      }
+      el = el.parentElement;
+    }
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   /* ── Show more / show less ── */
   function toggleShowMore(btn) {
     var wrap = btn.closest('.claude-sessions-collapsible-wrap');
@@ -350,6 +377,13 @@ export function getStandaloneScript(): string {
     if (showBtn) {
       e.preventDefault();
       toggleShowMore(showBtn);
+      return;
+    }
+
+    /* Subagent report marker: open and scroll to the Agent call's output */
+    var marker = target.closest('.claude-sessions-handback-marker[data-target-tool-use-id]');
+    if (marker) {
+      revealToolOutput(marker.getAttribute('data-target-tool-use-id'));
       return;
     }
 

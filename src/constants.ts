@@ -125,6 +125,15 @@ export const SUBTYPE_STOP_HOOK_SUMMARY = 'stop_hook_summary';
 export const TAG_TASK_NOTIFICATION = '<task-notification>';
 export const TAG_COMMAND_MESSAGE_OPEN = '<command-message>';
 
+// ── Peer messages (CC ~2.1.286+) ─────────────────────────────
+// A queued_command whose `origin.kind` is "peer" came from another agent, not
+// the user. With `origin.handback` it is a background subagent's final report;
+// the task-notification `<result>` then only points at it. `origin.body` opens
+// with a one-line HANDBACK_PREFIX frame, and every report line is indented.
+export const ORIGIN_KIND_PEER = 'peer';
+export const HANDBACK_PREFIX = '[Subagent hand-back]';
+export const HANDBACK_INDENT = '  ';
+
 // ── XML tag regexes (reusable, compiled once) ────────────────
 export const RE_COMMAND_NAME = /<command-name>(\/[\w:./-]+)<\/command-name>/;
 export const RE_COMMAND_ARGS = /<command-args>([\s\S]*?)<\/command-args>/;

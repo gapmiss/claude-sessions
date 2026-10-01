@@ -45,6 +45,7 @@ Which Claude Code versions changed the JSONL format in ways that matter to this 
 | `credential_org` attachment | ~2.1.282? | 0.3.27+ | Skipped | The account organization UUID behind the session credential. Login bookkeeping, and an identifier better kept out of exports |
 | `auto_mode`, `auto_mode_exit` attachments | ~2.1.286? | 0.3.28+ | Skipped | Auto mode on and off, plus a reminder only the model sees. The mode already shows in System events through `permission-mode` records |
 | Narration `thinking` blocks | ~2.1.286? | 0.3.28+ | New | A `thinking` block whose signature is tagged `narration` is text meant for the user, and Claude Code shows it as a normal reply. Rendered, exported, and searched as assistant text |
+| Subagent hand-back (`queued_command` with `origin.kind: "peer"`) | ~2.1.286? | 0.3.28+ | New | A background subagent's final report now arrives as a message from the agent, and the task-notification `<result>` only points at it. The report, minus its frame line and indent, is shown as the Agent block's output, with a link row where it arrived. Other peer messages are labeled with the sender, not the user |
 
 **Legend**
 

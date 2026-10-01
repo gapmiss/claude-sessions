@@ -25,8 +25,9 @@ import {
 	ANSI_COMMANDS, ANSI_RE, RE_AGENT_ID,
 	DURATION_GAP_THRESHOLD_MS,
 	REVIEWED_ATTACHMENT_TYPES, REVIEWED_RECORD_TYPES,
+	RT_ATTACHMENT, ATTACHMENT_QUEUED_COMMAND,
 } from '../constants';
-import { parseTaskNotification } from './claude-subagent';
+import { parseTaskNotification, parsePeerMessage } from './claude-subagent';
 import { Logger } from '../utils/logger';
 import {
 	parseContentBlock, extractToolResultBlocks, isInterruptionMessage,
@@ -211,6 +212,9 @@ export class ClaudeParser extends BaseParser {
 
 		// Collect task-notification results for background agents (keyed by tool-use-id)
 		const taskNotifications = new Map<string, { taskId: string; toolUseId: string; result: string; summary: string; durationMs?: number }>();
+		// Background subagent reports (keyed by agent id). Since CC ~2.1.286 the
+		// task-notification result only points at these hand-back messages.
+		const handbacks = new Map<string, string>();
 
 		// First pass: parse all records and extract metadata
 		for (const line of lines) {
@@ -292,6 +296,14 @@ export class ClaudeParser extends BaseParser {
 				const tn = parseTaskNotification(record.message.content);
 				if (tn) taskNotifications.set(tn.toolUseId, tn);
 			}
+			if (record.type === RT_ATTACHMENT && record.attachment?.type === ATTACHMENT_QUEUED_COMMAND) {
+				const peer = parsePeerMessage(record.attachment);
+				if (peer?.handback && peer.agentId && peer.text) {
+					// A resumed agent hands back again; keep every report, in order
+					const prev = handbacks.get(peer.agentId);
+					if (prev !== peer.text) handbacks.set(peer.agentId, prev ? `${prev}\n\n---\n\n${peer.text}` : peer.text);
+				}
+			}
 
 			// Track compact_boundary events for peak context and cumulative drops.
 			// Reset lastCall* to postTokens so stale pre-compaction values don't
@@ -364,7 +376,13 @@ export class ClaudeParser extends BaseParser {
 		const unknownAttachmentTypes = new Map<string, { count: number; sample?: Record<string, unknown> }>();
 
 		// Second pass: build turns from deduplicated records
-		const { turns, systemEvents } = this.buildTurns(ordered, unknownRecordTypes, unknownBlockTypes, unknownAttachmentTypes);
+		// Hand-backs that will land in their Agent block's output (agent id ->
+		// tool use id). buildTurns leaves only a marker where each one arrived.
+		const deliveredHandbacks = new Map<string, string>();
+		for (const tn of taskNotifications.values()) {
+			if (handbacks.has(tn.taskId)) deliveredHandbacks.set(tn.taskId, tn.toolUseId);
+		}
+		const { turns, systemEvents } = this.buildTurns(ordered, unknownRecordTypes, unknownBlockTypes, unknownAttachmentTypes, deliveredHandbacks);
 
 		// Attach sub-agent sessions to their corresponding Agent tool_use blocks
 		if (agentProgressMap.size > 0) {
@@ -404,7 +422,28 @@ export class ClaudeParser extends BaseParser {
 					// Replace the "Async agent launched successfully" tool_result
 					// with the actual notification result
 					if (block.type === BT_TOOL_RESULT && taskNotifications.has(block.toolUseId)) {
-						block.content = taskNotifications.get(block.toolUseId)!.result;
+						const tn = taskNotifications.get(block.toolUseId)!;
+						block.content = handbacks.get(tn.taskId) ?? tn.result;
+					}
+				}
+			}
+		}
+
+		// Name hand-back markers after the Agent call's description, which is
+		// what the reader sees on the Agent block, rather than the agent type
+		if (deliveredHandbacks.size > 0) {
+			const descriptions = new Map<string, string>();
+			for (const turn of turns) {
+				for (const block of turn.contentBlocks) {
+					if (block.type === BT_TOOL_USE && typeof block.input['description'] === 'string') {
+						descriptions.set(block.id, block.input['description']);
+					}
+				}
+			}
+			for (const turn of turns) {
+				for (const block of turn.contentBlocks) {
+					if (block.type === 'queued_message' && block.reportToolUseId) {
+						block.from = descriptions.get(block.reportToolUseId) || block.from;
 					}
 				}
 			}
@@ -666,6 +705,7 @@ export class ClaudeParser extends BaseParser {
 		unknownRecordTypes?: Map<string, { count: number; sample?: Record<string, unknown> }>,
 		unknownBlockTypes?: Map<string, { count: number; sample?: Record<string, unknown> }>,
 		unknownAttachmentTypes?: Map<string, { count: number; sample?: Record<string, unknown> }>,
+		deliveredHandbacks?: Map<string, string>,
 	): { turns: Turn[]; systemEvents: SystemEvent[] } {
 		const turns: Turn[] = [];
 		const systemEvents: SystemEvent[] = [];
@@ -1158,6 +1198,12 @@ export class ClaudeParser extends BaseParser {
 						}
 					}
 					text = text.trim();
+					// Messages from other agents carry a peer origin. A subagent's
+					// hand-back shows in its Agent block; anything else is labeled
+					// with the sender instead of the user.
+					const peer = parsePeerMessage(att);
+					if (peer) text = peer.text;
+					const reportToolUseId = peer?.handback ? deliveredHandbacks?.get(peer.agentId) : undefined;
 					const isTaskNotification = text.startsWith(TAG_TASK_NOTIFICATION);
 					// The same message occasionally also lands as a real user record.
 					// Match on equality or prefix, not containment: a short prompt like
@@ -1175,8 +1221,11 @@ export class ClaudeParser extends BaseParser {
 						currentAssistantTurn.endTimestamp = this.formatTimestamp(record.timestamp);
 						currentAssistantTurn.contentBlocks.push({
 							type: 'queued_message',
-							text,
+							// A delivered report is shown in its Agent block; keep a marker here
+							text: reportToolUseId ? '' : text,
 							images,
+							...(peer && { from: peer.name || peer.agentId || 'agent', handback: peer.handback }),
+							...(reportToolUseId && { reportToolUseId }),
 							timestamp: record.timestamp,
 						});
 					}

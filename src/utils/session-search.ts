@@ -5,6 +5,7 @@ import type { Turn, TurnRole, SessionListEntry, ContentBlock } from '../types';
 import { BM25Index } from './bm25';
 import { SKIP_TYPE_STRINGS, SUBTYPE_LOCAL_COMMAND, RE_COMMAND_NAME, RE_COMMAND_ARGS, ANSI_STRIP_RE, RE_SYSTEM_REMINDER, RT_ATTACHMENT, ATTACHMENT_QUEUED_COMMAND, TAG_TASK_NOTIFICATION } from '../constants';
 import { isNarrationSignature } from '../parsers/thinking-signature';
+import { parsePeerMessage } from '../parsers/claude-subagent';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -288,6 +289,14 @@ export function extractSearchableContent(line: string): ExtractedContent | null 
 		// Task notifications share this subtype but are background agent results,
 		// indexed from their own records.
 		if (!text || text.startsWith(TAG_TASK_NOTIFICATION)) return null;
+
+		// Messages from other agents, including subagent hand-back reports
+		const peer = parsePeerMessage(att);
+		if (peer) {
+			return peer.text
+				? { role: 'assistant', blockType: peer.handback ? 'tool_result' : 'queued_message', text: peer.text, timestamp }
+				: null;
+		}
 
 		return { role: 'user', blockType: 'queued_message', text, timestamp };
 	}

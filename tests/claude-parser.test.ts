@@ -1212,6 +1212,64 @@ describe('mid-turn user messages (queued_command)', () => {
 	});
 });
 
+describe('subagent hand-backs (queued_command with a peer origin)', () => {
+	const FRAME = '[Subagent hand-back] The text below is the final report of a subagent. The report follows:';
+	const handback = (from: string, report: string, uuid = 'hb') => attachment({
+		type: 'queued_command',
+		commandMode: 'prompt',
+		prompt: `<agent-message from="${from}">\n${FRAME}\n${report}\n</agent-message>`,
+		origin: { kind: 'peer', from, name: 'general-purpose', body: `${FRAME}\n${report}`, handback: true },
+	}, uuid);
+	const notification = (taskId: string, toolUseId: string) => ({
+		type: 'queue-operation',
+		operation: 'enqueue',
+		timestamp: '2026-01-01T00:02:00.000Z',
+		content: `<task-notification>\n<task-id>${taskId}</task-id>\n<tool-use-id>${toolUseId}</tool-use-id>\n<status>completed</status>\n<result>This agent's report was delivered to you as a message from "${taskId}". Read it there.\n</result>\n</task-notification>`,
+	});
+	const all = (turns: { contentBlocks: { type: string }[] }[]) => turns.flatMap(t => t.contentBlocks);
+
+	it('puts the report in the Agent output, leaving a marker where it arrived', () => {
+		const session = parse(jsonl(
+			assistantToolUse('Agent', 'toolu_a', { description: 'Build it', prompt: 'go', run_in_background: true }),
+			userToolResult([{ toolUseId: 'toolu_a', content: 'Async agent launched successfully.' }]),
+			handback('agent1', '  Done.\n  \n  **Files**\n  - a.js'),
+			notification('agent1', 'toolu_a'),
+		));
+
+		const result = all(session.turns).find(b => b.type === 'tool_result') as { content: string };
+		expect(result.content).toBe('Done.\n\n**Files**\n- a.js');
+		expect(all(session.turns).filter(b => b.type === 'queued_message')).toEqual([
+			expect.objectContaining({ text: '', from: 'Build it', handback: true, reportToolUseId: 'toolu_a' }),
+		]);
+	});
+
+	it('shows a hand-back with no matching notification inline, labeled as the subagent', () => {
+		const session = parse(jsonl(
+			assistantText('waiting'),
+			handback('agent2', '  Report.'),
+		));
+
+		expect(all(session.turns).filter(b => b.type === 'queued_message')).toMatchObject([
+			{ text: 'Report.', from: 'general-purpose', handback: true },
+		]);
+	});
+
+	it('labels a non-hand-back peer message with its sender', () => {
+		const session = parse(jsonl(
+			assistantText('waiting'),
+			attachment({
+				type: 'queued_command',
+				prompt: '<agent-message from="agent3">\nquick question\n</agent-message>',
+				origin: { kind: 'peer', from: 'agent3', name: 'Explore', body: 'quick question' },
+			}),
+		));
+
+		expect(all(session.turns).filter(b => b.type === 'queued_message')).toMatchObject([
+			{ text: 'quick question', from: 'Explore', handback: false },
+		]);
+	});
+});
+
 describe('turn-level hooks that carry a toolUseID', () => {
 	it('parses a Stop hook error whose toolUseID names no tool call', () => {
 		const session = parse(jsonl(

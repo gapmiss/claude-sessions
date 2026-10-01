@@ -2,7 +2,14 @@ import { App, Component, setIcon } from 'obsidian';
 import type {
 	PluginSettings, SystemEvent, HookSuccessEvent, AsyncHookResponseEvent, HookPermissionDecisionEvent,
 	ReadTruncationNoticeEvent, HookBlockingErrorEvent, HookNonBlockingErrorEvent, StopHookSummaryEvent,
+	QueuedMessageBlock,
 } from '../types';
+
+/** Header label for a mid-turn message: the user, or the agent that sent it. */
+export function queuedMessageLabel(block: QueuedMessageBlock): string {
+	if (!block.from) return 'User, mid-turn';
+	return block.handback ? `Subagent report: ${block.from}` : `Message from ${block.from}`;
+}
 
 /** Events that attach to a specific tool call and render as an indicator on its header. */
 export type InlineHookEvent =
@@ -252,4 +259,93 @@ export function addCopyButton(container: HTMLElement, text: string, label: strin
 		setIcon(btn, 'check');
 		window.setTimeout(() => setIcon(btn, 'copy'), 1500);
 	});
+}
+
+/**
+ * Open every collapsed container between `node` and `boundary`: tool blocks,
+ * tool groups, thinking, show-more, sub-agent prompts, slash commands,
+ * compaction, and the Markdown code/preview toggle. Used by search to reveal
+ * a match and by hand-back markers to reveal an Agent report.
+ */
+export function expandAncestors(node: Node, boundary: HTMLElement): void {
+	let el = node.parentElement;
+	while (el && el !== boundary) {
+		// Tool block
+		if (el.hasClass('claude-sessions-tool-block') && !el.hasClass('open')) {
+			el.addClass('open');
+			const h = el.querySelector('.claude-sessions-tool-header');
+			if (h) h.setAttribute('aria-expanded', 'true');
+		}
+		// Tool group
+		if (el.hasClass('claude-sessions-tool-group') && !el.hasClass('open')) {
+			el.addClass('open');
+			const h = el.querySelector('.claude-sessions-tool-group-header');
+			if (h) h.setAttribute('aria-expanded', 'true');
+		}
+		// Thinking block
+		if (el.hasClass('claude-sessions-thinking-block') && !el.hasClass('open')) {
+			el.addClass('open');
+			const h = el.querySelector('.claude-sessions-thinking-header');
+			if (h) h.setAttribute('aria-expanded', 'true');
+		}
+		// Show-more collapse
+		if (el.hasClass('claude-sessions-collapsible-wrap') && el.hasClass('is-collapsed')) {
+			el.removeClass('is-collapsed');
+			const btn = el.querySelector('.claude-sessions-collapsible-toggle');
+			if (btn) btn.setAttribute('aria-expanded', 'true');
+		}
+		// Sub-agent prompt
+		if (el.hasClass('claude-sessions-subagent-prompt') && !el.hasClass('open')) {
+			el.addClass('open');
+			const h = el.querySelector('.claude-sessions-subagent-prompt-header');
+			if (h) h.setAttribute('aria-expanded', 'true');
+		}
+		// Slash command block
+		if (el.hasClass('claude-sessions-slash-command-block') && !el.hasClass('open')) {
+			el.addClass('open');
+			const h = el.querySelector('.claude-sessions-slash-command-header');
+			if (h) h.setAttribute('aria-expanded', 'true');
+		}
+		// Compaction summary
+		if (el.hasClass('claude-sessions-compaction-block') && !el.hasClass('open')) {
+			el.addClass('open');
+			const h = el.querySelector('.claude-sessions-compaction-summary-header');
+			if (h) h.setAttribute('aria-expanded', 'true');
+		}
+		// Markdown preview toggle — if match is in the hidden code view, show it
+		if (el.hasClass('claude-sessions-read-md-hidden')) {
+			el.removeClass('claude-sessions-read-md-hidden');
+			// Hide the sibling view and update toggle buttons
+			const parent = el.parentElement;
+			if (parent) {
+				const sibling = el.hasClass('claude-sessions-read-md-code')
+					? parent.querySelector('.claude-sessions-read-md-preview')
+					: parent.querySelector('.claude-sessions-read-md-code');
+				if (sibling) sibling.addClass('claude-sessions-read-md-hidden');
+			}
+		}
+		el = el.parentElement;
+	}
+}
+
+/**
+ * Reveal the output of a tool call: expand its turn and every collapsed
+ * container around it, then scroll to it. `from` is any element in the same
+ * timeline. Returns false when the tool block isn't rendered (e.g. tool calls
+ * are hidden in settings).
+ */
+export function revealToolOutput(from: HTMLElement, toolUseId: string): boolean {
+	const root = from.closest<HTMLElement>('.claude-sessions-timeline') ?? from.ownerDocument.body;
+	const toolEl = root.querySelector<HTMLElement>(`.claude-sessions-tool-block[data-tool-use-id="${CSS.escape(toolUseId)}"]`);
+	if (!toolEl) return false;
+	const turnEl = toolEl.closest<HTMLElement>('.claude-sessions-turn');
+	if (turnEl?.hasClass('collapsed')) {
+		turnEl.removeClass('collapsed');
+		turnEl.querySelector('.claude-sessions-turn-header')?.setAttribute('aria-expanded', 'true');
+	}
+	const target = toolEl.querySelector<HTMLElement>('.claude-sessions-subagent-output') ?? toolEl;
+	// Start inside the tool block so expandAncestors also opens the block itself
+	expandAncestors(target.firstChild ?? target, turnEl ?? root);
+	target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	return true;
 }

@@ -2,7 +2,7 @@ import { ClaudeParser } from './claude-parser';
 import type { Session, ToolUseBlock } from '../types';
 import {
 	RE_TN_TOOL_USE_ID, RE_TN_TASK_ID, RE_TN_RESULT, RE_TN_SUMMARY, RE_TN_DURATION,
-	BT_TOOL_USE, SUBAGENT_TOOL_NAMES,
+	BT_TOOL_USE, SUBAGENT_TOOL_NAMES, ORIGIN_KIND_PEER, HANDBACK_PREFIX, HANDBACK_INDENT,
 } from '../constants';
 import { Logger } from '../utils/logger';
 
@@ -34,6 +34,43 @@ export function parseTaskNotification(
 	const durationRaw = content.match(RE_TN_DURATION)?.[1]?.trim();
 	const durationMs = durationRaw ? parseInt(durationRaw, 10) : undefined;
 	return { taskId, toolUseId, result, summary, durationMs: (durationMs && !isNaN(durationMs)) ? durationMs : undefined };
+}
+
+/** A message another agent sent into this session (queued_command with a peer origin). */
+export interface PeerMessage {
+	/** Sender agent id; matches the task-notification task-id for subagents. */
+	agentId: string;
+	/** Sender display name, e.g. the subagent type. */
+	name: string;
+	/** Message text, with the hand-back frame and indent removed. */
+	text: string;
+	handback: boolean;
+}
+
+/**
+ * Read a queued_command attachment's `origin`. Returns null when the message
+ * isn't from a peer agent (a user typing mid-turn has no peer origin).
+ */
+export function parsePeerMessage(att: Record<string, unknown>): PeerMessage | null {
+	const origin = att['origin'] as Record<string, unknown> | undefined;
+	if (!origin || origin['kind'] !== ORIGIN_KIND_PEER || typeof origin['body'] !== 'string') return null;
+	const handback = origin['handback'] === true;
+	return {
+		agentId: typeof origin['from'] === 'string' ? origin['from'] : '',
+		name: typeof origin['name'] === 'string' ? origin['name'] : '',
+		text: handback ? stripHandbackFrame(origin['body']) : origin['body'].trim(),
+		handback,
+	};
+}
+
+/** Drop the one-line hand-back frame and the indent the harness adds to each report line. */
+export function stripHandbackFrame(body: string): string {
+	let lines = body.split('\n');
+	if (lines[0]?.startsWith(HANDBACK_PREFIX)) lines = lines.slice(1);
+	return lines
+		.map(l => l.startsWith(HANDBACK_INDENT) ? l.slice(HANDBACK_INDENT.length) : l.trimEnd())
+		.join('\n')
+		.trim();
 }
 
 /** Read and parse JSON, returning null on failure. */

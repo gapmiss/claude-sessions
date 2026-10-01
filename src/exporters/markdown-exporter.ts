@@ -5,7 +5,7 @@ import type {
 	HookSuccessEvent, AsyncHookResponseEvent, SkillListingEvent, TaskReminderEvent,
 	OutputStyleEvent, CommandPermissionsEvent, HookNonBlockingErrorEvent, PermissionModeEvent, PluginSettings,
 } from '../types';
-import { fence, langFromPath, stripLineNumbers, stripFenceMarkers, summarizeStopHooks, shortHookCommand } from '../views/render-helpers';
+import { fence, langFromPath, stripLineNumbers, stripFenceMarkers, summarizeStopHooks, shortHookCommand, queuedMessageLabel } from '../views/render-helpers';
 import { ANSI_STRIP_RE } from '../constants';
 import type { ExportOptions } from '../views/export-modal';
 
@@ -508,8 +508,11 @@ function renderBlock(
 			return '```\n' + block.text.replace(ANSI_STRIP_RE, '') + '\n```';
 
 		case 'queued_message': {
+			if (block.reportToolUseId) {
+				return `> [!note] ${queuedMessageLabel(block)}\n> The report arrived here. It is shown as the output of its Agent call, above.`;
+			}
 			const parts = [
-				'> [!note] User, mid-turn',
+				`> [!note] ${queuedMessageLabel(block)}`,
 				...block.text.split('\n').map(l => `> ${l}`),
 			];
 			for (const image of block.images) {

@@ -101,7 +101,7 @@ export function renderToolCall(
 	toolUseContentBlockIdx?: number,
 	toolResultContentBlockIdx?: number,
 ): void {
-	const toolEl = container.createDiv({ cls: 'claude-sessions-tool-block' });
+	const toolEl = container.createDiv({ cls: 'claude-sessions-tool-block', attr: { 'data-tool-use-id': block.id } });
 
 	// Header bar
 	const header = toolEl.createDiv({ cls: 'claude-sessions-tool-header' });

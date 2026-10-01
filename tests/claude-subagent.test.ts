@@ -1,5 +1,30 @@
 import { describe, it, expect } from 'vitest';
-import { parseTaskNotification } from '../src/parsers/claude-subagent';
+import { parseTaskNotification, parsePeerMessage, stripHandbackFrame } from '../src/parsers/claude-subagent';
+
+describe('stripHandbackFrame', () => {
+	it('drops the frame line and the per-line indent', () => {
+		const body = '[Subagent hand-back] Frame text. The report follows:\n  First.\n  \n  - item\n    nested';
+		expect(stripHandbackFrame(body)).toBe('First.\n\n- item\n  nested');
+	});
+
+	it('leaves a body without the frame alone apart from trimming', () => {
+		expect(stripHandbackFrame('plain\ntext\n')).toBe('plain\ntext');
+	});
+});
+
+describe('parsePeerMessage', () => {
+	it('returns null for user and task-notification origins', () => {
+		expect(parsePeerMessage({ origin: { kind: 'human' }, prompt: 'hi' })).toBeNull();
+		expect(parsePeerMessage({ origin: { kind: 'task-notification' } })).toBeNull();
+		expect(parsePeerMessage({ prompt: 'hi' })).toBeNull();
+	});
+
+	it('reads a hand-back', () => {
+		expect(parsePeerMessage({
+			origin: { kind: 'peer', from: 'a1', name: 'general-purpose', body: '[Subagent hand-back] x\n  ok', handback: true },
+		})).toEqual({ agentId: 'a1', name: 'general-purpose', text: 'ok', handback: true });
+	});
+});
 
 describe('parseTaskNotification', () => {
 	it('extracts all fields from task notification XML', () => {
