@@ -8,7 +8,7 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
-## [Unreleased]
+## [0.3.28] - 2026-10-01
 
 ### Fixed
 - **Narration shown as Thinking**: since Claude Code 2.1.286, some `thinking` blocks are actually replies meant for the user, and Claude Code shows them as normal assistant text. The only marker is a `narration` tag inside the block's signature. The plugin read every such block as thinking, so in one session 72 replies sat in collapsed Thinking blocks. The parser now reads the tag the same way Claude Code does, and these blocks render, export, and search as assistant text. Blocks without the tag stay as thinking
@@ -499,6 +499,7 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+[0.3.28]: https://github.com/gapmiss/claude-sessions/compare/0.3.27...0.3.28
 [0.3.27]: https://github.com/gapmiss/claude-sessions/compare/0.3.26...0.3.27
 [0.3.26]: https://github.com/gapmiss/claude-sessions/compare/0.3.25...0.3.26
 [0.3.25]: https://github.com/gapmiss/claude-sessions/compare/0.3.24...0.3.25
