@@ -8,6 +8,12 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.29] - 2026-10-02
+
+### Security
+- **moment advisory**: the community scanner flagged `moment` 2.29.4 (GHSA-4p3w-j4w9-5jqw). It comes in only through the `obsidian` package, which pins that version. The plugin never imports `moment` and does not bundle it, so nothing shipped was affected. An npm override now resolves it to 2.31.0, which clears the warning
+- **Dev tooling advisories**: ran `npm audit fix` to clear advisories in the lint and test dependencies (`brace-expansion`, `@humanfs/node`, `@vitest/mocker`). None of these ship in `main.js`
+
 ## [0.3.28] - 2026-10-01
 
 ### Fixed
@@ -499,6 +505,7 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+[0.3.29]: https://github.com/gapmiss/claude-sessions/compare/0.3.28...0.3.29
 [0.3.28]: https://github.com/gapmiss/claude-sessions/compare/0.3.27...0.3.28
 [0.3.27]: https://github.com/gapmiss/claude-sessions/compare/0.3.26...0.3.27
 [0.3.26]: https://github.com/gapmiss/claude-sessions/compare/0.3.25...0.3.26
