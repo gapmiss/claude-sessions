@@ -8,6 +8,11 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.30] - 2026-10-09
+
+### Fixed
+- **"Check for plugin updates" banner on CC 2.1.289 sessions**: two new attachments raised unknown type warnings. `batching_reminder_sent` tells the model to batch independent tool calls into one response, and only the model sees it. `thinking_drop` records that earlier thinking blocks were left out of an API request, for example after a model switch. Those blocks are still in the transcript and still render. Neither holds anything a reader needs, so both join `REVIEWED_ATTACHMENT_TYPES`
+
 ## [0.3.29] - 2026-10-02
 
 ### Security
