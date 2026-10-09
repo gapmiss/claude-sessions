@@ -103,6 +103,8 @@ export const REVIEWED_ATTACHMENT_TYPES = new Map<string, string>([
 	['auto_mode', 'Mode transition plus a model-facing reminder (prefer Bash for reads and small edits). The mode itself shows in System events via permission-mode records'],
 	['auto_mode_exit', 'Mode transition plus a model-facing reminder to resume the dedicated tools. Same reasoning as auto_mode'],
 	['silent_turn_reminder','Harness nudge telling the model to post a progress update after a long silent stretch — model-facing only, no session data'],
+	['batching_reminder_sent', 'Harness nudge telling the model to batch independent tool calls into one response — model-facing only, no session data'],
+	['thinking_drop', 'Request telemetry: earlier thinking blocks left out of the API request (e.g. model_mismatch after a model switch). The blocks are still in the transcript, so nothing is missing for the reader'],
 ]);
 
 // Record types we looked at and chose not to render, same criterion and same
