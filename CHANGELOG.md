@@ -8,6 +8,11 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.31] - 2026-10-21
+
+### Fixed
+- **"Check for plugin updates" banner on CC 2.1.301 sessions**: three new record types raised unknown type warnings. Together they log each raw API request. `api-request-shape` holds the system prompt and tool definitions, `api-request-blob` holds message chunks keyed by hash, and `api-request` lists the request settings plus the blob hashes that make up its messages. The conversation is already in the transcript, so all three join `REVIEWED_RECORD_TYPES`. Blobs and shapes are large (about 270 KB of a 590 KB session), so the session index and search now skip these lines before parsing
+
 ## [0.3.30] - 2026-10-09
 
 ### Fixed
