@@ -38,6 +38,9 @@ export const SKIP_TYPE_STRINGS = [
 	'"type":"mode"',
 	'"type":"ai-title"',
 	'"type":"pr-link"',
+	'"type":"api-request"',
+	'"type":"api-request-blob"',
+	'"type":"api-request-shape"',
 ];
 
 /** Substring pattern for custom-title records. */
@@ -112,6 +115,11 @@ export const REVIEWED_ATTACHMENT_TYPES = new Map<string, string>([
 export const REVIEWED_RECORD_TYPES = new Map<string, string>([
 	['atis-latch', 'Empty payload (`atis` is always an empty string) plus the session id — harness bookkeeping'],
 	['cost-state', 'Session totals. The summary panel already shows cost and token counts from per-turn usage'],
+	// Raw API request log (CC ~2.1.301). Content-addressed: a request rebuilds
+	// `messages` from the prior request's first `keep` entries plus `tail` blob hashes.
+	['api-request', 'Request params (model, betas, effort, safeguards) and blob hashes for the messages. The conversation is already in the transcript'],
+	['api-request-blob', 'One message chunk keyed by `hash`. Duplicates user, assistant, and system content already in the transcript'],
+	['api-request-shape', 'System prompt and tool definitions keyed by `shapeHash`. Model-facing setup, not session activity'],
 ]);
 
 // ── Special model values ─────────────────────────────────────

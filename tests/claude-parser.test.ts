@@ -1111,6 +1111,9 @@ describe('reviewed attachment subtypes', () => {
 		const quiet = parse(jsonl(
 			assistantText('a'),
 			{ type: 'atis-latch', atis: '', sessionId: 's1' },
+			{ type: 'api-request', id: 'r1', shapeHash: 'h0', keep: 0, tail: ['h1'] },
+			{ type: 'api-request-blob', hash: 'h1', message: { role: 'user', content: [{ type: 'text', text: 'hi' }] } },
+			{ type: 'api-request-shape', shapeHash: 'h0', shape: { system: [], tools: [] } },
 		));
 		expect(quiet.warnings?.some(w => w.type === 'unknown_record_type')).toBeFalsy();
 

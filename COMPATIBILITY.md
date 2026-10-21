@@ -2,7 +2,7 @@
 
 Which Claude Code versions changed the JSONL format in ways that matter to this plugin, and what the plugin does about each change.
 
-**Latest Claude Code version seen: 2.1.289**
+**Latest Claude Code version seen: 2.1.301**
 
 ---
 
@@ -48,6 +48,7 @@ Which Claude Code versions changed the JSONL format in ways that matter to this 
 | Subagent hand-back (`queued_command` with `origin.kind: "peer"`) | ~2.1.286? | 0.3.28+ | New | A background subagent's final report now arrives as a message from the agent, and the task-notification `<result>` only points at it. The report, minus its frame line and indent, is shown as the Agent block's output, with a link row where it arrived. Other peer messages are labeled with the sender, not the user |
 | `batching_reminder_sent` attachment | ~2.1.289? | 0.3.30+ | Skipped | Tells the model to batch independent tool calls into one response. Only the model sees it, and it holds no session data |
 | `thinking_drop` attachment | ~2.1.289? | 0.3.30+ | Skipped | Request telemetry: earlier thinking blocks were left out of the API request, for example after a model switch (`model_mismatch`). The blocks are still in the transcript, so the reader loses nothing |
+| `api-request`, `api-request-blob`, `api-request-shape` records | ~2.1.301? | 0.3.31+ | Skipped | A log of each raw API request. Shapes hold the system prompt and tool definitions, blobs hold message chunks keyed by hash, and each request lists its params plus the blob hashes that make up its messages. The conversation is already in the transcript. Blobs and shapes are large, so the session index and search skip these lines before parsing |
 
 **Legend**
 
@@ -89,6 +90,9 @@ The test is: does the record carry something that appears nowhere else in the ti
 | `companion_intro` | `name`, `species` | Cosmetic. Names the terminal companion |
 | `atis-latch` (record) | `atis`, `sessionId` | `atis` is always an empty string |
 | `cost-state` (record) | | Session totals. The summary already computes cost and tokens from each turn |
+| `api-request` (record) | `id`, `params`, `shapeHash`, `keep`, `tail`, `cacheControl`, `querySource`, `requestDigest` | Request params and blob hashes. The messages they point to are already in the transcript |
+| `api-request-blob` (record) | `hash`, `message` | A message chunk that duplicates transcript content |
+| `api-request-shape` (record) | `shapeHash`, `shape.system`, `shape.tools` | System prompt and tool definitions. Model-facing setup |
 
 The 0.3.25 and 0.3.26 additions are listed in the format changes table above, and the full list is in `constants.ts`.
 
