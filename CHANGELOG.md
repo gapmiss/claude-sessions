@@ -8,6 +8,11 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.32] - 2026-10-30
+
+### Fixed
+- **"Check for plugin updates" banner on CC 2.1.311 sessions**: the new `tools-used` record raised an unknown type warning. It holds a running list of the distinct tools used so far, written just before the first use of each new tool. The tool calls are already in the transcript and the summary already charts tool usage, so it joins `REVIEWED_RECORD_TYPES`
+
 ## [0.3.31] - 2026-10-21
 
 ### Fixed
