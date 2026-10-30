@@ -120,6 +120,8 @@ export const REVIEWED_RECORD_TYPES = new Map<string, string>([
 	['api-request', 'Request params (model, betas, effort, safeguards) and blob hashes for the messages. The conversation is already in the transcript'],
 	['api-request-blob', 'One message chunk keyed by `hash`. Duplicates user, assistant, and system content already in the transcript'],
 	['api-request-shape', 'System prompt and tool definitions keyed by `shapeHash`. Model-facing setup, not session activity'],
+	// CC ~2.1.311. Written just before the first use of each new tool.
+	['tools-used', 'Running list of distinct tool names used so far (`tools`). Derivable from tool_use blocks, and the summary panel already charts tool usage'],
 ]);
 
 // ── Special model values ─────────────────────────────────────
