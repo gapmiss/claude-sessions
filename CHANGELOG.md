@@ -8,6 +8,11 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.33] - 2026-11-05
+
+### Fixed
+- **"Check for plugin updates" banner on CC 2.1.317 sessions**: the new `session-owner` record raised an unknown type warning. It holds only the account and organization UUIDs that own the session, plus the session id, repeated many times with the same values. That is identity metadata, not session activity, so it joins `REVIEWED_RECORD_TYPES`
+
 ## [0.3.32] - 2026-10-30
 
 ### Fixed
