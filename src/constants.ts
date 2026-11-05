@@ -122,6 +122,8 @@ export const REVIEWED_RECORD_TYPES = new Map<string, string>([
 	['api-request-shape', 'System prompt and tool definitions keyed by `shapeHash`. Model-facing setup, not session activity'],
 	// CC ~2.1.311. Written just before the first use of each new tool.
 	['tools-used', 'Running list of distinct tool names used so far (`tools`). Derivable from tool_use blocks, and the summary panel already charts tool usage'],
+	// CC ~2.1.317. Repeated through the session with the same values.
+	['session-owner', 'Account and organization UUIDs that own the session (`accountUuid`, `organizationUuid`, `sessionId`). Identity metadata the reader does not show'],
 ]);
 
 // ── Special model values ─────────────────────────────────────

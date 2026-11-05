@@ -2,7 +2,7 @@
 
 Which Claude Code versions changed the JSONL format in ways that matter to this plugin, and what the plugin does about each change.
 
-**Latest Claude Code version seen: 2.1.314**
+**Latest Claude Code version seen: 2.1.318**
 
 ---
 
@@ -50,6 +50,7 @@ Which Claude Code versions changed the JSONL format in ways that matter to this 
 | `thinking_drop` attachment | ~2.1.289? | 0.3.30+ | Skipped | Request telemetry: earlier thinking blocks were left out of the API request, for example after a model switch (`model_mismatch`). The blocks are still in the transcript, so the reader loses nothing |
 | `api-request`, `api-request-blob`, `api-request-shape` records | ~2.1.301? | 0.3.31+ | Skipped | A log of each raw API request. Shapes hold the system prompt and tool definitions, blobs hold message chunks keyed by hash, and each request lists its params plus the blob hashes that make up its messages. The conversation is already in the transcript. Blobs and shapes are large, so the session index and search skip these lines before parsing |
 | `tools-used` records | ~2.1.311? | 0.3.32+ | Skipped | A running list of the distinct tools used so far, written just before the first use of each new tool. The tool calls are already in the transcript, and the summary charts tool usage |
+| `session-owner` records | ~2.1.317? | 0.3.33+ | Skipped | The account and organization UUIDs that own the session, repeated many times with the same values. Identity metadata, not session activity, so the reader does not show it |
 
 **Legend**
 
@@ -95,6 +96,7 @@ The test is: does the record carry something that appears nowhere else in the ti
 | `api-request-blob` (record) | `hash`, `message` | A message chunk that duplicates transcript content |
 | `api-request-shape` (record) | `shapeHash`, `shape.system`, `shape.tools` | System prompt and tool definitions. Model-facing setup |
 | `tools-used` (record) | `tools`, `sessionId` | Tool names used so far. Derivable from the tool calls |
+| `session-owner` (record) | `accountUuid`, `organizationUuid`, `sessionId` | Account identity. Not shown in the reader |
 
 The 0.3.25 and 0.3.26 additions are listed in the format changes table above, and the full list is in `constants.ts`.
 

@@ -1115,6 +1115,7 @@ describe('reviewed attachment subtypes', () => {
 			{ type: 'api-request-blob', hash: 'h1', message: { role: 'user', content: [{ type: 'text', text: 'hi' }] } },
 			{ type: 'api-request-shape', shapeHash: 'h0', shape: { system: [], tools: [] } },
 			{ type: 'tools-used', tools: ['Bash', 'Write'], sessionId: 's1' },
+			{ type: 'session-owner', accountUuid: 'a1', organizationUuid: 'o1', sessionId: 's1' },
 		));
 		expect(quiet.warnings?.some(w => w.type === 'unknown_record_type')).toBeFalsy();
 
