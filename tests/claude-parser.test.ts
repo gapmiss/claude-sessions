@@ -1092,6 +1092,7 @@ describe('reviewed attachment subtypes', () => {
 			attachment({ type: 'deferred_tools_delta', addedNames: ['Read'] }),
 			attachment({ type: 'agent_listing_delta', addedTypes: ['Explore'] }, 'y'),
 			attachment({ type: 'total_tokens_reminder', text: '<total_tokens>1 tokens left</total_tokens>' }, 'z'),
+			attachment({ type: 'at_mention_reference', mentions: ['/tmp/big.html'], unread: 'too_large', fileSize: 1524383, displayPath: 'big.html' }, 'w'),
 		));
 
 		expect(session.warnings?.some(w => w.type === 'unknown_attachment_type')).toBeFalsy();

@@ -108,6 +108,8 @@ export const REVIEWED_ATTACHMENT_TYPES = new Map<string, string>([
 	['silent_turn_reminder','Harness nudge telling the model to post a progress update after a long silent stretch — model-facing only, no session data'],
 	['batching_reminder_sent', 'Harness nudge telling the model to batch independent tool calls into one response — model-facing only, no session data'],
 	['thinking_drop', 'Request telemetry: earlier thinking blocks left out of the API request (e.g. model_mismatch after a model switch). The blocks are still in the transcript, so nothing is missing for the reader'],
+	// CC ~2.1.322. Written instead of `file` when the mentioned file is not attached.
+	['at_mention_reference', 'An @-mentioned file that was not attached (`unread`, e.g. too_large), with its path and size. The prompt already shows the @-mention, and any reads that follow appear as tool calls'],
 ]);
 
 // Record types we looked at and chose not to render, same criterion and same
