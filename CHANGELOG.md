@@ -8,6 +8,11 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.34] - 2026-11-12
+
+### Fixed
+- **"Check for plugin updates" banner on CC 2.1.322 sessions**: the new `at_mention_reference` attachment raised an unknown type warning. It is written when an @-mentioned file is not attached (for example `unread: too_large`) and holds only the path and file size. The prompt already shows the @-mention, and any reads that follow appear as tool calls, so it joins `REVIEWED_ATTACHMENT_TYPES`
+
 ## [0.3.33] - 2026-11-05
 
 ### Fixed
