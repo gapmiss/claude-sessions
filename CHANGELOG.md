@@ -541,6 +541,12 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+[0.3.35]: https://github.com/gapmiss/claude-sessions/compare/0.3.34...0.3.35
+[0.3.34]: https://github.com/gapmiss/claude-sessions/compare/0.3.33...0.3.34
+[0.3.33]: https://github.com/gapmiss/claude-sessions/compare/0.3.32...0.3.33
+[0.3.32]: https://github.com/gapmiss/claude-sessions/compare/0.3.31...0.3.32
+[0.3.31]: https://github.com/gapmiss/claude-sessions/compare/0.3.30...0.3.31
+[0.3.30]: https://github.com/gapmiss/claude-sessions/compare/0.3.29...0.3.30
 [0.3.29]: https://github.com/gapmiss/claude-sessions/compare/0.3.28...0.3.29
 [0.3.28]: https://github.com/gapmiss/claude-sessions/compare/0.3.27...0.3.28
 [0.3.27]: https://github.com/gapmiss/claude-sessions/compare/0.3.26...0.3.27
