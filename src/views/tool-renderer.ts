@@ -119,9 +119,9 @@ export function renderToolCall(
 	}
 	header.createSpan({ cls: 'claude-sessions-tool-preview', text: toolPreview(block) });
 	if (block.isPending) {
-		header.createSpan({ cls: 'claude-sessions-tool-duration claude-sessions-tool-orphaned-label', text: 'in progress' });
+		header.createSpan({ cls: 'claude-sessions-tool-duration claude-sessions-tool-orphaned-label', text: 'In progress' });
 	} else if (block.isOrphaned) {
-		header.createSpan({ cls: 'claude-sessions-tool-duration claude-sessions-tool-orphaned-label', text: 'interrupted' });
+		header.createSpan({ cls: 'claude-sessions-tool-duration claude-sessions-tool-orphaned-label', text: 'Interrupted' });
 	} else if (block.subAgentSession?.isBackground && block.subAgentSession.durationMs) {
 		// Completed background agent — show actual run duration, not the instant tool call time
 		header.createSpan({
@@ -138,7 +138,7 @@ export function renderToolCall(
 		// Still running — show "background" badge
 		header.createSpan({
 			cls: 'claude-sessions-tool-duration claude-sessions-tool-background-label',
-			text: 'background',
+			text: 'Background',
 		});
 	}
 
@@ -673,7 +673,7 @@ function renderAskUserQuestion(
 	// Answer summary (only for successful responses)
 	if (answers.size > 0) {
 		const answerEl = wrapper.createDiv({ cls: 'claude-sessions-ask-answers' });
-		answerEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'USER ANSWERS' });
+		answerEl.createDiv({ cls: 'claude-sessions-tool-section-label', text: 'User answers' });
 		for (const [question, answer] of answers) {
 			const row = answerEl.createDiv({ cls: 'claude-sessions-ask-answer-row' });
 			row.createSpan({ cls: 'claude-sessions-ask-answer-q', text: question + ' ' });

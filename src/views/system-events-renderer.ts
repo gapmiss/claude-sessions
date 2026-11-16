@@ -244,7 +244,7 @@ function renderHooksSection(container: HTMLElement, hooks: HookRow[], stopHooks:
 			if (stdout.length > 100) {
 				const preview = row.createDiv({ cls: 'claude-sessions-system-events-stdout collapsed' });
 				preview.createSpan({ text: stdout.slice(0, 100) + '...' });
-				const expandBtn = preview.createSpan({ cls: 'claude-sessions-system-events-expand', text: 'show more' });
+				const expandBtn = preview.createSpan({ cls: 'claude-sessions-system-events-expand', text: 'Show more' });
 				makeClickable(expandBtn, { label: 'Expand output' });
 				expandBtn.addEventListener('click', (e) => {
 					e.stopPropagation();

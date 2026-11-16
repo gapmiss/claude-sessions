@@ -289,7 +289,7 @@ export class TimelineRenderer {
 			header.createSpan({
 				cls: 'claude-sessions-turn-stop-reason',
 				attr: { 'aria-label': 'Response truncated (max tokens)', 'data-tooltip-position': 'top' },
-				text: 'max tokens',
+				text: 'Max tokens',
 			});
 		}
 		if (turn.isApiError) {
@@ -540,7 +540,7 @@ export class TimelineRenderer {
 		setIcon(icon, 'brain');
 		header.createSpan({ cls: 'claude-sessions-thinking-name', text: 'Thinking' });
 		if (isRedacted) {
-			header.createSpan({ cls: 'claude-sessions-thinking-redacted', text: 'content encrypted' });
+			header.createSpan({ cls: 'claude-sessions-thinking-redacted', text: 'Content encrypted' });
 		}
 		if (!isRedacted) {
 			addCopyButton(header, text, 'Copy thinking text');

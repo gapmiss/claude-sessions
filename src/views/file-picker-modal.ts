@@ -91,7 +91,7 @@ export class FilePickerModal extends Modal {
 		// Divider with "or enter path"
 		if (!Platform.isMobile) {
 			const divider = contentEl.createDiv({ cls: 'claude-sessions-drop-zone-divider' });
-			divider.createSpan({ text: 'or enter a path' });
+			divider.createSpan({ cls: 'claude-sessions-drop-zone-divider-text', text: 'Or enter a path' });
 		}
 
 		new Setting(contentEl)

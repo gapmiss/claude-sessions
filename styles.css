@@ -1032,9 +1032,11 @@
 .claude-sessions-tool-orphaned-label {
 	color: var(--color-orange);
 	font-style: italic;
+	text-transform: lowercase;
 }
 
 .claude-sessions-tool-background-label {
+	text-transform: lowercase;
 	background: var(--background-modifier-success);
 	color: var(--text-on-accent);
 	padding: var(--cs-padding-badge);
@@ -1246,6 +1248,7 @@
 }
 
 .claude-sessions-turn-stop-reason {
+	text-transform: lowercase;
 	font-size: var(--font-smallest);
 	padding: var(--cs-padding-badge);
 	border-radius: var(--radius-s);
@@ -1969,6 +1972,7 @@
 	color: var(--text-faint);
 	font-style: italic;
 	font-size: var(--font-ui-smaller);
+	text-transform: lowercase;
 }
 
 .claude-sessions-thinking-chevron {
@@ -2360,6 +2364,10 @@
 	margin: var(--size-4-3) 0;
 	color: var(--text-faint);
 	font-size: var(--font-ui-smaller);
+}
+
+.claude-sessions-drop-zone-divider-text {
+	text-transform: lowercase;
 }
 
 .claude-sessions-drop-zone-divider::before,
@@ -3226,6 +3234,7 @@
 }
 
 .claude-sessions-system-events-expand {
+	text-transform: lowercase;
 	color: var(--text-accent);
 	cursor: pointer;
 	margin-left: var(--size-4-1);
