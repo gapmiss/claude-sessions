@@ -23,8 +23,12 @@ Pitfalls we've already hit, so nobody has to hit them twice. It isn't loaded int
 
 ## ESLint
 
-- `eslint-plugin-obsidianmd` exports its recommended config as a flat object of rules, not under a `rules` key. Spread it into `rules` yourself for ESLint 9 flat config
-- The type-aware rules need `@typescript-eslint/parser` with `parserOptions.project`
+- Since 0.5.0, `eslint-plugin-obsidianmd` exports `configs.recommended` as a full flat config array. Spread it at the top level of `defineConfig([...])`, not into `rules`. It bundles the typescript-eslint parser and type-checked rules, so the config only adds `parserOptions.projectService`
+- Run ESLint from the project root (`npx eslint .`). The recommended config also lints `manifest.json`, `LICENSE`, and `package.json`, and `eslint src` skips them
+- Every rule-override block needs a `files` glob for source files. Without one it reaches `manifest.json` and `LICENSE`, and ESLint stops with "could not find plugin"
+- Tests, `vitest.config.mts`, and the Node build scripts are in `globalIgnores` because they are not in `tsconfig.json`. Putting them in `allowDefaultProject` instead exceeds its 8-file limit and fails with "Too many files have matched the default project"
+- `ui/sentence-case` is off in the recommended config and the community scanner doesn't run it. We opt in. Its `brands` option replaces the built-in list, so product and tool names that need their casing go in `ignoreWords` instead. Lowercase or uppercase badge text is written in sentence case and styled with `text-transform` in `styles.css`
+- Don't upgrade to TypeScript 7. typescript-eslint can't use it yet
 
 ## Claude Code JSONL format
 

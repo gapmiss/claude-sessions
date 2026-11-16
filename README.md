@@ -5,7 +5,7 @@ An [Obsidian](https://obsidian.md/) plugin for reading your [Claude Code](https:
 **Local and private.** The plugin reads Claude Code's JSONL files straight from disk. Nothing is uploaded or synced, and your conversations stay on your machine. The one exception is the optional rate limit display, covered under [Security notices](#security-notices).
 
 > [!IMPORTANT]
-> **v0.3.34**. Desktop only.
+> **v0.3.35**. Desktop only.
 
 > [!NOTE]
 > **System identity access:** the plugin reads the `HOME` environment variable and `os.homedir()` to find Claude Code's session files in `~/.claude/projects/`, and the OAuth credentials used by the rate limit display. These values only build local file paths. Nothing is sent anywhere.
@@ -321,7 +321,7 @@ npm run test:watch   # vitest in watch mode
 npx eslint .         # lint, including eslint-plugin-obsidianmd
 ```
 
-Built with TypeScript 5.8 and esbuild, [diff](https://www.npmjs.com/package/diff) for Edit diffs, [eslint-plugin-obsidianmd](https://www.npmjs.com/package/eslint-plugin-obsidianmd) for linting, and Vitest for tests. It uses Node's `fs`, which is why it's desktop only.
+Built with TypeScript 5.9 and esbuild, [diff](https://www.npmjs.com/package/diff) for Edit diffs, [eslint-plugin-obsidianmd](https://www.npmjs.com/package/eslint-plugin-obsidianmd) for linting, and Vitest for tests. It uses Node's `fs`, which is why it's desktop only.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) to get involved.
 

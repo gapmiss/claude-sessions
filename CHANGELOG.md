@@ -8,6 +8,17 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+## [0.3.35] - 2026-11-16
+
+### Changed
+- **Linting**: moved to `eslint-plugin-obsidianmd` 0.6.0 and its recommended config, which includes the typescript-eslint type-checked rules and also checks `manifest.json`, `LICENSE`, and `package.json`. Lint now runs from the project root (`npm run lint`) and checks UI text for sentence case
+- **Dependencies**: `obsidian` 1.14.4, `diff` 9, Vitest 5, TypeScript 5.9, typescript-eslint 8.73, esbuild 0.28.2, tslib 2.9, and `@types/node` 22. Removed unused `@eslint/js`, `@eslint/json`, `globals`, `jiti`, and `@types/diff`. An override pins `minimatch` to a patched version (GHSA-g3hv-75wg-m249), so `npm audit` is clean
+
+### Fixed
+- **UI text in sentence case**: eight badges and labels ("In progress", "Interrupted", "Background", "Max tokens", "Content encrypted", "Show more", "Or enter a path", "User answers") now use sentence case. CSS keeps their old lowercase or uppercase look, and screen readers and copied text get the sentence-case versions
+- **Markdown export with images**: typed the image bytes so the export builds under TypeScript 5.9
+- **Mermaid rendering**: the pending render frame is now cancelled on the same window that requested it
+
 ## [0.3.34] - 2026-11-12
 
 ### Fixed
