@@ -8,6 +8,7 @@ import type {
 import { fence, langFromPath, stripLineNumbers, stripFenceMarkers, summarizeStopHooks, shortHookCommand, queuedMessageLabel } from '../views/render-helpers';
 import { ANSI_STRIP_RE } from '../constants';
 import type { ExportOptions } from '../views/export-modal';
+import { sessionDisplayName } from '../utils/session-title';
 
 interface PendingImage {
 	fileName: string;
@@ -116,6 +117,7 @@ function buildMarkdown(
 	lines.push(`session_id: "${meta.id}"`);
 	if (meta.startTime) lines.push(`date: "${meta.startTime}"`);
 	if (meta.customTitle) lines.push(`title: "${meta.customTitle}"`);
+	if (meta.aiTitle) lines.push(`ai_title: ${JSON.stringify(meta.aiTitle)}`);
 	lines.push(`project: "${meta.project}"`);
 	if (meta.model) lines.push(`model: "${meta.model}"`);
 	if (meta.branch) lines.push(`branch: "${meta.branch}"`);
@@ -137,7 +139,7 @@ function buildMarkdown(
 	lines.push('');
 
 	// Session header
-	const displayName = meta.customTitle || meta.project;
+	const displayName = sessionDisplayName(meta);
 	lines.push(`# Session: ${displayName}`);
 	lines.push('');
 
@@ -247,6 +249,7 @@ function buildSummarySection(session: Session): string {
 	lines.push('### Session details');
 	lines.push('');
 	if (meta.customTitle) lines.push(`- **Title:** ${meta.customTitle}`);
+	if (meta.aiTitle) lines.push(`- **AI title:** ${meta.aiTitle}`);
 	if (meta.project) lines.push(`- **Project:** ${meta.project}`);
 	if (meta.model) lines.push(`- **Model:** ${meta.model}`);
 	if (meta.version) lines.push(`- **Version:** ${meta.version}`);

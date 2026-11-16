@@ -10,6 +10,7 @@ import { makeClickable } from './render-helpers';
 import { shortenPath } from '../utils/path-utils';
 import { scanSessionDirs } from './session-browser-modal';
 import { TimelineView, VIEW_TYPE_TIMELINE } from './timeline-view';
+import { sessionDisplayName } from '../utils/session-title';
 
 export const VIEW_TYPE_SEARCH = 'claude-sessions-search';
 
@@ -469,7 +470,7 @@ export class SearchView extends ItemView {
 				: 'All sessions');
 		} else {
 			if (this.trackedSession) {
-				const displayName = this.trackedSession.metadata.customTitle || this.trackedSession.metadata.project;
+				const displayName = sessionDisplayName(this.trackedSession.metadata);
 				this.scopeLabel.setText(`Session: ${displayName}`);
 			} else {
 				this.scopeLabel.setText('No session open');
@@ -700,7 +701,7 @@ export class SearchView extends ItemView {
 
 		// Session header
 		const header = group.createDiv({ cls: 'claude-sessions-search-session-header' });
-		const displayName = result.entry.customTitle || result.entry.project;
+		const displayName = sessionDisplayName(result.entry);
 		header.createSpan({ cls: 'claude-sessions-search-session-project', text: displayName });
 		if (result.entry.date) {
 			header.createSpan({ cls: 'claude-sessions-search-session-date', text: result.entry.date });

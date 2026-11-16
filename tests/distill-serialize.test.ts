@@ -130,6 +130,20 @@ describe('serializeFrontmatter', () => {
 
 // ── YAML Quoting ───────────────────────────────────────────
 
+describe('serializeFrontmatter - ai_title', () => {
+	it('writes ai_title after title', () => {
+		const yaml = serializeFrontmatter(makeMinimalFrontmatter({ title: 'my-name', ai_title: 'Fix: login redirect' }));
+		const lines = yaml.split('\n');
+		const t = lines.indexOf('title: my-name');
+		expect(t).toBeGreaterThan(-1);
+		expect(lines[t + 1]).toBe('ai_title: "Fix: login redirect"');
+	});
+
+	it('omits ai_title when absent', () => {
+		expect(serializeFrontmatter(makeMinimalFrontmatter())).not.toContain('ai_title');
+	});
+});
+
 describe('serializeFrontmatter - quoting', () => {
 	it('quotes strings with colons', () => {
 		const fm = makeMinimalFrontmatter({
@@ -455,5 +469,21 @@ cwd: /test
 		const merged = mergeNoteContent(noFrontmatter, llmNote);
 
 		expect(merged).toBe(llmNote);
+	});
+});
+
+describe('mergeNoteContent - ai_title', () => {
+	const fm = (body: string) => `---\n${body}\n---\n\n## Summary\n\nBody\n`;
+
+	it('keeps ai_title in the project section and closes the section after it', () => {
+		const layer0 = fm('session_id: abc\nschema_version: 1\nproject: p\ncwd: /p\nmodel: m\ntitle: mine\nai_title: Generated\nstart_time: 2026-01-01T00:00:00Z');
+		const merged = mergeNoteContent(layer0, fm('session_id: x\nschema_version: 1'));
+		expect(merged).toContain('title: mine\nai_title: Generated\n\nstart_time:');
+	});
+
+	it('closes the project section after cwd when no optional keys exist', () => {
+		const layer0 = fm('session_id: abc\nschema_version: 1\nproject: p\ncwd: /p\nstart_time: 2026-01-01T00:00:00Z');
+		const merged = mergeNoteContent(layer0, fm('session_id: x\nschema_version: 1'));
+		expect(merged).toContain('cwd: /p\n\nstart_time:');
 	});
 });

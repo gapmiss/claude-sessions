@@ -13,6 +13,8 @@ export interface SessionMetadata {
 	totalTurns: number;
 	/** User-defined session name from /rename command. */
 	customTitle?: string;
+	/** Title Claude Code generated for the session (ai-title record, last value). */
+	aiTitle?: string;
 }
 
 export interface SessionStats {
@@ -380,6 +382,8 @@ export interface SessionListEntry {
 	mtime: number;
 	/** User-defined session name from /rename command. */
 	customTitle?: string;
+	/** Title Claude Code generated for the session (ai-title record, last value). */
+	aiTitle?: string;
 }
 
 export interface CachedSessionMeta {
@@ -390,6 +394,8 @@ export interface CachedSessionMeta {
 	mtime: number;
 	/** User-defined session name from /rename command. */
 	customTitle?: string;
+	/** Title Claude Code generated for the session (ai-title record, last value). */
+	aiTitle?: string;
 }
 
 export interface SessionIndexData {

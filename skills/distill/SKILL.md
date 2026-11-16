@@ -33,6 +33,7 @@ When a metadata field cannot be determined, apply the following fallbacks rather
 | `tools_used` | `[]` |
 | `files_touched` | *(omit field)* |
 | `title` | *(omit field)* |
+| `ai_title` | *(omit field)* |
 
 If `start_time` is unavailable, use the current timestamp and note it is approximate.
 
@@ -53,6 +54,7 @@ cwd: "{working_directory}"
 branch: "{git_branch}"
 model: "{model_name}"
 title: "{custom_title}"          # only if session was renamed
+ai_title: "{ai_title}"           # only if Claude Code generated a title
 
 start_time: {ISO8601_timestamp}
 duration_min: {minutes}

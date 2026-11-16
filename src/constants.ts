@@ -46,6 +46,9 @@ export const SKIP_TYPE_STRINGS = [
 /** Substring pattern for custom-title records. */
 export const CUSTOM_TITLE_PATTERN = '"type":"custom-title"';
 
+/** Substring pattern for ai-title records (the title Claude Code generates). */
+export const AI_TITLE_PATTERN = '"type":"ai-title"';
+
 // ── Content block types ──────────────────────────────────────
 export const BT_TEXT = 'text';
 export const BT_THINKING = 'thinking';

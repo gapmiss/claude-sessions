@@ -11,6 +11,7 @@ import type { ExportOptions } from '../views/export-modal';
 import { captureAllCSS } from './css-capture';
 import { getStandaloneScript } from './standalone-player';
 import { shortModelName, formatElapsed } from '../views/render-helpers';
+import { sessionDisplayName } from '../utils/session-title';
 
 /** Additional CSS overrides for the standalone HTML context. */
 const EXPORT_OVERRIDES = `
@@ -206,7 +207,7 @@ function buildHeaderHTML(session: Session): string {
 		metaParts.push(`<span>Cost: ~${escapeHtml(cost)}</span>`);
 	}
 
-	const displayName = m.customTitle || m.project;
+	const displayName = sessionDisplayName(m);
 	return `<div class="as-export-header">
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
     <span class="as-export-header-title">${escapeHtml(displayName)}</span>
@@ -343,7 +344,7 @@ export async function exportToHTML(
 		const themeClass = isDark ? 'theme-dark' : 'theme-light';
 
 		// Assemble the HTML document
-		const sessionName = session.metadata.customTitle || session.metadata.project;
+		const sessionName = sessionDisplayName(session.metadata);
 		const title = `Session: ${sessionName}`;
 		const html = `<!DOCTYPE html>
 <html lang="en" class="${themeClass}">

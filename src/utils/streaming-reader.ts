@@ -2,7 +2,7 @@ import { Platform, Notice } from 'obsidian';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
-import { SKIP_TYPE_STRINGS, CUSTOM_TITLE_PATTERN } from '../constants';
+import { SKIP_TYPE_STRINGS, CUSTOM_TITLE_PATTERN, AI_TITLE_PATTERN, RT_CUSTOM_TITLE, RT_AI_TITLE } from '../constants';
 
 interface ReadProgress {
 	bytesRead: number;
@@ -71,6 +71,8 @@ export interface QuickMetadata {
 	hasContent: boolean;
 	/** User-defined session name from /rename command (last value). */
 	customTitle?: string;
+	/** Title Claude Code generated for the session (last value). */
+	aiTitle?: string;
 }
 
 
@@ -78,7 +80,7 @@ export interface QuickMetadata {
  * Read a JSONL file line-by-line and extract metadata from early records.
  * Skips large record types by prefix check to avoid parsing multi-KB JSON.
  * Extracts sessionId/cwd/startTime from first 100 lines.
- * Scans entire file for custom-title records (keeps last value). Desktop only.
+ * Scans entire file for custom-title and ai-title records (keeps last value of each). Desktop only.
  */
 export async function extractQuickMetadataAsync(filePath: string): Promise<QuickMetadata> {
 	if (!Platform.isDesktop) return { hasContent: false };
@@ -104,17 +106,23 @@ export async function extractQuickMetadataAsync(filePath: string): Promise<Quick
 			const trimmed = line.trim();
 			if (!trimmed) return;
 
-			// Check for custom-title records throughout the file (keep last)
-			if (trimmed.includes(CUSTOM_TITLE_PATTERN)) {
+			// Check for title records throughout the file (keep last of each).
+			// Both are tiny, so parsing them is cheap even though ai-title repeats often.
+			if (trimmed.includes(CUSTOM_TITLE_PATTERN) || trimmed.includes(AI_TITLE_PATTERN)) {
 				try {
 					const record = JSON.parse(trimmed) as Record<string, unknown>;
-					if (record['type'] === 'custom-title' && typeof record['customTitle'] === 'string') {
+					if (record['type'] === RT_CUSTOM_TITLE && typeof record['customTitle'] === 'string') {
 						result.customTitle = record['customTitle'];
+						return;
+					}
+					if (record['type'] === RT_AI_TITLE && typeof record['aiTitle'] === 'string') {
+						result.aiTitle = record['aiTitle'];
+						return;
 					}
 				} catch {
 					// Malformed JSON — skip
+					return;
 				}
-				return;
 			}
 
 			// For other metadata, only process first MAX_LINES_FOR_BASIC lines

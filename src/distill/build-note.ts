@@ -254,7 +254,7 @@ function serializeMergedFrontmatter(fields: Map<string, string | string[]>): str
 	// Ordered keys for consistent output
 	const orderedKeys = [
 		'tags', 'session_id', 'schema_version',
-		'project', 'cwd', 'branch', 'model', 'title',
+		'project', 'cwd', 'branch', 'model', 'title', 'ai_title',
 		'start_time', 'duration_min',
 		'cost_usd', 'context_tokens', 'input_tokens', 'output_tokens', 'cache_read_tokens',
 		'user_turns', 'assistant_turns',
@@ -272,9 +272,12 @@ function serializeMergedFrontmatter(fields: Map<string, string | string[]>): str
 		const value = fields.get(key)!;
 		lines.push(formatField(key, value));
 
-		// Add blank line after sections (title is optional, so check both model and title)
+		// Add blank line after sections. The project section's trailing keys are
+		// optional, so it ends at whichever of them is present last.
 		const sectionEnds = ['schema_version', 'duration_min', 'cache_read_tokens', 'assistant_turns', 'session_type'];
-		const isProjectSectionEnd = (key === 'title') || (key === 'model' && !fields.has('title'));
+		const projectKeys = ['project', 'cwd', 'branch', 'model', 'title', 'ai_title'];
+		const lastProjectKey = projectKeys.filter(k => fields.has(k)).pop();
+		const isProjectSectionEnd = key === lastProjectKey;
 		if (sectionEnds.includes(key) || isProjectSectionEnd) {
 			lines.push('');
 		}

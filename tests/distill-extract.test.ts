@@ -158,6 +158,20 @@ describe('extractFrontmatter', () => {
 
 // ── File Path Extraction ───────────────────────────────────
 
+describe('extractFrontmatter - titles', () => {
+	it('writes the /rename title to title and the generated title to ai_title', () => {
+		const fm = extractFrontmatter(makeSession({ metadata: { customTitle: 'my-name', aiTitle: 'Fix login redirect' } }));
+		expect(fm.title).toBe('my-name');
+		expect(fm.ai_title).toBe('Fix login redirect');
+	});
+
+	it('does not copy the generated title into title', () => {
+		const fm = extractFrontmatter(makeSession({ metadata: { aiTitle: 'Fix login redirect' } }));
+		expect(fm.title).toBeUndefined();
+		expect(fm.ai_title).toBe('Fix login redirect');
+	});
+});
+
 describe('extractFrontmatter - files_touched', () => {
 	it('extracts file paths from Read tool', () => {
 		const session = makeSession({

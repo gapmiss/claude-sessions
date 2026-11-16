@@ -2,7 +2,7 @@
 
 Which Claude Code versions changed the JSONL format in ways that matter to this plugin, and what the plugin does about each change.
 
-**Latest Claude Code version seen: 2.1.322**
+**Latest Claude Code version seen: 2.1.325**
 
 ---
 
@@ -20,6 +20,7 @@ Which Claude Code versions changed the JSONL format in ways that matter to this 
 | `task_reminder` attachment | ~2.1.90? | 0.2.13+ | Stable | Background task counts |
 | `permission-mode` records | ~2.1.90? | 0.3.27+ | New | Permission mode, repeated up to ~100 times per session. No uuid or timestamp. Repeats are collapsed and each change is shown with the turn it applies from |
 | `custom-title` records | ~2.1.90? | 0.2.13+ | Stable | The title set with `/rename`, in `customTitle` |
+| `ai-title` records | 2.1.198 or earlier to 2.1.312 | 0.3.36+ | Discontinued | The title Claude Code generated, in `aiTitle`. Rewritten many times per session (100+ in long ones) and can change partway through, so the last one wins. Used as the display name when there is no `/rename` title, and written to distill and Markdown frontmatter as `ai_title`. Not written from 2.1.314 on (none in 27 sessions from 2.1.314 to 2.1.325), so newer sessions fall back to the project name. See [Generated session titles](#generated-session-titles) |
 | `PermissionRequest` hook (`async_hook_response`) | 2.1.98 to 2.1.117 | 0.2.13+ | Stable | Shield icon on the tool call. Replaced in 2.1.214, still parsed for older sessions |
 | `stop_hook_summary` system records | 2.0.42 to at least 2.1.282 | 0.3.27+ | New | The only record of Stop hooks, written after nearly every turn. `hookInfos[]` (command, optional `durationMs`), `hookErrors[]`, `preventedContinuation`. Grouped by command in the HOOKS section |
 | `pr-link` records | ~2.1.50? | 0.3.16+ | Skipped | PR number, URL, and repo. Nothing to render |
@@ -132,3 +133,23 @@ If the plugin doesn't handle something in your sessions:
 1. Note your Claude Code version (`claude --version`)
 2. Look for parse warnings in the session summary panel, or "unknown record type", "unknown block type", and "unknown attachment type" in the developer console
 3. Open an issue with the Claude Code version, a sample JSONL record (remove anything sensitive), and what you expected to see
+
+---
+
+## Generated session titles
+
+Checked on 2026-11-16 against 2,076 local sessions.
+
+**What happened.** From 2.1.198 or earlier to 2.1.312, about 95% of sessions have `ai-title` records (`{"type":"ai-title","aiTitle":"...","sessionId":"..."}`). No session from 2.1.314 to 2.1.325 has one. No other key in the JSONL replaced it: the only title field in newer sessions is `customTitle`, from `/rename`.
+
+**What the plugin does.** The display name is the `/rename` title, then the generated title, then the project name (`sessionDisplayName()` in `src/utils/session-title.ts`). Older sessions get their generated title. Newer ones fall back to the project name.
+
+**Fallbacks we rejected.** The first user prompt is not used as a title. Prompts often start with boilerplate (for example "Load the obsidian SKILL..."), so the project name is the better fallback.
+
+**Where to look if it comes back.**
+
+- New record types in the JSONL. Run the corpus check in GOTCHAS.md (`grep -rho '"type":"[a-z-]*"' ~/.claude/projects | sort -u`) and look for anything title-like, or search for keys: `grep -rho '"[a-zA-Z]*[Tt]itle[a-zA-Z]*":' ~/.claude/projects | sort | uniq -c`
+- `~/.claude/sessions/<pid>.json`, the registry of running sessions. In 2.1.325 it has `name`, `nameSource` (`"user"` after `/rename`), `nameSince`, and `formerNames`. If `nameSource` ever shows a generated value, Claude Code is still naming sessions. The file only exists while the session runs, so it can't be a title source for the browser, but it shows whether the feature still exists.
+
+**To support a new title source.** Read it in the parser (`claude-parser.ts`, next to the `ai-title` handling) and in the quick scan (`extractQuickMetadataAsync` in `streaming-reader.ts`). Add it to `SessionMetadata`, `SessionListEntry`, and `CachedSessionMeta`, and to `sessionDisplayName()`. Bump `INDEX_VERSION` in `session-index.ts` so cached entries are rescanned.
+

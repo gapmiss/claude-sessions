@@ -2,7 +2,8 @@ import type { CachedSessionMeta, SessionIndexData } from '../types';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const INDEX_VERSION = 2;
+// v3: adds aiTitle. Bumping discards older caches so every session is rescanned.
+const INDEX_VERSION = 3;
 const INDEX_FILENAME = 'session-index.json';
 
 export class SessionIndex {

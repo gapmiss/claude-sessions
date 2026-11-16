@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import type ClaudeSessionsPlugin from '../main';
 import { SessionListEntry } from '../types';
 import { expandHome, extractProjectName, basename, shortenPath, projectFromCwd } from '../utils/path-utils';
+import { sessionDisplayName } from '../utils/session-title';
 import { listDirectory, listDirectoryFiles, listSubdirectories, readFileContent, extractQuickMetadataAsync } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
 import { resolveSubAgentSessions } from '../parsers/claude-subagent';
@@ -92,6 +93,7 @@ async function buildEntry(
 			hasContent: meta.hasContent,
 			mtime,
 			customTitle: meta.customTitle,
+			aiTitle: meta.aiTitle,
 		};
 		index.set(filePath, cached);
 		wasUpdated = true;
@@ -115,6 +117,7 @@ async function buildEntry(
 			startTime: cached.startTime,
 			mtime,
 			customTitle: cached.customTitle,
+			aiTitle: cached.aiTitle,
 		},
 		_updated: wasUpdated,
 	};
@@ -136,8 +139,9 @@ export class SessionBrowserModal extends SuggestModal<SessionListEntry> {
 		if (query) {
 			const q = query.toLowerCase();
 			results = results.filter((e) => {
-				const displayName = e.customTitle || e.project;
-				return displayName.toLowerCase().includes(q)
+				return e.project.toLowerCase().includes(q)
+					|| (e.customTitle?.toLowerCase().includes(q) ?? false)
+					|| (e.aiTitle?.toLowerCase().includes(q) ?? false)
 					|| (e.cwd?.toLowerCase().includes(q) ?? false)
 					|| e.id.toLowerCase().includes(q);
 			});
@@ -158,7 +162,7 @@ export class SessionBrowserModal extends SuggestModal<SessionListEntry> {
 		if (isPinned) el.addClass('is-pinned');
 
 		const line1 = el.createDiv({ cls: 'claude-sessions-suggestion-line1' });
-		const displayName = item.customTitle || item.project;
+		const displayName = sessionDisplayName(item);
 		line1.createSpan({ cls: 'claude-sessions-suggestion-project', text: displayName });
 
 		// Pin toggle button

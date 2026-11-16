@@ -36,6 +36,8 @@ export interface DistilledFrontmatter {
 	branch?: string;
 	model?: string;
 	title?: string;
+	/** Title Claude Code generated for the session (ai-title record). */
+	ai_title?: string;
 
 	// Timing
 	start_time?: string;

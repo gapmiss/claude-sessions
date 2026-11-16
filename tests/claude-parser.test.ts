@@ -431,6 +431,43 @@ describe('metadata extraction', () => {
 
 		expect(session.metadata.customTitle).toBeUndefined();
 	});
+
+	it('extracts aiTitle from ai-title record', () => {
+		const session = parse(jsonl(
+			userText('hi'),
+			{ type: 'ai-title', aiTitle: 'Fix login redirect', sessionId: 'abc' },
+			assistantText('hello'),
+		));
+
+		expect(session.metadata.aiTitle).toBe('Fix login redirect');
+		expect(session.metadata.customTitle).toBeUndefined();
+		expect(session.warnings).toBeUndefined();
+	});
+
+	it('uses last aiTitle when the generated title changes mid-session', () => {
+		const session = parse(jsonl(
+			userText('hi'),
+			{ type: 'ai-title', aiTitle: 'Dashboard planning', sessionId: 'abc' },
+			assistantText('hello'),
+			{ type: 'ai-title', aiTitle: 'Dashboard planning', sessionId: 'abc' },
+			userText('more'),
+			{ type: 'ai-title', aiTitle: 'shop-dashboard', sessionId: 'abc' },
+		));
+
+		expect(session.metadata.aiTitle).toBe('shop-dashboard');
+	});
+
+	it('keeps customTitle and aiTitle separate when both exist', () => {
+		const session = parse(jsonl(
+			userText('hi'),
+			{ type: 'ai-title', aiTitle: 'Generated title', sessionId: 'abc' },
+			{ type: 'custom-title', customTitle: 'my-name', sessionId: 'abc' },
+			assistantText('hello'),
+		));
+
+		expect(session.metadata.customTitle).toBe('my-name');
+		expect(session.metadata.aiTitle).toBe('Generated title');
+	});
 });
 
 // ─── Orphaned / Pending Tool Calls ─────────────────────────────

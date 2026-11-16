@@ -7,6 +7,7 @@ import { readFileContent, listDirectoryFiles } from '../utils/streaming-reader';
 import { detectParser } from '../parsers/detect';
 import { resolveSubAgentSessions } from '../parsers/claude-subagent';
 import { BT_TOOL_USE, SUBAGENT_TOOL_NAMES } from '../constants';
+import { sessionDisplayName } from '../utils/session-title';
 
 export const VIEW_TYPE_TIMELINE = 'claude-sessions-timeline';
 
@@ -86,7 +87,7 @@ export class TimelineView extends ItemView {
 
 	getDisplayText(): string {
 		const meta = this.session?.metadata;
-		return meta?.customTitle || meta?.project || 'Claude sessions';
+		return (meta && sessionDisplayName(meta)) || 'Claude sessions';
 	}
 
 	getIcon(): string {
@@ -300,7 +301,7 @@ export class TimelineView extends ItemView {
 				}
 
 				// Update session reference and stats
-				const oldTitle = this.session?.metadata?.customTitle || this.session?.metadata?.project;
+				const oldTitle = this.session?.metadata && sessionDisplayName(this.session.metadata);
 				this.session = session;
 				this.computeTiming();
 				if (newCount > prevCount) {
@@ -310,8 +311,8 @@ export class TimelineView extends ItemView {
 				this.renderTurnDots();
 				this.updateControls();
 
-				// Update tab title if session was renamed
-				const newTitle = session.metadata?.customTitle || session.metadata?.project;
+				// Update tab title if session was renamed or its AI title changed
+				const newTitle = session.metadata && sessionDisplayName(session.metadata);
 				if (newTitle !== oldTitle) {
 					(this.leaf as unknown as { updateHeader?(): void }).updateHeader?.();
 					const titleEl = this.containerEl.parentElement?.querySelector<HTMLElement>('.view-header-title');
@@ -364,7 +365,7 @@ export class TimelineView extends ItemView {
 		if (pendingTool.id === this.lastNotifiedToolId) return;
 		this.lastNotifiedToolId = pendingTool.id;
 
-		const displayName = session.metadata.customTitle || session.metadata.project || 'Claude sessions';
+		const displayName = sessionDisplayName(session.metadata) || 'Claude sessions';
 		const toolName = pendingTool.name;
 		const title = `✦ ${displayName}`;
 		const body = `"${toolName}" is waiting for permission`;

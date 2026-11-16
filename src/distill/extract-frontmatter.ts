@@ -44,6 +44,7 @@ export function extractFrontmatter(
 	if (metadata.branch) frontmatter.branch = metadata.branch;
 	if (metadata.model) frontmatter.model = metadata.model;
 	if (metadata.customTitle) frontmatter.title = metadata.customTitle;
+	if (metadata.aiTitle) frontmatter.ai_title = metadata.aiTitle;
 	if (metadata.startTime) frontmatter.start_time = metadata.startTime;
 
 	// Timing

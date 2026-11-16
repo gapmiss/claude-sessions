@@ -28,6 +28,7 @@ export function serializeFrontmatter(fm: DistilledFrontmatter): string {
 	if (fm.branch) lines.push(`branch: ${quote(fm.branch)}`);
 	if (fm.model) lines.push(`model: ${quote(fm.model)}`);
 	if (fm.title) lines.push(`title: ${quote(fm.title)}`);
+	if (fm.ai_title) lines.push(`ai_title: ${quote(fm.ai_title)}`);
 
 	// Timing
 	if (fm.start_time || fm.duration_min !== undefined) {
