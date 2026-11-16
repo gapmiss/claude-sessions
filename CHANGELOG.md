@@ -8,7 +8,7 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
-## [Unreleased]
+## [0.3.36] - 2026-11-16
 
 ### Added
 - **Generated session titles**: sessions without a `/rename` title now show the title Claude Code generated for them (the `ai-title` record) instead of only the project name. Claude Code wrote these from 2.1.198 or earlier to 2.1.312 and stopped in 2.1.314, so newer sessions still show the project name. This applies to the session browser, search results, tab titles, the summary dashboard, and both exporters. The session browser also matches on generated titles. Distill notes and Markdown exports write it as a separate `ai_title` frontmatter key, so `title` still means a title you set. The session index is rebuilt once to pick up titles for existing sessions ([#1](https://github.com/gapmiss/claude-sessions/issues/1))
@@ -549,6 +549,7 @@ For Claude Code version compatibility, see [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ---
 
+[0.3.36]: https://github.com/gapmiss/claude-sessions/compare/0.3.35...0.3.36
 [0.3.35]: https://github.com/gapmiss/claude-sessions/compare/0.3.34...0.3.35
 [0.3.34]: https://github.com/gapmiss/claude-sessions/compare/0.3.33...0.3.34
 [0.3.33]: https://github.com/gapmiss/claude-sessions/compare/0.3.32...0.3.33
