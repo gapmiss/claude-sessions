@@ -179,7 +179,7 @@ export class TimelineRenderer {
 	 */
 	destroyMermaidObserver(): void {
 		if (this.mermaidRafId) {
-			cancelAnimationFrame(this.mermaidRafId);
+			window.cancelAnimationFrame(this.mermaidRafId);
 			this.mermaidRafId = 0;
 		}
 		if (this.mermaidObserver) {

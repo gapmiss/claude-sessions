@@ -1,31 +1,30 @@
-import tsParser from "@typescript-eslint/parser";
-import tseslint from "typescript-eslint";
+import { defineConfig, globalIgnores } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
 
-export default [
+export default defineConfig([
+	// Build output, Node build scripts, and tests (not in tsconfig) are not plugin code.
+	globalIgnores(["node_modules", "main.js", "examples", "tests", "esbuild.config.mjs", "version-bump.mjs", "release.mjs", "vitest.config.mts"]),
+	...obsidianmd.configs.recommended,
 	{
-		ignores: ["node_modules/**", "main.js"],
-	},
-	...tseslint.configs.recommendedTypeChecked.map(config => ({
-		...config,
-		files: ["src/**/*.ts"],
-	})),
-	{
-		files: ["src/**/*.ts"],
 		languageOptions: {
-			parser: tsParser,
 			parserOptions: {
-				project: "./tsconfig.json",
-				sourceType: "module",
+				projectService: {
+					allowDefaultProject: ["eslint.config.mjs"],
+				},
 			},
 		},
-		plugins: {
-			obsidianmd: obsidianmd,
-		},
+	},
+	{
+		files: ["**/*.{ts,cts,mts,tsx,js,cjs,mjs,jsx}"],
 		rules: {
-			...obsidianmd.configs.recommended,
-			"no-console": ["error", { allow: ["warn", "error", "debug"] }],
+			"obsidianmd/ui/sentence-case": ["warn", {
+				enforceCamelCaseLower: true,
+				// "Claude Code" is a product name; "Agent" is a tool name.
+				ignoreWords: ["Code", "Agent"],
+				// Quoted command names keep their own casing.
+				ignoreRegex: ['"[^"]+"'],
+			}],
 			"@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
 		},
 	},
-];
+]);
